@@ -280,7 +280,7 @@ export async function invokeLLM(params: InvokeParams): Promise<InvokeResult> {
   } = params;
 
   const payload: Record<string, unknown> = {
-    model: "gemini-2.5-flash",
+    model: "gemini-1.5-pro-latest",  // Modelo mais capaz para qualidade de raciocínio
     messages: messages.map(normalizeMessage),
   };
 
@@ -297,6 +297,7 @@ export async function invokeLLM(params: InvokeParams): Promise<InvokeResult> {
   }
 
   payload.max_tokens = 32768
+  payload.temperature = 0.5  // Equilíbrio entre precisão técnica e fluidez
   payload.thinking = {
     "budget_tokens": 128
   }

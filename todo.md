@@ -71,3 +71,12 @@
 - [x] Implementar conversão de perguntas parcialmente fora do escopo
 - [x] Adicionar "mapa de navegação" para perguntas amplas
 - [x] Citar links e artigos/trechos quando usar normas da web
+
+
+## Upgrade de Inteligência e Humanização
+- [x] Atualizar modelo para gemini-1.5-pro-latest (privilegiar qualidade sobre velocidade)
+- [x] Ajustar temperature para 0.5 (equilíbrio precisão técnica e fluidez)
+- [x] Adicionar camada de Empatia Cognitiva no system prompt
+- [x] Implementar linguagem acolhedora (Entendo sua dúvida, Fique tranquilo)
+- [x] Adicionar analogias didáticas antes de comandos técnicos
+- [x] Explicar o PORQUÊ de cada ação, não apenas onde clicar
