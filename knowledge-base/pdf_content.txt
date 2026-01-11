@@ -1,0 +1,1264 @@
+Documento produzido pela GAD da 4ª CRE
+
+4ª Coordenadoria Regional de Educação
+
+PROCEDIMENTO OPERACIONAL PADRÃO
+
+Prestação de Contas
+SDP no SEI!RIO
+Guia operacional para diretores(as) e gestores(as)
+escolares na instrução da Prestação de Contas do
+SDP diretamente no SEI!RIO.
+
+GAD 4ª CRE
+
+GAD 4ª CRE | Prestação de Contas SDP | Página 1
+
+Documento produzido pela GAD da 4ª CRE
+
+Prezados(as) Diretores(as),
+
+A
+
+rotina de uma gestão escolar é intensa. Entre demandas pedagógicas,
+cuidado com pessoas e urgências do dia a dia, sabemos que a organização
+administrativa exige tempo, atenção e, muitas vezes, decisões rápidas. Por isso, a 4ª
+Coordenadoria Regional de Educação, por meio da Gerência de Administração
+(GAD), reafirma aqui um compromisso simples e objetivo: estar ao lado das equipes
+gestoras, com orientação clara, apoio contínuo e diálogo.
+A chegada do SEI!RIO representa uma mudança importante na forma como
+registramos, acompanhamos e formalizamos os processos administrativos. Toda
+transição traz desafios — e é exatamente nesse momento que a parceria entre CRE
+e escolas faz diferença. Este material foi pensado para facilitar o caminho, reduzir
+inseguranças, evitar retrabalho e dar mais previsibilidade às rotinas.
+Este é o primeiro de uma série de documentos de orientação que a 4ª CRE está
+construindo para apoiar as direções, tanto nos procedimentos de gestão escolar
+quanto no uso do novo sistema processual SEI!RIO. A cada novo guia, nossa
+intenção é a mesma: transformar regras e etapas em rotinas mais simples, seguras e
+executáveis, respeitando o contexto real de cada unidade.
+Conte com a 4ª CRE/GAD. Seguimos à disposição para orientar, ouvir e aprimorar
+continuamente esses materiais, em parceria com vocês.
+
+Fátima das Graças Lima Barros
+
+Bianca Barreto da Fonseca Coelho
+
+Coordenadora – E/4ª CRE
+
+Gerente – E/4ª CRE/GAD
+
+GAD 4ª CRE
+
+GAD 4ª CRE | Prestação de Contas SDP | Página 2
+
+Documento produzido pela GAD da 4ª CRE
+
+1
+
+Abertura do Processo
+
+Acesso ao SEI!RIO, criação do processo, numeração e
+identificação
+
+1.1. Objetivo desta Etapa
+A etapa inicial destina-se à abertura do processo administrativo eletrônico e
+à inserção do acervo documental comprobatório relativo à prestação de
+contas.
+
+1.2. Iniciando o Processo
+Para abrir um novo processo no SEI!RIO, o usuário deve selecionar a opção "INICIAR
+PROCESSO", conforme o menu de navegação do sistema.
+SEI!
+
+SEI!RIO
+
+Sistema Eletrônico de Informações
+Pesquisar no Menu
+Estatísticas
+Favoritos
+Iniciar Processo
+
+GAD 4ª CRE
+
+GAD 4ª CRE | Prestação de Contas SDP | Página 3
+
+Documento produzido pela GAD da 4ª CRE
+
+1.3. Seleção do Tipo de Processo
+Ao selecionar essa opção, o usuário deverá indicar o TIPO DE PROCESSO a ser
+instaurado. Os tipos de processo disponíveis serão exibidos de acordo com os
+termos informados na busca. +
+Tipo de Processo Correto:
+EXECUÇÃO FINANCEIRA: SISTEMA DESCENTRALIZADO DE PAGAMENTO - SDP
+
+Escolha o Tipo de Processo
+prestação
+Devolução de Prestação de Contas
+EXECUÇÃO FINANCEIRA: SISTEMA DESCENTRALIZADO DE PAGAMENTO - SDP
+Prestação de Contas de Suprimento de Fundos
+
+GAD 4ª CRE
+
+GAD 4ª CRE | Prestação de Contas SDP | Página 4
+
+Documento produzido pela GAD da 4ª CRE
+
+1.4. Tela Iniciar Processo
+Após selecionar o tipo de processo, o sistema abrirá a tela "INICIAR PROCESSO".
+Nesta tela, você deverá preencher os campos: Especificação, Interessados, e
+selecionar o Nível de Acesso adequado.
+Campos Preenchidos Automaticamente
+Os campos Tipo de Processo (EXECUÇÃO FINANCEIRA: SDP) e Classificação
+(01.05.03.11 - SDP) já serão preenchidos automaticamente pelo sistema.
+Iniciar Processo
+PREENCHIMENTO AUTOMÁTICO
+
+EXECUÇÃO FINANCEIRA: SDP
+01.05.03.11 - SDP
+
+Tipo de Processo:
+Classificação:
+
+CAMPOS A PREENCHER
+Especificação *:
+
+Prestação de contas de SDP - E/CRE(04.30.502) Ciep Elis Regina
+(exemplo de preenchimento)
+
+Interessados *:
+
+10729 - E/4a.CRE/GAD
+
+Nível de Acesso *:
+
+Público
+
+Observações:
+
+(opcional)
+
+Salvar
+
+Cancelar
+
+GAD 4ª CRE
+
+GAD 4ª CRE | Prestação de Contas SDP | Página 5
+
+Documento produzido pela GAD da 4ª CRE
+
+1.5. Especificação
+O cadastrante deverá obrigatoriamente digitar os metadados estabelecidos pela
+GAD, composto pelo Objetivo do processo (PRESTAÇÃO DE CONTAS DE SDP) +
+DESIGNAÇÃO DA UNIDADE ESCOLAR seguida da NOMENCLATURA DA UNIDADE.
+Exemplo de Especificação:
+Prestação de contas de SDP - E/CRE(04.30.502) Ciep Elis Regina
+
+1.6. Classificação por Assuntos
+Este campo será preenchido automaticamente pelo sistema, em conformidade com o
+Tipo de Processo selecionado pelo usuário na etapa anterior.
+Classificação automática:
+01.05.03.11 - SISTEMA DESCENTRALIZADO DE PAGAMENTO
+
+GAD 4ª CRE
+
+GAD 4ª CRE | Prestação de Contas SDP | Página 6
+
+Documento produzido pela GAD da 4ª CRE
+
+1.7. Nível de Acesso
+Nível
+
+Descrição
+
+Público
+
+Documentos acessíveis a qualquer pessoa, seja usuário interno ou
+externo via Consulta Pública.
+
+Restrito
+
+Acessíveis apenas para a unidade que criou o processo e por unidades
+que recebam o processo para instrução.
+
+Sigiloso
+
+Classificação atribuída a informações confidenciais, com acesso
+controlado por Credenciais de Acesso.
+
+Orientação
+Selecione a opção PÚBLICO para atender ao Princípio da Publicidade (Art. 37 CF e
+LAI), salvo justificativa anexa ao processo para a não publicidade.
+
+1.8. Interessados
+Este campo é utilizado para registrar unidades ou entidades que possuam interesse
+no processo.
+Adicione a GAD como interessada:
+10729 - E/4a.CRE/GAD
+
+1.9. Observações desta Unidade
+O campo "Observações desta unidade" permite a inserção de anotações de
+controle interno. O texto digitado aqui não será visível para outras unidades por
+onde o processo tramitar, servindo apenas como lembrete para a equipe do seu
+próprio setor.
+GAD 4ª CRE
+
+GAD 4ª CRE | Prestação de Contas SDP | Página 7
+
+Documento produzido pela GAD da 4ª CRE
+
+1.10. Salvando o Processo
+Após preencher todos os campos obrigatórios, clique no botão SALVAR para
+concluir a abertura do processo.
+SALVAR
+
+1.11. Resultado: O Número do Processo (NUP)
+Após salvar, o sistema gerará automaticamente o Número Único de Protocolo
+(NUP), que identificará o processo em todas as etapas subsequentes.
+Processo Criado com Sucesso!
+
+NÚMERO ÚNICO DE PROTOCOLO (NUP)
+000704.000601/2025-51
+
+(Exemplo ilustrativo)
+O SEI não gera capa de processo. O NUP acima é o único identificador
+gerado automaticamente.
+
+GAD 4ª CRE
+
+GAD 4ª CRE | Prestação de Contas SDP | Página 8
+
+Documento produzido pela GAD da 4ª CRE
+
+2
+
+Despacho de Encaminhamento
+
+Elaboração do documento de formalização da prestação
+de contas
+
+Modelo do Despacho de Encaminhamento
+
+Documento editável (.docx) para formalização da
+prestação de contas
+
+Baixar Modelo Editável
+
+2.1. O Despacho de Encaminhamento
+O Despacho de Encaminhamento é o documento que formaliza a prestação
+de contas para a Gerência de Administração (GAD).
+
+Funções Principais
+Formaliza a prestação de contas da
+unidade gestora do SDP
+
+Registra os valores e datas de liberação
+dos recursos
+
+Documenta o percentual de recursos
+consumidos
+
+Estabelece a base documental para
+análise e aprovação pela GAD
+
+GAD 4ª CRE
+
+GAD 4ª CRE | Prestação de Contas SDP | Página 9
+
+Documento produzido pela GAD da 4ª CRE
+
+2.2. Procedimentos para Criar o Despacho
+1
+
+Incluir Documento
+Com o processo aberto, clique no ícone "INCLUIR DOCUMENTO" na barra de
+ferramentas do SEI.
+Barra de Ferramentas do Processo
+
+Incluir
+
+Enviar
+
+Visualizar
+
+Assinar
+
+Imprimir
+
+Clique em Incluir Documento para adicionar um novo documento
+
+2
+
+Escolha do Tipo de Documento
+Selecione a opção: DESPACHO
+Gerar Documento
+despacho
+Despacho Decisório
+DESPACHO
+Despacho de Arquivamento
+
+3
+
+Preenchimento do Editor
+No corpo do documento, digite o conteúdo do despacho ou cole o texto
+padronizado utilizado pela sua unidade.
+
+Dica:
+Baixe o Modelo Editável disponível no início desta página para copiar e colar o texto
+padrão do despacho.
+GAD 4ª CRE
+
+GAD 4ª CRE | Prestação de Contas SDP | Página 10
+
+Documento produzido pela GAD da 4ª CRE
+
+2.3. Preenchimento de Metadados
+Preencha os campos obrigatórios que identificam o documento no sistema:
+Gerar Documento - Metadados
+Descrição * :
+SDP – E/CRE (04.30.502) CIEP ELIS REGINA
+
+Nome na Árvore * :
+DESPACHO DE ENCAMINHAMENTO
+
+Confirmar Dados
+
+Campo: Descrição
+SDP – E/CRE (04.xx.xxx) NOME DA ESCOLA
+
+Campo: Nome na Árvore
+DESPACHO DE ENCAMINHAMENTO
+
+GAD 4ª CRE
+
+GAD 4ª CRE | Prestação de Contas SDP | Página 11
+
+Documento produzido pela GAD da 4ª CRE
+
+2.4. Modelo de Execução Resumida
+Saldos e Movimentações
+
+Valor (R$)
+
+Saldo total inicial em 00/00/202X
+
+-
+
+Saldo da natureza 441
+
+-
+
+Saldo da natureza 435
+
+-
+
+Saldo da natureza 434
+
+-
+
+Total dos Créditos (ressuprimentos)
+
+-
+
+Pgtos em cartão (Boletos Bancários)
+
+-
+
+Saldo total final em 00/00/202X
+
+-
+
+GAD 4ª CRE
+
+GAD 4ª CRE | Prestação de Contas SDP | Página 12
+
+Documento produzido pela GAD da 4ª CRE
+
+2.5. Assinatura e Verificação
+1. Assinar
+Clique no ícone Assinar Documento(representado pela caneta tinteiro preta na barra
+de ferramentas).
+Ferramentas do Documento
+
+Visualizar
+
+Imprimir
+
+Assinar
+
+Download
+
+Clique em Assinar para assinar o documento
+
+2. Verificar
+Certifique-se de que o despacho assinado apareceu corretamente na árvore do processo
+(menu lateral esquerdo), indicando que o documento foi gerado e assinado com sucesso.
+
+Dica Pro: Assinatura Externa
+É possível enviar o documento para outra chefia assinar sem precisar tramitar o
+processo! Clique no ícone do documento na árvore lateral, selecione "Link para
+Acesso Direto"(ícone de corrente/link) e copie o link gerado para enviar via
+WhatsApp ou E-mail.
+Opções do Documento
+Visualizar Documento
+Imprimir Documento
+Link para Acesso Direto
+Download
+💡 Copie o link gerado e envie via WhatsApp
+ou E-mail para assinatura externa
+
+GAD 4ª CRE
+
+GAD 4ª CRE | Prestação de Contas SDP | Página 13
+
+Documento produzido pela GAD da 4ª CRE
+
+Atenção
+Caso o documento não apareça como assinado ou não esteja visível na árvore,
+atualize a página e confira novamente. Persistindo a inconsistência, acione o suporte
+responsável pelo SEI!RIO antes de dar prosseguimento.
+
+GAD 4ª CRE
+
+GAD 4ª CRE | Prestação de Contas SDP | Página 14
+
+Documento produzido pela GAD da 4ª CRE
+
+3
+
+3
+
+Demonstrativo de Despesas
+
+Como gerar no SEI!RIO, conferência de dados e naturezas
+de despesa
+
+Demonstrativo de Despesas
+
+Como gerar no SEI!RIO, conferência de dados e naturezas de despesa
+
+3.1. Demonstrativo de Despesas – Documento Interno
+Utilize o modelo abaixo como referência para preencher o demonstrativo de
+despesas no sistema SEI!RIO. Este modelo contempla as naturezas de
+despesa 435, 441 e 434, conforme orientações da CGM-RJ.
+Demonstrativo de Despesas - SEI!RIO
+
+DOCUMENTO INTERNO EM EDIÇÃO
+DEMONSTRATIVO DE DESPESAS - ND 435
+Data
+
+Favorecido
+
+N.D
+
+Valor
+
+05/12/2025
+
+Alpha Materiais LTDA
+
+435
+
+R$ 350,00
+
+10/12/2025
+
+Beta Serviços ME
+
+435
+
+R$ 480,00
+
+Total ND 435:
+
+R$ 830,00
+
+Salvar
+
+GAD 4ª CRE
+
+GAD 4ª CRE | Prestação de Contas SDP | Página 15
+
+Documento produzido pela GAD da 4ª CRE
+
+3.2. Demonstrativo de Pagamentos via Cartão/Boleto Bancário
+Data da Nota
+
+Tipo de
+Transação
+
+Favorecido
+
+Enquadramento
+
+N.D
+
+DD/MM/AAAA
+
+Cartão/Boleto
+
+Nome
+
+Art. 8, 9, 10
+
+435
+
+R$
+0,00
+
+Valor total:
+
+R$
+0,00
+
+Saldo disponível:
+
+R$
+0,00
+
+Valor
+
+3.3. Naturezas de Despesa
+
+441
+
+Natureza 441
+
+Material de Consumo
+
+435
+
+Natureza 435
+
+Serviços de Terceiros
+
+434
+
+Natureza 434
+
+Outros Serviços
+
+3.4. Planilha de Apoio
+O documento original editável em formato Excel (MAPA DE DESPESAS NATUREZAS 435-441-434.xlsx) segue como anexo a este POP para facilitar
+o preenchimento e adaptação às necessidades de cada unidade escolar.
+Clique para abrir o arquivo no SharePoint e baixar o modelo editável
+
+GAD 4ª CRE
+
+GAD 4ª CRE | Prestação de Contas SDP | Página 16
+
+Documento produzido pela GAD da 4ª CRE
+
+Documentos Externos
+
+4
+
+4
+
+Notas fiscais, recibos, comprovantes e demais
+documentos
+
+Documentos Externos
+
+Notas fiscais, recibos, comprovantes e demais documentos
+
+O que são
+
+Por que importa
+
+Documentos externos são arquivos
+(digitalizados ou nato digitais) que não
+são produzidos no SEI!RIO, mas
+integram o processo como elementos
+comprobatórios.
+
+Notas fiscais, recibos e comprovantes
+validam os gastos realizados e são
+obrigatórios para aprovação da
+prestação de contas.
+
+O que fazer
+
+Erros comuns
+
+Digitalizar documentos em PDF, incluir
+no SEI via "Documento Externo" e
+autenticar (não assinar) cada um.
+
+Anexar planilha Excel (use SEI),
+esquecer autenticação, ou usar
+"Assinar" em vez de "Autenticar".
+
+4.1. Considerações Gerais
+No contexto da prestação de contas do SDP, os documentos externos mais
+comuns incluem:
+Notas fiscais
+
+Recibos
+
+Comprovantes de pagamento
+
+Extratos bancários
+
+GAD 4ª CRE
+
+GAD 4ª CRE | Prestação de Contas SDP | Página 17
+
+Documento produzido pela GAD da 4ª CRE
+
+4.2. Procedimento para Inclusão
+1
+
+Iniciando a Inclusão
+Localize e clique no ícone "Incluir Documento" na barra de ferramentas. No menu,
+selecione a opção "EXTERNO".
+Barra de Ferramentas do Processo
+
+Incluir
+
+Enviar
+
+Visualizar
+
+Assinar
+
+Imprimir
+
+Clique em Incluir Documento para adicionar um novo documento
+
+2
+
+Preenchimento dos Campos
+O sistema abrirá a tela "Registrar Documento Externo" com campos obrigatórios para
+identificação e catalogação do documento.
+
+Campos do Registro
+Tipo do Documento
+
+Selecione o tipo específico (ex: "Nota Fiscal", "Recibo", "Fatura")
+
+Data do Documento
+
+Informe a data de emissão que consta no documento original
+
+Número do Documento
+
+Preencha com o número identificador (ex: número da nota fiscal)
+
+Nome na Árvore
+
+Recomenda-se preencher com o nome da empresa emissora do documento
+
+Nível de Acesso
+
+Para documentos do SDP sem informações sigilosas, marque "Público"
+
+GAD 4ª CRE | Prestação de Contas SDP | Página 18
+
+GAD 4ª CRE
+
+Documento produzido pela GAD da 4ª CRE
+
+Resumo do Preenchimento
+Campo
+
+Valor
+
+TIPO DO DOCUMENTO
+
+Selecione "Nota Fiscal" (ou Recibo/Fatura)
+
+DATA DO DOCUMENTO
+
+Data de emissão da Nota
+
+NÚMERO
+
+Número da NF
+
+NOME NA ÁRVORE
+
+Nome da empresa emissora
+
+FORMATO
+
+Digitalizado nesta unidade
+
+TIPO DE CONFERÊNCIA
+
+"Cópia Simples" ou "Original"
+
+NÍVEL DE ACESSO
+
+Público
+
+GAD 4ª CRE
+
+GAD 4ª CRE | Prestação de Contas SDP | Página 19
+
+Documento produzido pela GAD da 4ª CRE
+
+Anexar e Autenticar
+Anexar o Arquivo
+
+Clique em "Escolher Arquivo" e localize o PDF no diretório do seu computador.
+
+Autenticar Documento
+Localize o ícone "Autenticar Documento" (selo preto com check branco). Na janela popup, insira sua Senha de Rede e clique em Autenticar. Os documentos externos serão
+autenticados.
+Ferramentas do Documento Externo
+
+Visualizar
+
+Imprimir
+
+Autenticar
+
+Download
+
+Clique em Autenticar para validar o documento externo
+
+Importante
+O procedimento de autenticação é obrigatório para validar o documento.
+
+Registrar Documento Externo
+Tipo do Documento:
+
+Nota Fiscal
+
+Data do Documento:
+
+15/12/2025
+
+Número:
+
+NF-001234
+
+Nome na Árvore:
+
+Empresa Alpha LTDA
+
+Nível de Acesso:
+
+Público
+
+Confirmar
+
+Cancelar
+
+GAD 4ª CRE
+
+GAD 4ª CRE | Prestação de Contas SDP | Página 20
+
+Documento produzido pela GAD da 4ª CRE
+
+4.3. Fundamentação Legal
+DECRETO RIO N° 57.250, DE 19 DE NOVEMBRO DE 2025
+
+"Art. 26. Os documentos digitais produzidos no âmbito do SEI têm sua autoria,
+autenticidade e integridade asseguradas mediante utilização de assinatura eletrônica..."
+"§ 2° Apenas os documentos produzidos no sistema poderão ser assinados
+eletronicamente no SEI.Rio."
+
+Conclusão Importante
+Os documentos de prestação de contas que exigem assinatura eletrônica devem ser
+obrigatoriamente criados dentro do sistema SEI. Não anexe arquivos PDF externos ou
+planilhas Excel para esta finalidade.
+
+GAD 4ª CRE
+
+GAD 4ª CRE | Prestação de Contas SDP | Página 21
+
+Documento produzido pela GAD da 4ª CRE
+
+5
+5
+
+Conferência e Envio
+
+Verificação dos documentos e envio para a GAD
+
+Conferência e Envio
+
+Verificação dos documentos e envio para a GAD
+
+O que é
+
+O que fazer
+
+Etapa final de verificação da
+documentação antes do envio à GAD
+para análise.
+
+Conferir árvore do processo, verificar
+assinaturas/autenticações e enviar
+para a GAD da 4ª CRE.
+
+Verificação Essencial
+Após inserir todos os documentos, é fundamental fazer uma verificação final
+antes de enviar o processo para garantir que tudo está correto.
+
+GAD 4ª CRE
+
+GAD 4ª CRE | Prestação de Contas SDP | Página 22
+
+Documento produzido pela GAD da 4ª CRE
+
+Checklist de Verificação
+5.1. Verifique a Árvore do Processo
+Confira o menu lateral esquerdo que mostra a lista de arquivos. Todos os
+documentos devem estar listados corretamente.
+Árvore do Processo
+Processo 04.xx.xxx/2025
+Despacho de Encaminhamento
+
+Assinado
+
+Demonstrativo - ND 435
+
+Assinado
+
+Demonstrativo - ND 441
+
+Assinado
+
+NF - Empresa Alpha
+
+Assinado
+
+NF - Fornecedor Beta
+
+Assinado
+
+5.2. Confira Assinaturas
+Verifique se todos os documentos estão autenticados/assinados. Devem ter um ícone
+de check ao lado indicando a autenticação.
+
+GAD 4ª CRE
+
+GAD 4ª CRE | Prestação de Contas SDP | Página 23
+
+Documento produzido pela GAD da 4ª CRE
+
+5.3. Envio para a GAD
+Procedimento de Envio
+Após a conferência completa, clique no ícone de envio (representado por um
+envelope).
+Barra de Ações do Processo
+
+Incluir
+
+Enviar
+
+Visualizar
+
+Assinar
+
+Imprimir
+
+Clique em Enviar Processo para encaminhar à GAD
+
+5.4. Campo "Destinatários"
+Digite "GAD" e selecione a unidade correspondente:
+Enviar Processo
+Unidades * :
+GAD
+10729 - Gerência de Administração (E/4a.CRE/GAD)
+Manter aberto na unidade atual:
+Não (recomendado)
+Enviar
+
+Cancelar
+
+10729 - Gerência de Administração (E/4a.CRE/GAD)
+
+Certifique-se de selecionar a GAD da 4ª CRE
+
+GAD 4ª CRE
+
+GAD 4ª CRE | Prestação de Contas SDP | Página 24
+
+Documento produzido pela GAD da 4ª CRE
+
+Referência: Códigos das GADs
+Para referência, seguem os códigos das Gerências de Administração das CREs:
+10714 - E/1a.CRE/GAD
+
+10719 - E/2a.CRE/GAD
+
+10724 - E/3a.CRE/GAD
+
+10729 - E/4a.CRE/GAD
+
+10734 - E/5a.CRE/GAD
+
+10739 - E/6a.CRE/GAD
+
+10709 - E/10a.CRE/GAD
+
+Antes de Enviar
+Revise cuidadosamente todos os documentos e informações. Após o envio, alterações só
+poderão ser feitas mediante solicitação à GAD.
+
+GAD 4ª CRE
+
+GAD 4ª CRE | Prestação de Contas SDP | Página 25
+
+Documento produzido pela GAD da 4ª CRE
+
+6
+6
+
+Contatos
+
+Canais de atendimento e suporte da GAD/4ª CRE
+
+Contatos da GAD/4ª CRE
+Canais de atendimento e suporte
+
+Gerência de Administração
+
+4ª Coordenadoria Regional de Educação
+
+E-MAIL
+
+gadcre04@rioeduca.net
+TELEFONE
+
+(21) 2475-9209
+ENDEREÇO
+
+Rua Professor Luís Rondelli, 150
+Olaria, Rio de Janeiro - RJ
+CEP: 21021-630
+
+Acesso ao SEI!RIO
+SEI!RIO
+
+Acesso ao sistema
+
+Guia do Usuário Interno
+Manual oficial SEI!RIO
+
+GAD 4ª CRE
+
+GAD 4ª CRE | Prestação de Contas SDP | Página 26
+
+Documento produzido pela GAD da 4ª CRE
+
+Suporte ao SEI!RIO
+Para questões técnicas relacionadas ao sistema SEI!RIO, entre em contato com o
+suporte técnico da plataforma através dos canais oficiais da Prefeitura.
+Portal de Atendimento
+
+Suporte técnico oficial SEI!RIO
+
+Administradores Locais SEI!RIO
+Para dúvidas específicas sobre o uso do SEI!RIO na Secretaria Municipal de Educação,
+entre em contato com os administradores locais do sistema através dos e-mails
+abaixo.
+E-MAILS DE CONTATO
+
+sei.duvidas@rioeduca.net gaasme@rioeduca.net
+
+4ª Coordenadoria Regional de Educação
+Gerência de Administração (GAD)
+Última atualização: 16 de dezembro de 2025
+
+GAD 4ª CRE
+
+GAD 4ª CRE | Prestação de Contas SDP | Página 27
+
+Documento produzido pela GAD da 4ª CRE
+
+Modelos e Documentos
+
+Arquivos úteis para a prestação de contas
+
+Modelo de Despacho
+
+Despacho padrão para encaminhamento
+da prestação de contas
+
+Demonstrativo de Despesas
+
+Modelo do demonstrativo por meio de
+pagamento
+
+Checklist de Documentos
+
+Lista de verificação para conferência da
+prestação
+
+Recursos externos:
+Res. 107/2022
+
+Decreto 50.162/2022
+
+GAD 4ª CRE
+
+GAD 4ª CRE | Prestação de Contas SDP | Página 28
+
+Documento produzido pela GAD da 4ª CRE
+
+A
+
+Anexo
+
+Legislação de referência e documentos exigidos
+
+Anexo – Legislação de Referência
+Consolidação das principais regras e documentos exigidos conforme
+Resolução Conjunta CGM/SMFP nº 107/2022, atualizada pela Res.
+115/2023 e complementada pela Res. CGM nº 2067/2025.
+
+GAD 4ª CRE
+
+GAD 4ª CRE | Prestação de Contas SDP | Página 29
+
+Documento produzido pela GAD da 4ª CRE
+
+Documentos que Instruem a Prestação de Contas
+Progresso da documentação
+
+0 de 9 documentos reunidos
+
+Demonstrativo de despesas por meio de pagamento
+
+Obrigatório
+
+Comprovantes de despesas atestados
+
+Obrigatório
+
+Comprovantes de pagamentos e transferências via internet banking
+
+Obrigatório
+
+Canhotos dos cheques utilizados e cheques inutilizados
+
+Se houver
+
+Cheques cancelados
+
+Se houver
+
+Fatura do cartão do período
+
+Obrigatório
+
+Extrato bancário do período
+
+Obrigatório
+
+Comprovante de transação do cartão (se pago via Cartão de
+Pagamento)
+
+Obrigatório
+
+Documentações complementares
+
+Se houver
+
+GAD 4ª CRE
+
+GAD 4ª CRE | Prestação de Contas SDP | Página 30
+
+Documento produzido pela GAD da 4ª CRE
+
+Prazos para Prestação de Contas (Art. 25 da Res. Conjunta CGM/SMFP nº 107/2022)
+Situação
+
+Prazo
+
+Prestação regular
+
+Até 120 dias após liberação de recursos
+
+Solicitação de reposição de recursos
+
+Antes de 90 dias (Art. 23 §4º da Res. 107/2022)
+
+Substituição de gestor
+
+Imediata
+
+Encerramento do SDP
+
+Imediata
+
+Documentos Comprobatórios por Tipo de Despesa (Art. 22 da Res. Conjunta
+CGM/SMFP nº 107/2022)
+Tipo de Despesa
+
+Documentos Aceitos
+
+Compra de material e insumos
+
+Nota fiscal de venda, fatura, cupom fiscal ou
+DANFE
+
+Prestação de serviços por PJ
+
+Nota fiscal de venda, fatura, cupom fiscal ou
+DANFE
+
+Prestação de serviços por PF (sem
+INSS)
+
+Recibo comum
+
+Prestação de serviços por PF (com
+INSS)
+
+Recibo de Pagamento de Autônomo (RPA)
+
+GAD 4ª CRE
+
+GAD 4ª CRE | Prestação de Contas SDP | Página 31
+
+Documento produzido pela GAD da 4ª CRE
+
+Regras para Comprovantes de Despesa (Res. Conjunta CGM/SMFP nº 107/2022)
+Regra
+
+Referência
+
+Comprovantes devem ser atestados por 2 servidores identificados
+
+Art. 25 §1º
+
+Atestadores não podem ser os responsáveis pela aplicação dos recursos
+
+Art. 25 §1º
+
+Despesas de pequeno vulto: comprovadas por relação atestada por 2
+servidores
+
+Art. 25 §2º
+
+Despesas enquadradas no Art. 8º devem ter comprovação obrigatória
+
+Art. 25 §3º
+
+Notas fiscais expedidas em nome da Prefeitura ou Órgão executor
+
+Art. 22 §1º
+
+Não são aceitos tíquetes de caixa ou equivalentes fora da legislação
+
+Art. 22 §2º
+
+Comprovantes aceitos somente com data igual ou posterior ao repasse
+
+Art. 22 §3º
+
+Comprovantes não podem conter rasuras, acréscimos ou emendas
+
+Art. 22
+§4º
+
+Pagamentos via Cartão de Pagamento (Res. CGM nº 2067/2025)
+Se a unidade utilizar o Cartão de Pagamento, além da Nota Fiscal (Art. 22), deve-se
+anexar obrigatoriamente o comprovante da transação do cartão (filipeta ou extrato). A
+Nota Fiscal sozinha não comprova o pagamento via cartão.
+
+Retenção de Tributos (Res. CGM nº 1.176/2015)
+Mesmo no SDP, a regra de retenção na fonte se aplica. Se você pagar um prestador de
+serviço (PJ ou PF) pelo valor bruto sem reter o ISS, INSS ou IRRF quando devido, a
+prestação de contas será reprovada.
+ISS: Serviços prestados no Rio de Janeiro
+INSS: Prestadores autônomos (PF)
+IRRF: Determinados serviços prestados por PJ
+
+GAD 4ª CRE
+
+GAD 4ª CRE | Prestação de Contas SDP | Página 32
+
+Documento produzido pela GAD da 4ª CRE
+
+Encerramento do Exercício 2025
+Atenção especial em dezembro: A regra geral de 120 dias para prestação de contas
+fica suspensa/alterada para o fechamento do ano. O prazo para devolver saldo não
+utilizado ou prestar contas é encurtado drasticamente (geralmente primeira quinzena
+de dezembro/janeiro). Consulte a Resolução de Encerramento do Exercício 2025
+publicada pela CGM/SMFP.
+
+Atenção
+Os comprovantes de despesa devem conter necessariamente: discriminação clara do
+serviço prestado ou material fornecido (não se admitindo generalização ou
+abreviaturas) e data da emissão. Despesas proibidas estão listadas taxativamente no
+Art. 8º do Decreto Rio nº 50.162/2022.
+
+GAD 4ª CRE
+
+GAD 4ª CRE | Prestação de Contas SDP | Página 33
+
+Documento produzido pela GAD da 4ª CRE
+
+Consulte a Legislação na Íntegra
+Resolução Conjunta CGM/SMFP nº 107/2022
+D.O. de 19/08/2022 (abre na pág. 16)
+
+Decreto Rio nº
+50.162/2022
+
+Resolução CGM nº
+2067/2025
+
+Resolução Conjunta nº
+115/2023
+
+Guia de Retenção de
+Tributos - ISS
+
+D.O. de 02/02/2022 (abre
+na pág. 3)
+
+D.O. de 23/03/2023 (abre
+na pág. 11)
+
+D.O. de 12/06/2025 (abre
+na pág. 40)
+
+Casos de
+responsabilidade e
+retenção - Portal Carioca
+
+Manuais e
+Orientações - CGMRio
+
+Normas e procedimentos
+de controle
+
+Diário Oficial do Rio de Janeiro
+
+Busque legislações por data ou palavra-chave
+
+GAD 4ª CRE
+
+GAD 4ª CRE | Prestação de Contas SDP | Página 34
+
+Documento produzido pela GAD da 4ª CRE
+
+4ª Coordenadoria Regional de Educação
+
+Gerência de Administração (GAD)
+Última atualização: 16 de dezembro de 2025
+Este documento foi elaborado pela Gerência de Administração da 4ª CRE
+para auxiliar diretores e gestores escolares na prestação de contas do SDP.
+
+4ª
+
+CRE
+
+SME • Rio de Janeiro
+
+Procedimento Operacional Padrão - Prestação de Contas SDP
+4ª Coordenadoria Regional de Educação | GAD
+
+GAD 4ª CRE
+
+GAD 4ª CRE | Prestação de Contas SDP | Página 35
+
+

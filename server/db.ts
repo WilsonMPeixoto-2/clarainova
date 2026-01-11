@@ -1,6 +1,17 @@
-import { eq } from "drizzle-orm";
+import { eq, desc, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { InsertUser, users } from "../drizzle/schema";
+import { 
+  InsertUser, 
+  users, 
+  documents, 
+  documentChunks, 
+  chatSessions, 
+  chatMessages,
+  InsertDocument,
+  InsertDocumentChunk,
+  InsertChatSession,
+  InsertChatMessage
+} from "../drizzle/schema";
 import { ENV } from './_core/env';
 
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -89,4 +100,102 @@ export async function getUserByOpenId(openId: string) {
   return result.length > 0 ? result[0] : undefined;
 }
 
-// TODO: add feature queries here as your schema grows.
+// Document functions
+export async function createDocument(doc: InsertDocument) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  
+  const result = await db.insert(documents).values(doc);
+  return result[0].insertId;
+}
+
+export async function updateDocumentStatus(id: number, status: "pending" | "processing" | "indexed" | "error", totalChunks?: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  
+  const updateData: Record<string, unknown> = { status };
+  if (totalChunks !== undefined) {
+    updateData.totalChunks = totalChunks;
+  }
+  
+  await db.update(documents).set(updateData).where(eq(documents.id, id));
+}
+
+export async function getAllDocuments() {
+  const db = await getDb();
+  if (!db) return [];
+  
+  return db.select().from(documents).orderBy(desc(documents.createdAt));
+}
+
+export async function getDocumentById(id: number) {
+  const db = await getDb();
+  if (!db) return undefined;
+  
+  const result = await db.select().from(documents).where(eq(documents.id, id)).limit(1);
+  return result.length > 0 ? result[0] : undefined;
+}
+
+// Document chunks functions
+export async function createDocumentChunks(chunks: InsertDocumentChunk[]) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  
+  if (chunks.length === 0) return;
+  
+  // Insert in batches of 100
+  const batchSize = 100;
+  for (let i = 0; i < chunks.length; i += batchSize) {
+    const batch = chunks.slice(i, i + batchSize);
+    await db.insert(documentChunks).values(batch);
+  }
+}
+
+export async function getAllChunks() {
+  const db = await getDb();
+  if (!db) return [];
+  
+  return db.select().from(documentChunks);
+}
+
+export async function getChunksByDocumentId(documentId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  
+  return db.select().from(documentChunks).where(eq(documentChunks.documentId, documentId));
+}
+
+// Chat session functions
+export async function getOrCreateChatSession(sessionId: string, userId?: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  
+  const existing = await db.select().from(chatSessions).where(eq(chatSessions.sessionId, sessionId)).limit(1);
+  
+  if (existing.length > 0) {
+    return existing[0];
+  }
+  
+  await db.insert(chatSessions).values({ sessionId, userId });
+  const result = await db.select().from(chatSessions).where(eq(chatSessions.sessionId, sessionId)).limit(1);
+  return result[0];
+}
+
+export async function addChatMessage(message: InsertChatMessage) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  
+  await db.insert(chatMessages).values(message);
+}
+
+export async function getChatHistory(sessionId: string, limit = 20) {
+  const db = await getDb();
+  if (!db) return [];
+  
+  return db
+    .select()
+    .from(chatMessages)
+    .where(eq(chatMessages.sessionId, sessionId))
+    .orderBy(desc(chatMessages.createdAt))
+    .limit(limit);
+}

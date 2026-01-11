@@ -3,6 +3,9 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* Google Fonts - Inter for clean institutional look */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
 @theme inline {
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
@@ -40,77 +43,90 @@
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
+  
+  /* SEI RIO Institutional Colors */
+  --color-sei-blue-900: oklch(0.25 0.08 250);
+  --color-sei-blue-800: oklch(0.30 0.10 250);
+  --color-sei-blue-700: oklch(0.35 0.12 250);
+  --color-sei-blue-600: oklch(0.42 0.14 250);
+  --color-sei-blue-500: oklch(0.50 0.15 250);
+  --color-sei-blue-400: oklch(0.60 0.12 250);
+  --color-sei-blue-300: oklch(0.70 0.10 250);
+  --color-sei-blue-200: oklch(0.85 0.05 250);
+  --color-sei-blue-100: oklch(0.95 0.02 250);
+  --color-sei-gold: oklch(0.75 0.15 85);
 }
 
 :root {
-  --primary: var(--color-blue-700);
-  --primary-foreground: var(--color-blue-50);
-  --sidebar-primary: var(--color-blue-600);
-  --sidebar-primary-foreground: var(--color-blue-50);
-  --chart-1: var(--color-blue-300);
-  --chart-2: var(--color-blue-500);
-  --chart-3: var(--color-blue-600);
-  --chart-4: var(--color-blue-700);
-  --chart-5: var(--color-blue-800);
-  --radius: 0.65rem;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.235 0.015 65);
+  --font-sans: 'Inter', system-ui, sans-serif;
+  --primary: oklch(0.30 0.10 250);
+  --primary-foreground: oklch(0.98 0 0);
+  --sidebar-primary: oklch(0.35 0.12 250);
+  --sidebar-primary-foreground: oklch(0.98 0 0);
+  --chart-1: oklch(0.50 0.15 250);
+  --chart-2: oklch(0.42 0.14 250);
+  --chart-3: oklch(0.35 0.12 250);
+  --chart-4: oklch(0.30 0.10 250);
+  --chart-5: oklch(0.25 0.08 250);
+  --radius: 0.5rem;
+  --background: oklch(0.985 0.002 250);
+  --foreground: oklch(0.20 0.02 250);
   --card: oklch(1 0 0);
-  --card-foreground: oklch(0.235 0.015 65);
+  --card-foreground: oklch(0.20 0.02 250);
   --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.235 0.015 65);
-  --secondary: oklch(0.98 0.001 286.375);
-  --secondary-foreground: oklch(0.4 0.015 65);
-  --muted: oklch(0.967 0.001 286.375);
-  --muted-foreground: oklch(0.552 0.016 285.938);
-  --accent: oklch(0.967 0.001 286.375);
-  --accent-foreground: oklch(0.141 0.005 285.823);
-  --destructive: oklch(0.577 0.245 27.325);
-  --destructive-foreground: oklch(0.985 0 0);
-  --border: oklch(0.92 0.004 286.32);
-  --input: oklch(0.92 0.004 286.32);
-  --ring: oklch(0.623 0.214 259.815);
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.235 0.015 65);
-  --sidebar-accent: oklch(0.967 0.001 286.375);
-  --sidebar-accent-foreground: oklch(0.141 0.005 285.823);
-  --sidebar-border: oklch(0.92 0.004 286.32);
-  --sidebar-ring: oklch(0.623 0.214 259.815);
+  --popover-foreground: oklch(0.20 0.02 250);
+  --secondary: oklch(0.95 0.02 250);
+  --secondary-foreground: oklch(0.30 0.10 250);
+  --muted: oklch(0.96 0.01 250);
+  --muted-foreground: oklch(0.50 0.05 250);
+  --accent: oklch(0.95 0.03 250);
+  --accent-foreground: oklch(0.25 0.08 250);
+  --destructive: oklch(0.55 0.22 25);
+  --destructive-foreground: oklch(0.98 0 0);
+  --border: oklch(0.90 0.02 250);
+  --input: oklch(0.92 0.02 250);
+  --ring: oklch(0.42 0.14 250);
+  --sidebar: oklch(0.25 0.08 250);
+  --sidebar-foreground: oklch(0.95 0.02 250);
+  --sidebar-accent: oklch(0.30 0.10 250);
+  --sidebar-accent-foreground: oklch(0.98 0 0);
+  --sidebar-border: oklch(0.35 0.12 250);
+  --sidebar-ring: oklch(0.50 0.15 250);
 }
 
 .dark {
-  --primary: var(--color-blue-700);
-  --primary-foreground: var(--color-blue-50);
-  --sidebar-primary: var(--color-blue-500);
-  --sidebar-primary-foreground: var(--color-blue-50);
-  --background: oklch(0.141 0.005 285.823);
-  --foreground: oklch(0.85 0.005 65);
-  --card: oklch(0.21 0.006 285.885);
-  --card-foreground: oklch(0.85 0.005 65);
-  --popover: oklch(0.21 0.006 285.885);
-  --popover-foreground: oklch(0.85 0.005 65);
-  --secondary: oklch(0.24 0.006 286.033);
-  --secondary-foreground: oklch(0.7 0.005 65);
-  --muted: oklch(0.274 0.006 286.033);
-  --muted-foreground: oklch(0.705 0.015 286.067);
-  --accent: oklch(0.274 0.006 286.033);
-  --accent-foreground:  oklch(0.92 0.005 65);
-  --destructive: oklch(0.704 0.191 22.216);
-  --destructive-foreground: oklch(0.985 0 0);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.488 0.243 264.376);
-  --chart-1: var(--color-blue-300);
-  --chart-2: var(--color-blue-500);
-  --chart-3: var(--color-blue-600);
-  --chart-4: var(--color-blue-700);
-  --chart-5: var(--color-blue-800);
-  --sidebar: oklch(0.21 0.006 285.885);
-  --sidebar-foreground: oklch(0.85 0.005 65);
-  --sidebar-accent: oklch(0.274 0.006 286.033);
-  --sidebar-accent-foreground:  oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.488 0.243 264.376);
+  --primary: oklch(0.50 0.15 250);
+  --primary-foreground: oklch(0.98 0 0);
+  --sidebar-primary: oklch(0.50 0.15 250);
+  --sidebar-primary-foreground: oklch(0.98 0 0);
+  --background: oklch(0.15 0.02 250);
+  --foreground: oklch(0.92 0.02 250);
+  --card: oklch(0.20 0.03 250);
+  --card-foreground: oklch(0.92 0.02 250);
+  --popover: oklch(0.20 0.03 250);
+  --popover-foreground: oklch(0.92 0.02 250);
+  --secondary: oklch(0.25 0.04 250);
+  --secondary-foreground: oklch(0.85 0.03 250);
+  --muted: oklch(0.25 0.03 250);
+  --muted-foreground: oklch(0.65 0.05 250);
+  --accent: oklch(0.28 0.05 250);
+  --accent-foreground: oklch(0.95 0.02 250);
+  --destructive: oklch(0.60 0.20 25);
+  --destructive-foreground: oklch(0.98 0 0);
+  --border: oklch(0.30 0.04 250);
+  --input: oklch(0.28 0.04 250);
+  --ring: oklch(0.50 0.15 250);
+  --chart-1: oklch(0.60 0.12 250);
+  --chart-2: oklch(0.50 0.15 250);
+  --chart-3: oklch(0.42 0.14 250);
+  --chart-4: oklch(0.35 0.12 250);
+  --chart-5: oklch(0.30 0.10 250);
+  --sidebar: oklch(0.18 0.03 250);
+  --sidebar-foreground: oklch(0.92 0.02 250);
+  --sidebar-accent: oklch(0.25 0.05 250);
+  --sidebar-accent-foreground: oklch(0.98 0 0);
+  --sidebar-border: oklch(0.30 0.04 250);
+  --sidebar-ring: oklch(0.50 0.15 250);
 }
 
 @layer base {
@@ -118,7 +134,7 @@
     @apply border-border outline-ring/50;
   }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground font-sans antialiased;
   }
   button:not(:disabled),
   [role="button"]:not([aria-disabled="true"]),
@@ -134,24 +150,11 @@
 }
 
 @layer components {
-  /**
-   * Custom container utility that centers content and adds responsive padding.
-   *
-   * This overrides Tailwind's default container behavior to:
-   * - Auto-center content (mx-auto)
-   * - Add responsive horizontal padding
-   * - Set max-width for large screens
-   *
-   * Usage: <div className="container">...</div>
-   *
-   * For custom widths, use max-w-* utilities directly:
-   * <div className="max-w-6xl mx-auto px-4">...</div>
-   */
   .container {
     width: 100%;
     margin-left: auto;
     margin-right: auto;
-    padding-left: 1rem; /* 16px - mobile padding */
+    padding-left: 1rem;
     padding-right: 1rem;
   }
 
@@ -162,16 +165,52 @@
 
   @media (min-width: 640px) {
     .container {
-      padding-left: 1.5rem; /* 24px - tablet padding */
+      padding-left: 1.5rem;
       padding-right: 1.5rem;
     }
   }
 
   @media (min-width: 1024px) {
     .container {
-      padding-left: 2rem; /* 32px - desktop padding */
+      padding-left: 2rem;
       padding-right: 2rem;
-      max-width: 1280px; /* Standard content width */
+      max-width: 1400px;
     }
+  }
+
+  /* Custom gradient backgrounds for SEI RIO */
+  .bg-sei-gradient {
+    background: linear-gradient(135deg, oklch(0.25 0.08 250) 0%, oklch(0.35 0.12 250) 100%);
+  }
+
+  .bg-sei-gradient-light {
+    background: linear-gradient(135deg, oklch(0.95 0.02 250) 0%, oklch(0.98 0.01 250) 100%);
+  }
+
+  /* Chat message styles */
+  .chat-message-user {
+    @apply bg-primary text-primary-foreground rounded-2xl rounded-br-sm px-4 py-3;
+  }
+
+  .chat-message-assistant {
+    @apply bg-card border border-border rounded-2xl rounded-bl-sm px-4 py-3 shadow-sm;
+  }
+
+  /* Scrollbar styling */
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: oklch(0.70 0.05 250);
+    border-radius: 3px;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: oklch(0.50 0.10 250);
   }
 }

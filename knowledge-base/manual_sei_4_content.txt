@@ -1,0 +1,2254 @@
+Sistema Eletrônico de Informações
+Manual do Usuário
+Versão 4.0
+
+SALVADOR, BAHIA
+Edição de Junho de 2022
+
+ELABORAÇÃO – ORGANIZAÇÃO – INFORMAÇÃO
+Ministério Público do Estado da Bahia
+Assessoria Administrativa, de Governança e Gestão da Informação – AAGI
+Superintendência de Gestão Administrativa – SGA
+Central Integrada de Comunicação Social – CECOM
+2022
+
+Sumário
+
+1. ACESSANDO O SISTEMA ............................................................................................................................................................ 5
+2. TELA CONTROLE DE PROCESSOS............................................................................................................................................ 8
+3. OPERAÇÕES BÁSICAS COM PROCESSOS E DOCUMENTOS..................................................................................... 11
+4. INICIAR PROCESSO ........................................................................................................................................................................ 13
+5. ENVIAR PROCESSO ..................................................................................................................................................................... 27
+6. CONSULTAR/ALTERAR PROCESSO ...................................................................................................................................... 28
+7. CONCLUIR PROCESSO ............................................................................................................................................................ 29
+8. REABRIR PROCESSO.................................................................................................................................................................... 29
+9. EXCLUIR PROCESSO ................................................................................................................................................................... 29
+10. GERAR ARQUIVO PDF ................................................................................................................................................................. 30
+11. SOBRESTAR PROCESSO ....................................................................................................................................................... 31
+12. RELACIONAR PROCESSO ....................................................................................................................................................... 32
+13. ANEXAR PROCESSO ................................................................................................................................................................ 35
+14. GERAR CIRCULAR........................................................................................................................................................................ 36
+15. ANOTAÇÕES .................................................................................................................................................................................. 37
+16. CIÊNCIA ............................................................................................................................................................................................ 38
+17. COMENTÁRIOS ............................................................................................................................................................................ 39
+18. CONTROLE DE PRAZOS............................................................................................................................................................ 43
+19. BLOCO DE ASSINATURA ....................................................................................................................................................... 47
+20. BLOCO DE REUNIÃO ................................................................................................................................................................... 60
+21. ACOMPANHAMENTO ESPECIAL.......................................................................................................................................... 65
+22. BLOCO INTERNO ....................................................................................................................................................................... 68
+23. PESQUISA ..................................................................................................................................................................................... 72
+24. ESTATÍSTICAS ............................................................................................................................................................................. 72
+25. MARCADOR................................................................................................................................................................................... 74
+26. PAINEL DE CONTROLE ........................................................................................................................................................... 82
+27. CORREIO ELETRÔNICO ........................................................................................................................................................ 96
+
+1. ACESSANDO O SISTEMA
+Na tela inicial, insira o login e a senha utilizados para acessar a rede do MPBA e clique em ACESSAR.
+
+1.1 AUTENTICAÇÃO EM DOIS FATORES
+O usuário poderá, se desejar, habilitar a Autenticação em Dois Fatores para efetuar o login no
+sistema. A disponibilização desse recurso é um dos itens que evidenciam a preocupação com a
+segurança do sistema e das informações registradas. Com essa possibilidade, o usuário poderá
+adicionar uma camada extra de segurança aos seus dados de acesso, uma vez que essa sistemática
+associa um dado que o usuário conhece (a sua senha) a um recurso que possui em mãos (o seu
+smartphone).
+A Autenticação em dois fatores é uma nova funcionalidade do sistema criada para adicionar
+maior segurança no acesso. Ao habilita-la, qualquer tentativa de login em dispositivos não liberados,
+será solicitado um código numérico disponível no seu celular.
+Ao acessar o sistema, informe na tela de abertura do SEI seu usuário (login) e senha de acesso, e
+clique na opção “Autenticação em dois fatores”.
+
+Na tela seguinte será exibido um link com todas as informações para a habilitação do recurso. O
+usuário deverá ler as instruções e, em seguida, clicar no botão Prosseguir.
+5
+
+Para continuar é necessário acessar a loja de aplicativos do seu celular e baixar um app destinado a
+autenticação em duas etapas. O Google Authenticator e o Microsoft Authenticator são exemplos
+de aplicativos que poderão ser baixados. Após esse procedimento, abra o app e acesse a opção
+para leitura de QR Code. Insira seu e-mail pessoal e faça a leitura da imagem, depois clique em
+Enviar.
+
+Informe um e-mail que não esteja associado à sua Instituição (exemplos: Gmail, Hotmail, Yahoo,
+entre outros). É imprescindível que a senha de acesso a esse e-mail seja diferente da senha de
+acesso ao SEI. Ao clicar sobre o botão Enviar, o sistema emitirá uma mensagem informando o
+envio de um e-mail para habilitação do recurso, com validade de até 60 minutos para a conclusão
+da solicitação.
+Para ativar a Autenticação em dois fatores, acesse o e-mail e clique sobre o link ou copie o endereço
+eletrônico da mensagem e cole no navegador. Aparecerá uma mensagem que “A autenticação em
+dois fatores foi ativada”.
+Acesse o sistema, insira o login e a senha na tela inicial. Depois, clique em ACESSAR.
+A tela seguinte exigirá o código de acesso gerado pelo aplicativo. Portanto, consulte o código no
+app e digite-o no campo apropriado do sistema. Em seguida, clique em Validar.
+6
+
+Para dispositivos utilizados com frequência, o SEI disponibiliza a opção “Não usar o 2FA
+(Autenticação em 2 fatores) neste dispositivo e navegador”. Se essa opção for marcada,
+o código de acesso não será solicitado novamente no mesmo dispositivo e navegador. Porém,
+se for realizada a limpeza de cookies do navegador, o código de acesso voltará a ser solicitado.
+A desativação da Autenticação em dois fatores também poderá ser feita por meio dessa tela.
+Ao clicar sobre o botão Desativar 2FA, o sistema enviará um link para o e-mail cadastrado para
+confirmar a operação. Acessando o e-mail e clicando sobre o link, o recurso será desabilitado, e o
+usuário voltará a efetuar o acesso somente com login e senha.
+Caso o usuário tenha utilizado a Autenticação em dois fatores no SEI e, por qualquer motivo,
+tenha efetuado a desabilitação do recurso ou perdido o prazo para sua ativação, será necessário,
+para efetuar uma nova tentativa, verificar se essa conta permanece registrada no aplicativo. Em
+caso afirmativo, será preciso excluí-la antes de efetuar a leitura do novo QR Code.
+É importante lembrar também que a Autenticação em dois fatores pode ser utilizada em outras
+sistemas no órgão. Nesse caso, ao iniciar a habilitação deste recurso no SEI, será exibida a seguinte
+mensagem: Essa mensagem se refere exclusivamente à conta do SEI, ou seja, as contas
+referentes a outros sistemas do órgão, já registradas no aplicativo, não deverão ser alteradas
+ou excluídas.
+Portanto, se o usuário nunca habilitou a Autenticação em dois fatores no SEI, deve apenas ignorar
+a mensagem, clicando no botão OK. Caso o usuário já tenha autenticado alguma conta de outro
+sistema no aplicativo, ao clicar no botão Prosseguir e visualizar o QR Code para habilitar a
+autenticação em dois fatores no SEI, deverá acessar o aplicativo no seu telefone celular, selecionar
+a opção adicionar conta, escolher conta e depois digitalizar código QR.
+
+7
+
+2. TELA CONTROLE DE PROCESSOS
+Ao acessar o sistema, o usuário será direcionado para a tela “Controle de Processos”. Essa tela
+apresenta os processos abertos na unidade (recebidos e gerados) e disponibiliza diversas
+funcionalidades por meio da Barra de Ferramentas, do Menu Principal e da Barra de Ícones, que
+permite a realização de operações em um lote de processos.
+
+Nessa tela, é possível realizar operações com processos em lote. Para isso, clique na caixa de seleção
+ao lado do número de cada processo e selecione o ícone, conforme a necessidade. Os símbolos
+e orientações visuais apresentados na tela Controle de Processos auxiliam na identificação da
+situação dos processos. Veja a descrição de cada um deles a seguir:
+
+8
+
+A Barra de Ferramentas do sistema também compõe a tela “Controle de Processos” e disponibiliza
+várias funcionalidades. Veja a descrição de cada uma delas a seguir:
+
+9
+
+A tela “Controle de Processos” é configurada, por padrão, para mostrar uma visualização resumida
+dos processos, os quais são divididos em duas colunas: recebidos e gerados. Os links disponíveis
+na tela “Controle de Processos”, que ficam logo abaixo da barra de ícones, permitem diversas
+visualizações dos processos nessa tela. Veja a explicação de cada um desses links a seguir:
+
+NOVIDADE!
+Na tela “Controle de Processos”, quando a janela do sistema for minimizada, aparecerá, na barra de
+ferramentas, o ícone Exibir/Ocultar Ações, por meio dele, o usuário poderá realizar uma das ações
+disponíveis na barra de ferramentas.
+
+10
+
+Esse ícone permite, por exemplo, que o usuário acesse a tela “Controle de Processos” minimizada,
+conforme imagem a seguir. Nela, estarão disponíveis links para realização de ações e ainda será
+possível exibir/ocultar a Barra de ícones da tela “Controle de Processos”, por meio do ícone Exibir/
+Ocultar ícones.
+
+3. OPERAÇÕES BÁSICAS COM PROCESSOS E DOCUMENTOS
+3.1 ATRIBUIR PROCESSO
+Recurso que possibilita a distribuição de processos entre os usuários da unidade.
+3.1.1 Como Atribuir Processos
+Na tela “Controle de Processos”, clique na caixa de seleção ao lado do número do(s) processo(s) a
+ser(em) atribuído(s) e, em seguida, no ícone Atribuição de Processos
+
+.
+
+Selecione um nome de usuário, por meio da caixa “Atribuir Para”, e clique em salvar.
+11
+
+Os processos atribuídos a um usuário aparecem com o login em destaque ao lado de seu número.
+
+3.1.2 Como visualizar somente os processos atribuídos ao usuário logado
+Para visualizar, na tela “Controle de Processos”, apenas os processos atribuídos ao usuário logado,
+clique no link: “Ver processos atribuídos a mim”.
+
+E, para retornar à visualização de todos os processos da unidade, clique no ícone remover filtro de
+processos atribuídos a mim
+
+.
+
+12
+
+3.1.3 Como consultar ou redistribuir os processos atribuídos a um usuário específico
+Na tela “Controle de Processos”, clique no link com o nome do usuário à direita do processo.
+
+O usuário será direcionado para a tela atribuições de processos. Nessa tela, serão visualizados
+todos os processos atribuídos ao usuário e será possível atribuí-los a outro usuário. Para isso, basta
+marcar a caixa de seleção à esquerda do número do processo; selecionar um nome de usuário
+disponível na caixa atribuir para; e clicar no botão Salvar.
+
+•
+
+A “Atribuição de Processo” a um usuário não impede que outros usuários da unidade
+
+atuem no processo, caso haja necessidade.
+•
+
+Para remover a “Atribuição de Processo”, siga as mesmas orientações sobre atribuir
+
+processo a um usuário, entretanto deixe a caixa atribuir para em branco.
+
+4. INICIAR PROCESSO
+4.1 COMO INICIAR PROCESSO
+No Menu Principal, clique na opção “Iniciar Processo”.
+
+13
+
+Será aberta a tela “Iniciar Processo” e serão exibidos os tipos de processos já utilizados na unidade.
+Para exibir todos os tipos de processos existentes no órgão, selecione o ícone “Exibir todos os
+tipos
+
+” , ao lado de “Escolha o Tipo do Processo”.
+
+Ao clicar sobre o tipo do processo desejado, na tela “Iniciar Processo’, aparecerão os campos para
+cadastramento do processo.
+O campo “Tipo do Processo” aparece preenchido com o tipo selecionado, e o campo “Classificação
+por Assuntos” é automaticamente preenchido. Os demais campos devem ser preenchidos conforme
+as seguintes orientações:
+Especificação: Insira informações que diferenciem os processos de um mesmo tipo, as quais
+ficarão visíveis, juntamente com o tipo do processo, ao posicionar o cursor sobre o número do
+processo, na tela “Controle de Processos”.
+Interessados (não obrigatório): Insira a denominação do(s) interessado(s) no mérito do processo
+(pessoa física ou jurídica).
+Observações desta unidade (não obrigatório): Insira informações adicionais que facilitem a
+identificação e a recuperação do processo.
+Nível de Acesso: Alguns processos já possuem o “Nível de Acesso” pré-definidos. Se ao iniciar o
+processo o “Nível de Acesso” não estiver preenchido, o usuário deverá selecionar um tipo disponível.
+14
+
+Após o preenchimento dos campos de cadastramento do processo, clique no botão Salvar. Assim,
+será aberta a tela do processo para que possam ser incluídos documentos.
+4.2 INCLUIR DOCUMENTO
+Por meio desse recurso, o usuário poderá incluir documentos (internos ou externos) em processos.
+4.3 COMO INSERIR UM DOCUMENTO INTERNO
+Acesse o processo e clique no ícone Incluir Documento
+
+.
+
+Na próxima tela, escolha o tipo do documento de forma similar à escolha do tipo do processo.
+
+15
+
+Depois, preencha os campos de cadastramento do documento, os quais são semelhantes aos
+campos do processo. O campo “Texto Inicial” aparece inicialmente com a opção “Nenhum”
+selecionada. Porém, se desejar, o usuário poderá selecionar um Documento Modelo ou um Texto
+Padrão para gerar o documento.
+Logo depois do preenchimento adequado dos campos de cadastramento, clique em Salvar.
+Lembre-se de que os dados cadastrados auxiliam, posteriormente, na pesquisa do documento.
+
+Após a confirmação da operação, o documento será inserido, automaticamente, na “Árvore do
+Processo” e ficará disponível para edição e para assinatura. À direita do nome e do número de
+protocolo de cada documento, aparece a sigla da unidade que o gerou. E, ao posicionar o cursor
+sobre a sigla, é informado o nome da unidade.
+
+4.4 EDITAR CONTEÚDO
+Recurso destinado a inclusão e alteração de conteúdo nos documentos. Clique no ícone “Editar
+Conteúdo”, disponível na Barra de Ícones do documento.
+
+16
+
+Na janela aberta, efetue a edição do texto e clique em Salvar.
+
+Na edição do conteúdo do documento, o usuário poderá utilizar os recursos de formatação
+disponíveis na barra de ferramentas do editor de textos. Será possível a inclusão de imagens, links
+e autotextos, bem como a utilização de estilos de formatação pré-definidos.
+
+É possível editar documento já assinado eletronicamente desde que a caneta ao lado do seu número
+esteja em cor amarela. Esse ícone indica que o documento foi assinado, mas não foi tramitado e/ou
+visualizado por usuários de outra unidade.
+4.5 VERSÕES DO DOCUMENTO
+Recurso que efetua o controle de versões do documento e permite sua consulta e recuperação.
+Uma nova versão do documento será gerada a cada edição salva.
+17
+
+Para consultar e recuperar versões de um documento, acesse o processo, selecione o documento e
+clique no ícone Versões do Documento
+
+.
+
+Na tela seguinte, haverá um quadro contendo as versões do documento; a data e hora de cada
+versão; o usuário e a unidade responsável por cada versão.
+Para visualizar uma das versões do documento, na coluna “Ações”, clique no ícone Visualizar
+Versão
+
+. Para recuperar determinada versão, clique no ícone Recuperar Versão
+
+.
+
+É possível comparar duas versões do documento e identificar as alterações efetuadas. Para isso, na
+tela Versões do Documento, selecione duas versões e clique no botão Comparar Versões.
+
+Na janela aberta, os itens excluídos ficarão marcados com a cor vermelha e os itens incluídos, com
+a cor azul.
+
+18
+
+4.6 CONSULTAR/ALTERAR DOCUMENTO
+Acesse o processo, selecione o documento e clique no ícone Consultar/Alterar Documento,
+disponível na barra de ícones do documento.
+
+Será aberta a tela “Alterar Documento”. Faça as alterações necessárias e clique no botão Salvar.
+
+Para alteração dos dados de cadastramento do processo, o usuário deverá acessar o processo e
+clicar no ícone “Consultar/Alterar Processo”, disponível na barra de ícones do processo.
+4.7 ASSINAR DOCUMENTO
+Recurso destinado a assinatura de documentos gerados no SEI. Para assinar um documento na
+Árvore do Processo, selecione o documento e clique no ícone Assinar Documento
+
+, na barra
+
+de ícones.
+
+19
+
+Em seguida, será aberta uma janela automaticamente pelo sistema; insira a senha; e tecle Enter
+ou clique no botão Assinar.
+
+Após a assinatura, o documento será visualizado da seguinte forma:
+
+Também é possível a assinatura do documento no próprio Editor de Textos, por meio do botão
+, disponível na Barra de Ferramentas.
+
+É possível obter informações sobre as assinaturas posicionando o cursor ou clicando sobre o ícone
+da caneta ao lado do número do documento.
+A caneta amarela
+
+ao lado do número do documento indica que ele foi assinado, mas ainda não
+
+foi acessado por usuários de outra unidade. Nesse caso, ainda é permitida sua edição.
+A caneta preta
+
+ao lado do número do documento indica que ele está assinado e já foi acessado
+
+por usuários de outra unidade. Nesse caso, sua edição não é permitida.
+4.8 EXCLUIR DOCUMENTO
+Acesse o processo, selecione o documento que deseja excluir e clique no ícone excluir, disponível
+na Barra de Ícones.
+20
+
+Em seguida, confirme a operação.
+
+O ícone excluir ficará visível na barra de ícones do documento somente quando o procedimento de
+exclusão for permitido.
+Documentos que podem ser excluídos:
+a) Documento gerado e não assinado;
+b) Documento gerado, assinado e com a caneta amarela;
+c) Documento externo que ainda não tramitou, não foi visualizado por outra unidade e não foi
+concluído e reaberto.
+O documento excluído não aparecerá na árvore do processo. O ícone excluir ficará visível também
+na barra de ícones do processo quando o procedimento de exclusão do processo for permitido.
+4.9 CANCELAR DOCUMENTO
+Recurso destinado ao cancelamento de documentos que já tenham sido visualizados ou tramitados,
+ou seja, que não possuem os requisitos para o procedimento de exclusão.
+Acesse o processo, selecione o documento e clique no ícone Cancelar Documento.
+
+21
+
+Na tela seguinte, informe o motivo do cancelamento e clique em Salvar.
+
+Após esse procedimento, o documento permanecerá na árvore do processo, com seu nome
+esmaecido e com o ícone de cancelamento à sua esquerda, porém não será possível acessar
+seu conteúdo. Ao posicionar o cursor sobre o documento, será possível visualizar o motivo do
+cancelamento.
+
+O cancelamento de documentos só é permitido aos usuários da unidade em que o documento foi
+gerado ou inserido. O ícone Cancelar Documento
+
+não será exibido na Barra de Ícones, se ainda
+
+for possível excluir ou alterar o conteúdo do documento.
+4.10 TEXTO PADRÃO
+Recurso que viabiliza a criação de minuta padrão que pode ser utilizada na elaboração de
+documentos ou de e-mails gerados no sistema. O Texto Padrão é editável.
+Selecione a opção “Textos Padrão”, que se encontra disponível no Menu Principal.
+
+Na tela seguinte, clique no botão Novo.
+22
+
+Na tela Novo Texto Padrão Interno, preencha os campos Nome, Descrição e Conteúdo e depois
+clique em Salvar.
+
+Na próxima tela, por meio dos ícones disponíveis na coluna Ações, o usuário poderá Consultar,
+Alterar ou Excluir um “Texto Padrão” da unidade.
+
+4.11 FAVORITOS
+Recurso que permite salvar um documento inteiro como modelo, para utilização do seu formato e
+conteúdo na confecção de outros documentos. A edição do documento será permitida somente
+quando o modelo selecionado se tornar um novo documento no processo.
+Um processo também poderá ser incluído em Favoritos, porém, nesse caso, não haverá
+possibilidade de ele ser utilizado como modelo para geração de outro processo. A sua inclusão em
+Favoritos facilitará a busca e a organização de processos no âmbito da unidade.
+Acesse o processo, selecione o documento e clique no ícone “Adicionar aos Favoritos”.
+
+23
+
+Na tela seguinte, selecione um “Grupo de Favoritos” ou crie um “Grupo”, clicando no ícone “Novo
+Grupo de Favoritos”. Preencha o campo descrição e depois clique em Salvar.
+
+Será aberta a tela Favoritos do Documento. Nessa tela, o usuário poderá:
+a) Adicionar o documento em outro Grupo de Favoritos, por meio do botão Adicionar, visto que
+um documento poderá ser incluído em mais de um Grupo de Favoritos.
+b) Excluir o documento Favorito por meio do ícone Excluir Favorito, disponível na coluna Ações,
+ou por meio do botão Excluir.
+c) Alterar o documento Favorito por meio do ícone Alterar Favorito, disponível na coluna Ações.
+
+Para incluir um processo em “Favoritos”, acesse o processo e, na barra de ícones, clique no ícone
+adicionar aos favoritos
+
+.
+
+Em seguida, na tela novo favorito, siga os mesmos passos descritos para a inclusão de um
+documento como “Modelo Favorito”.
+
+Como utilizar um documento salvo em Favoritos - Na tela Gerar Documento, em que é feito o
+cadastramento do documento, no campo Texto Inicial, selecione a opção Documento Modelo e
+clique no botão Selecionar Favoritos.
+
+24
+
+Será aberta a janela Selecionar Favorito e serão listados todos os documentos salvos em
+Favoritos. Clique no ícone Selecionar Este Favorito correspondente ao documento desejado, na
+coluna Ações; ou selecione o documento e clique no botão Transportar.
+
+O número de protocolo do documento selecionado será preenchido automaticamente no campo
+Documento Modelo. Finalize o cadastramento do documento e clique no botão Salvar.
+O documento gerado será exatamente igual ao salvo como Modelo em Favoritos. Para edição do
+documento, clique no ícone Editar Conteúdo
+
+, na Barra de Ícones.
+
+Além de Selecionar nos Favoritos, há mais duas opções para preenchimento do campo
+Documento Modelo:
+· Copiar, na Árvore do Processo, o número do protocolo do documento que deseja utilizar como
+modelo e colá-lo;
+25
+
+· Digitar o número do protocolo do documento que deseja utilizar como modelo.
+Como criar um Grupo de Favoritos - Acesse o processo e na Barra de Ícones, clique no ícone
+Adicionar aos Favoritos
+
+.
+
+Na próxima tela, clique no ícone Novo Grupo Favoritos, que fica ao lado da caixa Grupo.
+
+Será aberta a janela Novo Grupo de Favorito. Nela, preencha o campo Nome e depois clique no
+botão Salvar.
+
+Também é possível criar um Grupo de Favoritos acessando a opção Favoritos, no Menu Principal.
+Depois, na tela Favoritos, clique no botão Grupos.
+
+Será aberta a tela Grupos de Favoritos. Nessa tela, o usuário visualizará os Grupos já existentes e,
+por meio do botão Novo, poderá criar um Grupo.
+26
+
+Após salvar o novo Grupo, o usuário retornará à tela Grupos de Favoritos e, clicando no botão
+Fechar, retornará à tela Favoritos.
+
+Nessa tela, é possível também selecionar Grupos de Favoritos específicos para visualização na
+tela; pesquisar Grupos por Palavras-chave; acessar Grupos, para alterá-los ou excluí-los; e excluir
+favoritos.
+
+5. ENVIAR PROCESSO
+5.1 COMO ENVIAR UM PROCESSO
+Na tela “Controle de Processos”, marque a caixa de seleção ao lado do número do processo e clique
+no ícone “Enviar Processo”
+
+, ou acesse o processo e clique no mesmo ícone, na barra de ícones
+
+do processo.
+
+Na tela Enviar Processo, informe, na caixa Unidades, as unidades de destino. O processo
+poderá ser enviado para uma ou para várias unidades concomitantemente. As opções de manter
+processo aberto na unidade atual, remover anotação, enviar e-mail de notificação e retorno
+programado, deverão ser preenchidas conforme às necessidades da unidade.
+27
+
+Ao lado do campo Unidades, encontra-se o link mostrar unidades por onde tramitou. Por
+meio desse link, o usuário poderá selecionar uma das unidades em que o processo tramitou para
+preencher o campo Unidades.
+6. CONSULTAR/ALTERAR PROCESSO
+6.1 COMO CONSULTAR OU ALTERAR OS DADOS DO PROCESSO
+Acesse o processo e clique no ícone “Consultar/Alterar Processo”
+
+.
+
+Será aberta a tela Alterar Processo. Nela, efetue as alterações necessárias e depois clique no
+botão Salvar.
+
+28
+
+7. CONCLUIR PROCESSO
+Recurso utilizado para concluir o processo quando não há mais nenhuma ação a ser executada
+pela unidade ou quando o processo alcançou seu objetivo.
+7.1 COMO CONCLUIR O PROCESSO
+Acesse o processo ou qualquer documento constante em sua Árvore e clique no ícone Concluir
+Processo, disponível na Barra de Ícones do processo e do documento.
+
+8. REABRIR PROCESSO
+8.1 COMO REABRIR O PROCESSO
+Localize o processo por meio da funcionalidade Pesquisa ou Estatísticas da Unidade, acesse-o e
+clique no ícone Reabrir Processo
+
+, disponível na Barra de Ícones.
+
+O processo poderá ser reaberto, a qualquer momento, nas unidades em que tramitou. Não será
+necessário solicitar novo trâmite.
+O processo reaberto será automaticamente atribuído ao usuário que o reabriu.
+
+9. EXCLUIR PROCESSO
+9.1 COMO EXCLUIR O PROCESSO
+Na tela do processo, clique no ícone Excluir
+
+, disponível na Barra de Ícones. Aparecerá uma
+
+mensagem para confirmação da exclusão do processo.
+29
+
+A exclusão de processos deve ser efetuada pela unidade geradora somente em caso de processos
+abertos indevidamente. Regras para exclusão:
+a) O processo deve ter andamento aberto somente na unidade geradora.
+b) O processo não pode conter documentos. No caso de processo com documentos externos e/ou
+gerados no sistema que possam ser excluídos, o SEI permite que sejam efetuadas as exclusões de
+todos esses documentos e, depois, permite a exclusão do processo.
+10. GERAR ARQUIVO PDF
+10.1 COMO GERAR ARQUIVO PDF DO PROCESSO
+Acesse o processo e clique no ícone Gerar Arquivo PDF do Processo
+
+, na Barra de Ícones.
+
+Na próxima tela, selecione os documentos que deseja incluir no arquivo PDF e clique em Gerar.
+
+10.2 COMO GERAR ARQUIVO PDF DO DOCUMENTO
+Acesse o documento e clique no ícone Gerar Arquivo PDF do Documento
+
+, na barra de ícones.
+
+O arquivo PDF do documento selecionado será baixado automaticamente ou após a confirmação
+do usuário, conforme as especificações do navegador.
+
+30
+
+Os formatos de imagem, som, arquivos compactados, documentos cancelados e minutas de
+documentos de outras unidades não serão convertidos em PDF.
+Para a geração do arquivo PDF do processo ou do documento, é necessário que o bloqueador de
+pop-ups esteja desabilitado ou que o acesso ao endereço seja permitido.
+É possível também gerar um arquivo compactado do processo por meio do ícone Gerar Arquivo
+ZIP
+
+do Processo, disponível na Barra de Ícones.
+
+11. SOBRESTAR PROCESSO
+Recurso utilizado para interromper o trâmite do processo em função da necessidade de aguardar
+alguma providência, antes do prosseguimento.
+11.1 COMO SOBRESTAR O PROCESSO
+Clique no número do processo e selecione o ícone Sobrestar Processo
+
+, disponível na Barra de
+
+Ícones.
+
+Será aberta a tela Sobrestamento. Nela, o usuário poderá escolher entre duas opções:
+•
+
+Marque Somente Sobrestar quando a determinação de interrupção do trâmite do
+
+processo constar no próprio processo. Em seguida, preencha o campo Motivo e clique em
+Salvar.
+
+•
+
+Marque “Sobrestar” vinculando a outro processo quando a determinação de
+
+interrupção do trâmite do processo constar em outro processo também existente no SEI. No
+campo Processo para Vinculação, informe o número do processo que tenha determinado o
+sobrestamento e clique em Pesquisar. O campo Tipo será automaticamente preenchido. Em
+seguida, preencha o campo Motivo e clique em Salvar.
+31
+
+11.2 COMO CONSULTAR OU REMOVER O SOBRESTAMENTO
+Selecione a opção Processos Sobrestados, disponível no Menu Principal.
+
+Na tela Processos Sobrestados, é possível visualizar todos os processos sobrestados na unidade.
+Será possível remover o sobrestamento selecionando o processo e clicando no botão Remover
+Sobrestamento ou no ícone Remover Sobrestamento, que se encontra na coluna Ações.
+
+Para efetuar o sobrestamento, o processo deve estar aberto apenas na unidade que efetuará a
+operação. Os processos sobrestados não são exibidos na tela Controle de Processos.
+
+12. RELACIONAR PROCESSO
+Recurso que permite vincular um ou mais processos que possuem informações relacionadas.
+12.1 COMO RELACIONAR PROCESSOS EM ANDAMENTO
+Acesse um dos processos que serão relacionados e clique no ícone Relacionamentos do Processo
+.
+
+32
+
+Em seguida, na tela Relacionamentos do Processo, informe o número do Processo Destino e
+clique em Pesquisar. O sistema confirmará a existência do processo no SEI e, automaticamente,
+preencherá o campo Tipo. Por fim, clique em Adicionar.
+
+O sistema mostrará, na tela Relacionamentos do Processo, a lista de processos relacionados.
+
+Na tela do processo, os processos relacionados aparecem abaixo da Árvore do Processo, logo
+após a opção Consultar Andamento. Clicando sobre o tipo de processo, é possível visualizar o
+número do(s) processo(s) relacionado(s). Para acessar um processo, clique sobre seu número.
+
+12.2 COMO INICIAR UM PROCESSO RELACIONADO
+O usuário poderá também iniciar um processo já relacionado a outro. Para isso, basta acessar o
+processo em andamento e clicar no ícone Iniciar Processo Relacionado
+
+.
+
+Na tela Iniciar Processo Relacionado, escolha o tipo de processo.
+33
+
+Depois, preencha os dados de cadastro do novo processo e clique em Salvar.
+
+Em seguida, o sistema mostrará a tela do processo iniciado já relacionado ao processo em
+andamento.
+
+12.3 COMO CANCELAR O RELACIONAMENTO DE PROCESSOS
+Acesse o processo e clique no ícone Relacionamentos do Processo.
+
+34
+
+Na tela Relacionamentos do Processo, serão listados os processos relacionados. Selecione o
+processo desejado e clique no ícone Remover Relacionamento, disponível na coluna Ações.
+
+Logo depois, aparecerá uma solicitação de confirmação da exclusão.
+
+Processos relacionados não tramitam juntos e não há hierarquia entre eles. O vínculo entre
+processos relacionados pode ser desfeito, a qualquer tempo, por usuário da unidade que efetuou
+a operação.
+
+13. ANEXAR PROCESSO
+Recurso que viabiliza a anexação permanente de um processo a outro.
+13.1 COMO ANEXAR PROCESSOS
+Acesse o processo principal e clique no ícone Anexar Processo.
+
+Na tela Anexação de Processos, preencha o campo Processo com o número do processo que
+será anexado e clique em Pesquisar. O sistema confirmará a existência do processo no SEI e,
+automaticamente, preencherá o campo Tipo. Por fim, clique em Anexar.
+35
+
+Agora, a tela Anexação de Processos listará o processo anexado, com o nome do usuário e da
+unidade que efetuou a anexação, bem como com a data e a hora da anexação. Além disso, no lado
+esquerdo da tela, na Árvore do Processo, o usuário visualizará o processo anexado.
+
+Para visualizar o conteúdo do processo anexado, clique sobre seu número na Árvore do Processo
+e, em seguida, no link disponível na informação que aparecerá na tela.
+
+Ao efetuar essa operação, o processo anexado perde sua independência e passa a compor a Árvore
+do Processo principal. Regras para anexação:
+a) O processo deve estar aberto apenas na unidade que efetuará a ação;
+b) O processo a ser anexado não pode ter processos anexos a ele;
+c) Os processos envolvidos na operação não podem ser sigilosos;
+d) O processo a ser anexado precisa conter documentos;
+e) Não é possível anexar um processo a dois processos diferentes. Os relacionamentos do processo
+anexado são mantidos após a anexação. Caso o processo a ser anexado seja “restrito”, esse nível
+de acesso será estendido ao processo principal.
+14. GERAR CIRCULAR
+Esse recurso permite gerar documentos circulares individuais para cada destinatário, a partir de um
+documento-matriz e dos dados de contatos cadastrados no SEI. Os documentos gerados poderão
+ser inseridos em “Bloco de Assinatura” e encaminhados para os e-mails associados aos contatos.
+36
+
+14.1 COMO GERAR UM DOCUMENTO CIRCULAR
+Acesse o processo e inclua o documento que servirá de base para a geração dos demais. Insira o
+conteúdo, salve o documento e feche a janela do Editor de Textos.
+Em seguida, com o conteúdo do documento pronto, clique no ícone Gerar Circular
+
+.
+
+Será aberta a tela Gerar Circular. Nela, informe os destinatários e escolha um Bloco de Assinatura
+ou crie um Bloco, para a assinatura dos documentos.
+Após o preenchimento do campo Destinatários e da escolha do Bloco de Assinatura, clique no
+botão Gerar.
+
+O sistema direcionará o usuário para a tela “Documentos do Bloco de Assinatura”, em que é possível
+consultar os dados do processo ou dos documentos ali inseridos, bem como assiná-los.
+
+15. ANOTAÇÕES
+Recurso destinado à inclusão de anotações, simples ou com indicação de prioridade, nos processos.
+15.1 COMO INSERIR ANOTAÇÕES NO PROCESSO
+Na tela Controle de Processos, clique na caixa de seleção ao lado do número do processo ou
+processos que receberão as anotações e, em seguida, no ícone Anotações
+
+.
+37
+
+O sistema abrirá a tela de mesmo nome. Insira o texto pretendido no campo Descrição, marque o
+campo Prioridade, de acordo com a necessidade, e clique em Salvar.
+
+Ao selecionar o campo Prioridade, o ícone anotações aparecerá na cor vermelha.
+
+16. CIÊNCIA
+Recurso que viabiliza a indicação de conhecimento de determinado documento ou processo, sem
+a necessidade de criar um documento para esse fim.
+16.1 COMO REGISTRAR CIÊNCIA NO PROCESSO
+Acesse o processo, selecione seu número e clique no ícone Ciência
+
+, disponível na Barra de
+
+Ícones do processo.
+
+38
+
+Após essa ação, aparecerá o ícone Visualizar Ciências ao lado do número do processo e será
+aberta a tela Ciências exibindo a Lista de Ciências no processo.
+16.2 COMO REGISTRAR CIÊNCIA NO DOCUMENTO
+Acesse o processo, selecione o documento e clique no ícone Ciência, disponível na Barra de Ícones
+do documento.
+
+Ao realizar essa operação, automaticamente, aparecerá o ícone ao lado do número do documento.
+
+A Ciência registrada no processo não poderá ser cancelada ou anulada.
+17. COMENTÁRIOS
+Recurso destinado à inclusão de comentários em processos e/ou documentos. Os Comentários
+não fazem parte da instrução processual, no entanto poderão ser visualizados pelas demais
+unidades que tiverem acesso ao processo.
+17.1 COMO INCLUIR COMENTÁRIO NO PROCESSO
+Acesse o processo, selecione seu número e clique no ícone Comentários
+
+, disponível na Barra
+
+de Ícones.
+
+Na tela Novo Comentário, preencha o campo Descrição com o comentário que deseja inserir e,
+depois, clique em Salvar.
+
+39
+
+Em seguida, será aberta a tela “Comentários”, em que será exibida a Lista de Comentários, bem
+como o ícone Visualizar Comentários aparecerá ao lado de seu número.
+
+17.2 COMO INCLUIR COMENTÁRIO NO DOCUMENTO
+Acesse o processo, selecione o documento no qual deseja inserir o Comentário e clique no ícone
+Comentários
+
+, disponível na Barra de Ícones do documento.
+
+Assim como ocorre ao incluir Comentário no processo, será aberta a tela Novo Comentário para
+que seja incluído o Comentário no campo Descrição e, após clicar no botão Salvar, o usuário será
+direcionado para a tela Comentários do Documento.
+
+Ao incluir Comentário no documento, o ícone Visualizar Comentários
+
+aparecerá ao lado do
+
+número do documento, bem como ao lado do número do processo.
+
+40
+
+Os Comentários poderão ser incluídos por usuários da unidade que iniciou o processo como
+também por usuários de outras unidades. É possível a inclusão de vários Comentários tanto no
+processo quanto no documento. Para inclusão de um novo Comentário, o usuário deverá clicar no
+botão Novo que se encontra na tela Comentários do processo e do documento.
+17.3 COMO VISUALIZAR OS COMENTÁRIOS
+Para visualizar os comentários incluídos no documento, clique no ícone Visualizar Comentários,
+ao lado de seu número, ou selecione o documento e clique no mesmo ícone na Barra de Ícones.
+
+Para visualizar todos os comentários incluídos no processo e em seus documentos ou para visualizar
+somente os comentários incluídos no processo, clique no ícone Visualizar Comentários, ao lado
+do número do processo, ou selecione o processo e clique no mesmo ícone na Barra de Ícones.
+
+41
+
+O Comentário registrado em documento interno não assinado só será visualizado no âmbito
+da unidade que o inseriu. Após a assinatura do respectivo documento, o Comentário poderá ser
+consultado por outras unidades.
+É importante destacar que a visualização de Comentários está diretamente relacionada ao nível de
+acesso do processo/documento, conforme quadro a seguir:
+
+Comentário em:
+Processo
+Processo
+Processo
+Documento externo
+Documento externo
+Documento externo
+Documento interno
+Documento interno
+Documento interno
+
+Nível de acesso:
+Público
+Restrito
+Sigiloso
+Público
+Restrito
+Sigiloso
+Público
+Restrito
+Sigiloso
+
+Visualização:
+Disponível
+Somente para as unidades em que tramitou
+Somente com credencial de acesso
+Disponível
+Somente para as unidades em que tramitou
+Somente com credencial de acesso
+Disponível
+Somente para as unidades em que tramitou
+Somente com credencial de acesso
+
+17.4 COMO ALTERAR COMENTÁRIOS
+Na coluna Ações da tela Comentários, clique no ícone Alterar Comentário
+
+correspondente
+
+ao comentário que se deseja alterar.
+
+Na tela Alterar Comentário, faça as alterações no campo Descrição e depois clique em Salvar.
+
+17.5 COMO EXCLUIR COMENTÁRIOS
+Na coluna Ações da tela Comentários, clique no ícone Excluir Comentário
+
+correspondente ao
+
+comentário que se pretende excluir.
+
+42
+
+Será solicitada a confirmação da exclusão do Comentário.
+
+Após a exclusão, o ícone Visualizar Comentários desaparecerá do lado do número do documento,
+caso não haja mais nenhum comentário no documento; bem como desaparecerá do lado do número
+do processo, caso não haja mais nenhum comentário no processo ou em seus documentos.
+
+Os Comentários só poderão ser alterados ou excluídos pela unidade que os inseriu. Quando ocorre
+a exclusão de todos os Comentários, além do ícone Visualizar Comentários desaparecer, não
+haverá mais vestígios dos Comentários registrados, nem mesmo na opção Consultar Andamento
+do processo.
+
+18. CONTROLE DE PRAZOS
+Diferentemente do Retorno Programado, essa ferramenta é utilizada para administração de
+prazos dentro da unidade. É uma funcionalidade de organização interna. Dessa forma, outras
+unidades não terão acesso ao Controle de Prazos da unidade.
+18.1 COMO INSERIR CONTROLE DE PRAZOS
+Acesse o processo e clique no ícone Controle de Prazos
+
+, disponível na Barra de Ícones.
+
+Será aberta a tela Definir Controle de Prazo. Nela, serão exibidas as seguintes opções: Data certa,
+Prazo em dias e Concluir.
+
+43
+
+Ao escolher a opção Data certa, o usuário poderá digitar uma data, no campo disponível, ou clicar
+no ícone Selecionar Prazo
+
+e marcar uma data no calendário, a fim de definir o Controle de
+
+Prazo no processo. Após a definição da data, basta clicar no botão Salvar.
+
+Ao escolher a opção Prazo em dias, o usuário deverá digitar, no campo disponível, a quantidade de
+dias até o fim do prazo que será definido para o processo. Se desejar, o prazo poderá ser contado
+em dias úteis. Para isso, será necessário marcar a caixa de seleção Úteis. Após a definição do prazo,
+basta clicar no botão Salvar.
+
+Também será possível incluir Controle de Prazos na tela Controle de Processos, inclusive em
+lote. Para isso, marque a caixa de seleção ao lado do número do(s) processo(s) que receberá(ão)
+o Controle de Prazo e, em seguida, clique no ícone Controle de Prazos
+
+.
+
+18.2 COMO IDENTIFICAR PROCESSOS COM CONTROLE DE PRAZO
+Os processos nos quais foi incluído um Controle de Prazo serão identificados pelo ícone Controle
+de Prazo ao lado de seu número, na tela Controle de Prazos e na tela do processo.
+
+44
+
+Os ícones aparecerão na cor laranja, vermelha ou azul, dependendo da situação do Controle de
+Prazo, conforme descrito abaixo:
+•
+
+Controle de Prazo Em andamento: indica que o processo possui um Controle de
+
+Prazo a vencer;
+•
+
+Controle de Prazo Atrasado: indica que o processo possui um Controle de Prazo
+
+vencido;
+•
+
+Controle de Prazo Concluído: indica que o processo possui um Controle de Prazo
+
+concluído.
+
+Ao posicionar o cursor sobre esses ícones, tanto na tela do processo quanto na tela Controle de
+Processos, aparecerão as seguintes informações sobre o Controle de Prazo no processo: login do
+usuário que incluiu ou alterou o Controle de Prazo; a data definida; a quantidade de dias que faltam
+para o cumprimento do prazo.
+
+Já ao clicar sobre os ícones de Controle de Prazo, tanto na tela do processo quanto na tela Controle
+de Processos, o usuário será direcionado para a tela Definir Controle de Prazo, em que é possível
+efetuar a alteração, conclusão ou exclusão do Controle de Prazo.
+18.3 COMO CONTROLAR PROCESSOS COM CONTROLE DE PRAZO
+Para visualizar todos os processos com Controle de Prazos na unidade, clique no Menu Principal,
+opção Controle de Prazos. Será aberta a tela Controles de Prazos.
+
+45
+
+Nessa tela, constará a Lista de Controle de Prazos, em que o usuário encontrará as seguintes
+informações: número do processo, usuário responsável pela inclusão ou alteração do Controle de
+Prazo, data programada, prazo restante e data da conclusão.
+Portanto, essa lista possibilitará ao usuário ter uma visão geral dos Controles de Prazos definidos
+nos processos da unidade, permitindo visualizar os Controles de Prazos concluídos, os prazos
+restantes daqueles que ainda não foram concluídos e os dias de atraso dos prazos que não foram
+cumpridos.
+Para acessar um dos processos da lista, basta clicar sobre seu número.
+
+O usuário poderá ainda alterar o Controle de Prazo, por meio do ícone Alterar Controle de Prazos
+; e excluir o Controle de Prazo, por meio do botão Excluir, após selecionar o processo, ou do
+ícone Excluir Controle de Prazos
+
+. Os ícones estarão disponíveis na coluna Ações.
+
+Na tela Controles de Prazos, a visualização dos processos na Lista será por ano. Portanto, o usuário
+terá a opção de selecionar o ano dos processos que deseja visualizar na Lista.
+
+Quando ocorre a exclusão do Controle de Prazos de um processo, além de o ícone Controle de
+Prazo desaparecer, não haverá mais vestígios do prazo registrado, nem mesmo na opção Consultar
+Andamento do processo.
+46
+
+19. BLOCO DE ASSINATURA
+O Bloco de Assinatura é um recurso utilizado para a visualização e assinatura de minutas de
+documentos por usuários de unidades diferentes da unidade elaboradora do documento. Também
+poderá ser utilizado com a finalidade de agrupar documentos produzidos na própria unidade, para
+assinatura em lote.
+Por meio desse recurso, é possível:
+•
+
+Disponibilizar vários documentos de um processo ou de vários processos de uma
+
+unidade para outra;
+•
+
+Visualizar e editar as minutas de documentos produzidas por usuários de outras
+
+unidades;
+•
+
+Visualizar os outros documentos do processo que não foram incluídos no Bloco;
+
+•
+
+Assinar documentos individualmente ou simultaneamente.
+
+19.1 COMO CRIAR UM BLOCO DE ASSINATURA, INCLUIR DOCUMENTOS E DISPONIBILIZÁLO
+Na tela Controle de Processos, clique no processo em que se encontra o documento que será
+incluído no Bloco de Assinatura. Após, na Árvore do Processo, clique no documento que será
+disponibilizado para assinatura e, em seguida, clique no ícone Incluir em Bloco de Assinatura
+, disponível na barra de ícones.
+
+O usuário será direcionado para a tela Incluir em Bloco de Assinatura. Nessa tela, poderão ser
+realizadas uma das seguintes ações:
+1) Incluir o documento em um Bloco de Assinatura já existente;
+2) Incluir o documento em um Bloco de Assinatura já existente e, ao mesmo tempo, disponibilizálo para outra unidade;
+3) Criar um Bloco de Assinatura para inclusão do documento ou para inclusão do documento e
+disponibilização ao mesmo tempo.
+No exemplo a seguir, será criado um Bloco de Assinatura para inclusão do documento.
+Primeiramente, clique no botão Novo Bloco.
+
+47
+
+Na tela Novo Bloco de Assinatura, insira uma descrição para o Bloco; escolha a(s) unidade(s)
+para disponibilização. Após o preenchimento dos campos, clique no botão Salvar.
+
+Em seguida, aparecerá a tela Incluir em Bloco de Assinatura, já com o campo Bloco preenchido
+com o nome do novo Bloco.
+
+O usuário terá duas opções: Incluir ou Incluir e Disponibilizar o documento no Bloco. Ao utilizar a
+opção Incluir e Disponibilizar, o documento será inserido no Bloco e disponibilizado, no mesmo
+momento, para outra unidade.
+48
+
+Veja que o Bloco criado para inclusão do documento está destacado em vermelho e já se encontra
+disponibilizado para outra unidade.
+
+No próximo exemplo, será demonstrado como incluir documentos no bloco e só disponibilizá-lo
+para outra unidade posteriormente. Acesse o processo em que se encontram os documentos que
+serão incluídos no bloco. Depois, selecione um dos documentos, na Árvore do Processo, e clique
+no ícone Incluir em Bloco de Assinatura
+
+, na Barra de Ícones.
+
+Na tela Incluir em Bloco de Assinatura, no campo Bloco, selecione um Bloco já existente ou crie
+um Bloco, se necessário; marque a caixa de seleção dos documentos que deseja incluir no Bloco;
+e, em seguida, clique no botão Incluir.
+
+49
+
+Agora, na tela Incluir em Bloco de Assinatura, os documentos selecionados aparecerão já
+inseridos no Bloco. Portanto, clique no link Ir para Blocos de Assinatura que está logo abaixo do
+campo Bloco.
+
+Para visualização, edição e assinatura dos documentos contidos no Bloco por usuário de outra
+unidade, será necessário disponibilizá-lo para a unidade. Para isso, clique no ícone Disponibilizar
+Bloco
+
+correspondente ao Bloco, disponível na coluna Ações.
+
+Agora, o Bloco disponibilizado aparecerá na cor amarela e seu estado será disponibilizado. Haverá
+também uma modificação nos ícones disponíveis na coluna Ações, pois só aparecerão os ícones
+de ações possíveis no estado em que o Bloco se encontra.
+
+A unidade que disponibilizou o Bloco de Assinatura para outra unidade poderá cancelar essa
+disponibilização a qualquer momento. Para isso, basta clicar no ícone Cancelar Disponibilização
+correspondente ao Bloco, disponível na coluna Ações.
+Quando o Bloco de Assinatura for utilizado com a finalidade de agrupar vários documentos, para
+assinatura em lote, na própria unidade, o campo Unidades para Disponibilização da tela Novo
+Bloco de Assinatura ou Alterar Bloco de Assinatura deverá ser deixado em branco, já que o
+Bloco não será disponibilizado para nenhuma unidade.
+50
+
+19.2 COMO RECEBER O BLOCO DE ASSINATURA, ASSINAR DOCUMENTOS E RETORNÁ-LO
+Na tela Controle de Processos, acesse o Menu Principal, opção Blocos, e clique em Assinatura.
+
+Para visualizar o(s) documento(s)/processo(s) recebido(s) para assinatura, clique no botão
+Processos/Documentos do Bloco correspondente ao Bloco, que se encontra na coluna Ações;
+ou clique sobre o número do Bloco, na coluna Número. Assim, o usuário será redirecionado para a
+tela Documentos do Bloco de Assinatura.
+
+Nessa tela, por meio dos ícones disponíveis na coluna Ações, o usuário poderá assinar o documento,
+sem visualizá-lo, por meio do ícone Assinar Documento
+ícone Anotações
+
+; e inserir anotações, por meio do
+
+. Para visualizar o documento antes da assinatura, o usuário deverá clicar
+
+em seu número, na coluna Documento. Caso deseje ver todo o processo antes da assinatura do
+documento, poderá clicar em seu número, na coluna Processo.
+
+51
+
+Ao clicar no processo, o usuário será direcionado para a tela do processo e poderá editar o
+documento, clicando no ícone Editar Conteúdo
+
+, caso o documento ainda não tenha nenhuma
+
+assinatura.
+
+Já ao clicar no número do documento, na coluna Documento, aparecerá uma janela, conforme
+imagem abaixo.
+
+Nessa janela, o usuário poderá ir para a Árvore do Processo, por meio do ícone Visualizar Árvore
+do Processo
+
+; assinar cada documento, por meio do ícone Assinar Documento
+
+pelos documentos do Bloco, por meio dos ícones
+
+; navegar
+
+; e marcar os documentos que deseja assinar,
+
+por meio da opção Selecionar para Assinatura.
+É importante destacar que, nessa janela, poderá escolher a opção de navegar pelos documentos
+(que podem ser de processos diferentes) e selecioná-los para assinatura, por meio da caixa
+Selecionar para Assinatura. Após assinar, basta fechar a janela e retornar à tela Documentos do
+Bloco de Assinatura.
+
+52
+
+Agora, na janela Documentos do Bloco de Assinatura, no campo da coluna Assinaturas
+correspondente aos documentos que foram assinados, constarão o nome e o cargo do usuário que
+os assinou. Para retornar à tela Bloco de Assinaturas, clique no botão Fechar.
+
+Nessa tela, o usuário poderá devolver o bloco à unidade remetente, por meio do ícone Devolver
+Bloco
+
+, que se encontra na coluna Ações; ou selecionar o bloco e clicar no botão Devolver, que
+
+se encontra na parte superior da tela.
+
+Antes da devolução, aparecerá uma tela de confirmação e, após a devolução, o Bloco desaparecerá
+da tela Blocos de Assinatura.
+Na tela Controle de Processos da unidade que criou e disponibilizou o bloco, aparecerá, ao lado
+número do processo em que documentos foram assinados, o símbolo
+
+, indicando que há um
+
+novo documento assinado no processo.
+
+53
+
+19.3 COMO RETIRAR DOCUMENTOS DO BLOCO DE ASSINATURA E CONCLUÍ-LO PARA SER
+REUTILIZADO
+No Menu Principal, selecione Blocos e clique em Assinatura, para acessar a tela Blocos de
+Assinatura.
+
+Nessa tela, quando um Bloco é retornado por uma unidade, aparece no estado Retornado.
+
+Os Blocos de Assinatura criados e retornados ou aqueles que tiveram sua disponibilização
+cancelada poderão ser reutilizados. Para isso, é interessante que o usuário retire do Bloco que será
+reutilizado os documentos nele incluídos. Assim, evita-se que os novos documentos incluídos no
+Bloco sejam confundidos com os documentos que já estavam nele anteriormente.
+O usuário poderá também, caso não queira reutilizar imediatamente o Bloco criado, concluí-lo e
+reabri-lo posteriormente, quando desejar utilizá-lo.
+Para concluir um Bloco, basta clicar no ícone Concluir Bloco
+
+, na coluna Ações, ou selecionar o
+
+Bloco e clicar no botão Concluir, na parte superior da tela Blocos de Assinatura.
+
+Ao concluir um Bloco, ele desaparecerá da tela Blocos de Assinatura. Para visualizar e reabrir
+um Bloco que foi concluído, o usuário deverá marcar a opção Concluído na caixa Estado, que fica
+na parte superior da tela Blocos de Assinatura. Na caixa Estado, haverá opção de escolha, por
+estado, dos Blocos que o usuário deseja visualizar na tela Blocos de Assinatura.
+54
+
+Portanto, se a opção Concluído estiver marcada, os Blocos concluídos também aparecerão na
+tela Blocos de Assinatura e, assim, o usuário poderá reabri-los para serem reutilizados. Para isso,
+basta clicar no ícone Reabrir Bloco
+
+, que se encontra na coluna Ações.
+
+19.4 COMO INSERIR SINALIZAÇÕES NO BLOCO DE ASSINATURA
+O usuário poderá inserir Sinalizações nos Blocos de Assinatura. Basta clicar nos respectivos ícones
+na coluna Sinalizações:Prioritário
+
+Ao clicar no ícone Prioritário
+
+, Revisado
+
+, Comentado
+
+.
+
+, ele passará a ser apresentado na cor vermelha
+
+e, ao
+
+posicionar o cursor sobre ele, aparecerá o usuário que inseriu a sinalização no Bloco, bem como a
+data e a hora em que isso ocorreu.
+
+55
+
+Ao clicar no ícone Revisado
+
+, sua cor será alterada para azul
+
+e, ao posicionar o cursor
+
+sobre ele, serão informados o dia e a hora em que os documentos do Bloco foram revisados, bem
+como o usuário que fez a revisão.
+
+Já ao clicar no ícone Comentado
+
+, aparecerá uma janela para que seja digitado o Comentário.
+
+Então, preencha o campo Descrição e clique no botão Salvar.
+
+Agora, o ícone Comentário aparecerá na cor laranja e, ao posicionar o cursor sobre ele, será possível
+visualizar o Comentário efetuado no bloco, bem como o usuário que o incluiu e a data e hora da
+inclusão.
+
+Por meio da caixa Sinalizações, que fica na parte superior da tela Blocos de Assinatura, há
+possibilidade de utilização de filtros para visualização dos blocos Prioritários, Revisados e
+Comentados. Assim, quando é marcada a opção Prioritários, por exemplo, todos os Blocos com
+essa sinalização serão visualizados na tela.
+
+56
+
+As Sinalizações poderão ser utilizadas também nos Blocos de Reunião e nos Blocos Internos.
+19.5 COMO ATRIBUIR O BLOCO DE ASSINATURA A UM USUÁRIO
+Clique no ícone Atribuir Bloco
+
+, que se encontra na coluna Ações; ou selecione o Bloco e clique
+
+no botão Atribuir, que se encontra na parte superior da tela Blocos de Assinatura.
+
+Na tela Atribuir Bloco, selecione um usuário para atribuição do Bloco, clicando na seta da caixa
+Atribuir para. Depois, clique no botão Salvar.
+
+Por meio do link Ver blocos atribuídos a mim, o usuário poderá visualizar na tela Blocos de
+Assinatura apenas os Blocos que lhe foram atribuídos, conforme imagem a seguir.
+
+Seguindo as mesmas orientações para Atribuir Bloco a um usuário, será possível alterar a atribuição
+do Bloco para outro usuário ou retirar a atribuição. Para o Bloco ficar sem nenhuma atribuição,
+basta deixar a caixa Atribuir para em branco e clicar no botão Salvar.
+57
+
+Assim como as Sinalizações, o recurso Atribuir Bloco também estará disponível nos Blocos de
+Reunião e nos Blocos Internos.
+19.6 COMO CRIAR E UTILIZAR UM GRUPO PARA BLOCO DE ASSINATURA
+Para criar um Grupo, para inclusão de Blocos de Assinatura, na tela Blocos de Assinatura, clique
+no botão Listar Grupos.
+
+Ao clicar nessa opção, aparecerão todos os Grupos existentes na unidade para seleção e será
+possível a criação de um Grupo por meio do botão Novo. Portanto, clique no botão Novo.
+
+Na tela Novo Grupo de Bloco, preencha o nome do novo Grupo e clique no botão Salvar.
+
+Agora, o novo Grupo aparecerá na Lista de Grupos de Blocos da unidade, na tela Grupos de Blocos.
+Nessa tela, por meio dos ícones disponíveis na coluna Ações, o usuário poderá realizar as seguintes
+ações:
+•
+
+Alterar Grupo de Bloco
+
+•
+
+Desativar Grupo de Bloco
+
+: permite alteração no nome do Grupo;
+: permite a desativação do Grupo e, assim, nenhum
+
+Bloco poderá ser inserido nele, até ser ativado novamente;
+•
+
+Reativar Grupo de Bloco
+
+: permite a reativação do Grupo que foi desativado para
+
+que possa ser utilizado novamente;
+58
+
+•
+
+Excluir Grupo de Bloco
+
+: exclui definitivamente o Grupo de Bloco. Para isso, não
+
+poderá haver nenhum Bloco inserido no Grupo.
+
+Para retornar à tela Blocos de Assinatura, clique no botão Fechar.
+O usuário possui mais de uma opção para incluir um Bloco de Assinatura em um novo Grupo.
+Uma das opções é, na tela Blocos de Assinatura, selecionar o Bloco que deseja incluir em Grupo
+e clicar no botão Alterar Grupo.
+
+Aparecerá a tela Alterar Grupo de Blocos. Nela, o usuário tem a opção de escolher um Grupo já
+existente ou criar um Grupo, por meio do ícone Novo Grupo de Bloco
+
+. Nessa mesma tela, é
+
+possível retirar um bloco de assinaturas de um Grupo. Para isso, basta não selecionar nenhum dos
+grupos existentes e clicar no botão Salvar.
+
+Após a inclusão do Bloco no Grupo, o usuário é direcionado para a tela Blocos de Assinatura.
+Agora, nessa tela, só serão visualizados os Blocos que foram incluídos no Grupo escolhido.
+
+59
+
+Para visualizar novamente todos os Blocos de Assinatura na tela, basta clicar na caixa Grupo e
+selecionar a opção Todos.
+
+20. BLOCO DE REUNIÃO
+Recurso destinado à disponibilização de processos para conhecimento. Por meio dessa
+funcionalidade, o usuário de unidade diferente daquela que produziu os documentos consegue
+visualizar as minutas que compõem o processo disponibilizado.
+20.1 COMO CRIAR UM BLOCO DE REUNIÃO
+Na tela Controle de Processos, selecione um ou mais processos e clique no ícone Incluir em Bloco
+, disponível na Barra de Ícones; ou acesse o processo e clique no mesmo ícone, disponível
+também na Barra de Ícones do processo.
+
+Na tela Selecionar Bloco, escolha um Bloco existente ou clique no botão Novo Bloco de Reunião
+para criação de um Bloco.
+
+Ao criar um Bloco, na tela Novo Bloco de Reunião, insira a Descrição; escolha um Grupo para
+inclusão do Bloco, caso deseje; indique a(s) unidade(s) para disponibilização; e depois clique em
+Salvar.
+60
+
+O usuário será direcionado novamente para a tela Selecionar Bloco. O Bloco criado já estará
+selecionado e aparecerá na cor amarela. Para incluir o(s) processo(s) no Bloco, clique no ícone
+Escolher este Bloco
+
+correspondente ao Bloco desejado, na coluna Ações; ou verifique se a
+
+caixa de seleção do Bloco está marcada e, em seguida, clique no botão OK.
+
+Assim, o(s) processo(s) será(ão) automaticamente incluído(s) no Bloco e o usuário será
+direcionado para a tela Processos do Bloco de Reunião.
+
+Nessa tela, é possível acessar o processo, clicando em seu número; incluir anotações, por meio
+do ícone Anotações
+
+; e retirar o processo do Bloco, por meio do ícone Retirar Processo/
+
+Documento do Bloco
+
+, ou selecionando o processo e clicando no botão Retirar do Bloco.
+
+Os ícones estarão disponíveis na coluna Ações. Para sair da tela Processos do Bloco de Reunião,
+clique no botão Fechar.
+
+Para que outra unidade tenha acesso ao processo incluído em um Bloco de Reunião, será necessária
+a disponibilização do Bloco pela unidade que fez a inclusão.
+61
+
+Ao escolher um Bloco já existente para inclusão de processo, certifique-se do Tipo de Bloco que
+deseja utilizar, pois a tela Selecionar Bloco exibirá tanto os Blocos Internos quanto os Blocos de
+Reunião criados na unidade.
+20.2 COMO DISPONIBILIZAR O BLOCO DE REUNIÃO
+Para disponibilizar o Bloco de Reunião, acesse, no Menu Principal, a opção Blocos e clique em
+Reunião.
+
+Será aberta a tela Blocos de Reunião. Nessa tela, serão listados todos os Blocos de Reunião
+que se encontram na unidade e será possível realizar várias ações nesses Blocos, dependendo do
+estado em que eles se encontram.
+Na coluna Ações, poderão estar disponíveis os seguintes ícones:
+•
+
+Atribuir Bloco
+
+•
+
+Processos/Documentos do Bloco
+
+: permite a atribuição do Bloco a um usuário da unidade;
+: possibilita a visualização dos processos
+
+incluídos no Bloco;
+•
+
+Disponibilizar Bloco
+
+•
+
+Cancelar Disponibilização
+
+: possibilita a disponibilização do Bloco para outra unidade;
+: possibilita o cancelamento da disponibilização do
+
+Bloco a outra unidade;
+•
+
+Devolver Bloco
+
+•
+
+Alterar Bloco
+
+: permite a devolução do Bloco pela unidade que o recebeu;
+: possibilita a alteração da descrição do Bloco, do Grupo e da unidade
+
+para disponibilização
+•
+
+Concluir Bloco
+
+: permite a conclusão do Bloco que já cumpriu seu propósito;
+
+•
+
+Reabrir Bloco
+
+: permite a reabertura do Bloco que havia sido concluído, para ser
+
+utilizado novamente;
+•
+
+Excluir Bloco
+
+: permite a exclusão do Bloco que não possui processos.
+
+Para disponibilizar o Bloco de Reunião para outra unidade, clique no ícone Disponibilizar Bloco
+, disponível na coluna Ações.
+62
+
+Observe que o Estado do Bloco será alterado para Disponibilizado e os ícones disponíveis na
+coluna Ações não serão mais os mesmos, já que só aparecerão os ícones de ações possíveis no
+estado em que o Bloco se encontra.
+
+20.3 COMO RECEBER O BLOCO DE REUNIÃO, VISUALIZAR A MINUTA DE DOCUMENTO E
+DEVOLVÊ-LO
+Para acessar um Bloco de Reunião disponibilizado por outra unidade, no Menu Principal, acesse
+Blocos e, em seguida, clique em Reunião.
+Será aberta a tela Blocos de Reunião e nela aparecerão todos os Blocos na unidade (gerados,
+disponibilizados, recebidos, retornados e concluídos, dependendo da seleção feita pela unidade
+para visualização dos Blocos na tela).
+Para visualizar o(s) processo(s) incluídos em um Bloco, clique sobre o Número do Bloco ou sobre
+o ícone Processos/Documentos do Bloco
+
+, disponível na coluna Ações.
+
+Em seguida, na tela Processos do Bloco de Reunião, para acessar o processo desejado, clique
+sobre seu número.
+
+Assim, será aberta a tela do processo para que o usuário possa visualizar a minuta do documento
+feita pela outra unidade. Após a visualização da minuta, o usuário, caso deseje, poderá retornar o
+Bloco à unidade de origem. Para isso, será necessário retornar à tela Blocos de Reunião. Portanto,
+acesse o Menu Principal, selecione a opção Blocos e clique em Reunião.
+Na tela Blocos de Reunião, clique no ícone Devolver Bloco
+
+correspondente ao Bloco, na coluna
+
+Ações; ou selecione o Bloco desejado e clique no botão Devolver. Aparecerá uma solicitação de
+confirmação de devolução do Bloco. Clique em OK.
+63
+
+Na tela Blocos de Reunião da unidade que disponibilizou o Bloco, ele aparecerá agora no estado
+Retornado.
+
+O Bloco de Reunião possibilita a visualização de minutas de documentos por unidades que não as
+geraram, porém não será possível a edição nem a assinatura dessas minutas.
+O fato de um processo ser incluído em um Bloco de Reunião e ser disponibilizado para outra unidade
+não significa que o processo tramitará por aquela unidade. No entanto, a unidade conseguirá
+localizar o processo pela Pesquisa, mesmo se tratando de processo restrito. A visualização do
+conteúdo dos documentos ficará vinculada à disponibilização do Bloco.
+20.4 COMO RETIRAR PROCESSOS DO BLOCO DE REUNIÃO E CONCLUÍ-LO PARA SER
+REUTILIZADO
+Após o retorno de um Bloco, o usuário poderá retirar os processos que foram incluídos nele, para
+que ele possa ser reaproveitado.
+Para isso, acesse o Menu Principal, opção Blocos e clique em Reunião. Na tela Blocos de Reunião,
+clique no número do Bloco desejado.
+Na próxima tela, selecione os processos que deseja excluir do Bloco e clique no botão Retirar do
+Bloco, ou clique no botão Retirar Processo/Documento do Bloco
+
+correspondente a cada
+
+processo, na coluna Ações. Na solicitação de confirmação da retirada dos protocolos do Bloco,
+clique em OK.
+
+64
+
+Após a retirada dos processos do Bloco, clique no botão Fechar para retornar à tela Blocos
+de Reunião. Nessa tela, para concluir o Bloco, a fim de que ele possa ser utilizado novamente,
+selecione-o e clique no botão Concluir, ou clique no ícone Concluir Bloco
+
+, disponível na
+
+coluna Ações. Na solicitação de confirmação de conclusão do Bloco, clique em OK.
+
+Ao concluir o Bloco, ele desaparecerá da tela Blocos de Reunião.
+
+Para visualizar e reabrir um Bloco que foi concluído, o usuário deverá marcar a opção Concluído na
+caixa Estado que fica na parte superior da tela Blocos de Reunião.
+Assim, os Blocos concluídos também aparecerão na tela e o usuário poderá reabri-los para serem
+reutilizados. Para isso, basta clicar no ícone Reabrir Bloco
+
+, que se encontra na coluna Ações.
+
+21. ACOMPANHAMENTO ESPECIAL
+O recurso Acompanhamento Especial permite o acompanhamento do trâmite e das atualizações
+posteriores de processos públicos; de processos restritos que já tramitaram pela unidade; e de
+processos sigilosos (somente por usuários que possuem credencial de acesso ao processo).
+21.1 COMO INCLUIR UM PROCESSO EM ACOMPANHAMENTO ESPECIAL
+Acesse o processo e clique no ícone Acompanhamento Especial
+
+, na Barra de Ícones.
+65
+
+O usuário será direcionado para a tela Novo Acompanhamento Especial e terá três opções:
+1. Clicar no botão Salvar (nesse caso, o processo estará em Acompanhamento Especial, mas não
+será incluído em nenhum Grupo de Acompanhamento);
+2. Inserir o processo em um Grupo de Acompanhamento já existente e Salvar;
+3. Criar um Grupo, para inclusão do processo, e Salvar.
+
+Para criar um Grupo de Acompanhamento, basta clicar no ícone
+
+, à direita da caixa Grupo.
+
+Aparecerá a janela Novo Grupo de Acompanhamento. Nela, digite o nome do novo Grupo, no
+campo Nome; em seguida, clique no botão Salvar.
+
+O Grupo de Acompanhamento Especial será criado, e o processo poderá ser incluído nele. Há
+possibilidade de se acrescentar alguma Observação, caso seja necessário. Após o preenchimento
+dos campos, basta clicar no botão Salvar.
+
+66
+
+Na tela seguinte, o usuário poderá adicionar outro Acompanhamento Especial no processo,
+clicando no botão Adicionar; ou excluir o Acompanhamento existente, clicando no botão Excluir.
+Para a exclusão, é necessário, primeiramente, selecionar o Acompanhamento Especial a ser
+excluído.
+Na coluna Ações, encontram-se os ícones Alterar Acompanhamento
+Acompanhamento
+
+e Excluir
+
+.
+
+Os processos incluídos em Acompanhamento Especial receberão o ícone
+
+, à direita de
+
+seu número. Ao posicionar o cursor sobre esse ícone, o usuário conseguirá visualizar quantos
+Acompanhamentos Especiais existem no processo.
+E, para visualizar os Acompanhamentos Especiais do processo, basta clicar sobre o ícone
+
+, ao
+
+lado do número do processo ou na Barra de Ícones.
+
+Assim, será aberta a tela Acompanhamentos Especiais do Processo.
+
+21.2 COMO VISUALIZAR PROCESSOS INCLUÍDOS EM ACOMPANHAMENTO ESPECIAL
+Para visualizar os processos incluídos em Acompanhamento Especial pela sua unidade, acesse o
+Menu Principal e clique em Acompanhamento Especial.
+
+67
+
+Aparecerá uma tela exibindo todos os processos incluídos em Acompanhamento Especial.
+
+Para facilitar a visualização, o usuário poderá selecionar um Grupo de Acompanhamento Especial.
+E, para acessar um processo, basta clicar sobre seu número.
+Na tela Acompanhamento Especial, o usuário poderá ainda realizar as seguintes ações: Pesquisar,
+Listar Grupos, Alterar Grupo, Excluir, Imprimir, Fechar e incluir Palavras-chave para pesquisa.
+21.3 COMO INCLUIR PROCESSOS EM ACOMPANHAMENTO ESPECIAL EM LOTE
+Na tela Controle de Processos, selecione os processos que serão incluídos em Acompanhamento
+Especial e clique no ícone Acompanhamento Especial
+
+, disponível na Barra de Ícones.
+
+22. BLOCO INTERNO
+Recurso utilizado para organizar internamente grupos de processos que possuem alguma
+semelhança entre si. O Bloco Interno também permite o acompanhamento das atualizações
+posteriores dos processos públicos ou restritos que já tramitaram pela unidade.
+22.1 COMO CRIAR UM BLOCO INTERNO
+Na tela Controle de Processos, selecione um ou mais processos e clique no ícone Incluir em Bloco
+, disponível na Barra de Ícones.
+
+68
+
+Ou acesse o processo e clique no mesmo ícone na barra de ícones do processo.
+
+Na tela Selecionar Bloco, o usuário poderá escolher um Bloco Interno já existente na unidade ou
+clicar no botão Novo Bloco Interno para criar um Bloco.
+
+Clique no botão Novo Bloco Interno a fim de ser direcionado para a tela Novo Bloco Interno. Nela,
+preencha o campo Descrição; selecione um Grupo, se for o caso; e, em seguida, clique no botão
+Salvar.
+
+Com o Bloco Interno criado, o próximo passo será incluir nele o processo. Para isso, clique no
+ícone Escolher este Bloco
+
+, na coluna Ações; ou verifique se a caixa de seleção do Bloco está
+
+marcada e, em seguida, clique no botão OK.
+
+69
+
+Assim, o(s) processo(s) será(ão) automaticamente incluído(s) no Bloco, e o usuário será
+direcionado para a tela Processos do Bloco Interno.
+
+Nessa tela, será possível: acessar o processo, clicando em seu número; incluir Anotações, por meio do
+ícone Anotações
+do Bloco
+
+; retirar o processo do Bloco, por meio do ícone Retirar Processo/Documento
+
+, ou selecionando o processo e clicando no botão Retirar do Bloco; e incluir o processo
+
+em Acompanhamento Especial, por meio do botão Incluir em Acompanhamento Especial.
+Ao clicar no botão Fechar na tela Processos do Bloco Interno, o usuário será direcionado para a
+tela Blocos Internos, em que poderá visualizar todos os Blocos da unidade.
+
+Ao escolher um Bloco já existente para inclusão de processo, certifique-se do Tipo de Bloco que
+deseja utilizar, pois a tela Selecionar Bloco exibirá tanto os Blocos Internos quanto os Blocos de
+Reunião criados na unidade.
+22.2 COMO CONSULTAR OS BLOCOS INTERNOS
+Na tela Controle de Processos, acesse o Menu Principal, a opção Blocos e clique em Internos.
+
+70
+
+Será aberta a tela Blocos Internos. Nela, serão visualizados todos os Blocos Internos da unidade.
+
+Nessa tela, por meio dos ícones disponíveis na coluna Ações, dependendo do estado do Bloco, é
+possível:
+•
+
+Atribuir Bloco a um usuário
+
+•
+
+Consultar os processos inseridos no Bloco
+
+•
+
+Alterar a descrição do Bloco ou o Grupo no qual foi incluído
+
+•
+
+Concluir Bloco
+
+•
+
+Reabrir Bloco
+
+•
+
+Excluir Bloco que não possui processos
+
+;
+;
+;
+
+;
+;
+;
+
+22.3 DIFERENÇAS ENTRE BLOCO INTERNO E ACOMPANHAMENTO ESPECIAL
+O Bloco Interno é principalmente uma ferramenta de organização dos processos na unidade, que
+facilita a localização desses processos, quando necessário. Já o Acompanhamento Especial é
+uma funcionalidade que permite o acompanhamento de processos que ainda terão algum trâmite
+ou que poderão impactar as decisões da unidade.
+Portanto, o processo incluído em Bloco Interno poderá também ser incluído em Acompanhamento
+Especial.
+No Acompanhamento Especial, os processos são exibidos em uma Lista, e há um filtro que
+possibilita a visualização apenas dos processos incluídos em determinado Grupo. Nos Blocos
+Internos, não há uma Lista única dos processos, já que eles ficam agrupados por Blocos.
+Além disso, não há nenhum ícone (como acontece no Acompanhamento Especial
+
+) que
+
+identifica o processo incluído em um Bloco Interno. A informação de que o processo foi incluído
+em um Bloco, com o respectivo número do Bloco, consta no Histórico do processo.
+71
+
+23. PESQUISA
+Recurso que permite a realização de Pesquisa rápida, estruturada ou restrita ao processo.
+23.1 COMO FAZER PESQUISA RÁPIDA
+A Pesquisa Rápida é indicada para informações simples e certas, como protocolos, números de
+processos e palavras.
+Para realizar uma Pesquisa Rápida, insira a informação procurada no campo Pesquisar, localizado
+na Barra de Ferramentas do sistema. Em seguida, tecle Enter ou clique no ícone Pesquisa Rápida
+.
+
+24. ESTATÍSTICAS
+Recurso que permite a visualização das Estatísticas da Unidade e do Desempenho de Processos.
+Possibilita também a localização de processos e documentos que tramitaram na unidade.
+24.1 COMO ACESSAR AS ESTATÍSTICAS DA UNIDADE
+No Menu Principal, acesse a opção Estatísticas e depois clique em Unidade.
+
+Na tela Estatísticas da Unidade, informe o período desejado para o resultado das Estatísticas e,
+em seguida, clique no botão Pesquisar. Os campos referentes ao período podem ser preenchidos
+por meio de digitação da data ou por meio da seleção de uma data nos calendários que serão
+disponibilizados quando o usuário clicar nos ícones Selecionar Data Inicial e Selecionar Data
+Final
+
+.
+
+Após clicar em Pesquisar, a tela Estatísticas da Unidade apresentará tabelas e gráficos com as
+seguintes informações estatísticas:
+72
+
+•
+
+Processos gerados no período;
+
+•
+
+Processos com tramitação no período;
+
+•
+
+Processos com andamento fechado na unidade ao final do período;
+
+•
+
+Processos com andamento aberto na unidade ao final do período;
+
+•
+
+Tempos médios de tramitação no período;
+
+•
+
+Documentos gerados no período;
+
+•
+
+Documentos externos no período.
+
+Essas informações são apresentadas, nas tabelas e nos gráficos, por tipo de processo e tipo de
+documento.
+Para localizar um processo ou um documento, clique nos números referentes à quantidade
+de cada um dos tipos de processo ou de documento, exibidos nas tabelas ou nas colunas dos
+gráficos de determinada informação estatística. Assim, será aberta a janela correspondente ao
+tipo selecionado em cada tabela ou gráfico.
+Nas janelas correspondentes a cada informação estatística de determinado Tipo de processo ou
+documento, o usuário pode acessar o processo ou o documento clicando sobre seu número.
+24.2 COMO ACESSAR AS ESTATÍSTICAS DE DESEMPENHO DE PROCESSOS
+No Menu Principal, acesse a opção Estatísticas e depois clique em Desempenho de Processos.
+
+Na tela Estatísticas de Desempenho de Processos, selecione o Órgão; preencha o campo Tipo
+de Processo ou selecione o(s) tipo(s) de processo, por meio do ícone Selecionar Tipo de Processo
+; preencha o campo Período ou selecione uma data, por meio dos ícones Selecionar Data
+Inicial e Selecionar Data Final
+
+; marque a opção Considerar apenas processos concluídos,
+
+se for o caso; depois, clique em Pesquisar.
+
+73
+
+Será exibida uma tabela com a Lista de desempenho de processos no período. Nela, há as
+seguintes informações: Tipo do processo, Quantidade de processos por tipo e Tempo Médio de
+trâmite dos tipos de processo no Órgão. Além da tabela, será exibido o gráfico correspondente a
+ela.
+Para acessar informações detalhadas de determinado Tipo de processo, clique na Quantidade
+ou no Tempo Médio correspondente ao tipo na tabela ou na coluna do gráfico correspondente.
+Assim, será exibida a janela Desempenho por Processo referente ao Tipo de processo selecionado.
+Nessa janela, constam as seguintes informações por processo: número do Processo; data e hora da
+Abertura; data e hora da Conclusão, se for o caso; e Tempo de trâmite no Órgão.
+Para visualizar o desempenho específico de um processo, clique no Tempo correspondente ao
+processo desejado. Será aberta a janela Desempenho do Processo.
+Para retornar à janela Desempenho por Processo, clique no botão Fechar.
+Na janela Desempenho por Processo, é possível acessar o processo, clicando sobre seu número.
+E há ainda a possibilidade de detalhar o desempenho do tipo de Processo por unidade. Para isso,
+clique no link Detalhar por Unidade.
+Ao clicar no link Detalhar por Unidade, será aberta a tela Desempenho por Unidade. Nela, será
+exibida a Lista de Registros de Detalhamento do tipo de processo selecionado, com as seguintes
+informações: Órgão, Unidade, Quantidade de processos e Tempo Médio na Unidade.
+Caso deseje acessar os processos específicos de uma unidade, clique no número correspondente
+na coluna Quantidade ou na coluna Tempo Médio na Unidade. Assim, será aberta a tela
+Desempenho dos Processos na Unidade. Nela, será possível acessar cada processo, clicando em
+seu número.
+
+25. MARCADOR
+Esse recurso tem por objetivo organizar os processos da unidade, por meio da atribuição de ícones,
+com cor e nome próprios. Os Marcadores são criados, gerenciados e adicionados aos processos
+pela própria unidade, que tem autonomia para definir a cor e a descrição de cada Marcador. Trata-se, portanto, de uma ferramenta de organização interna.
+
+74
+
+25.1 COMO CRIAR UM MARCADOR
+No Menu Principal, selecione a opção Marcadores e, na tela seguinte, clique no botão Novo.
+
+Na tela Novo Marcador, selecione uma cor, na caixa Ícone; insira um nome para o Marcador que
+será criado, no campo Nome; em seguida, clique no botão Salvar.
+
+O novo Marcador será incluído na Lista de Marcadores da unidade e poderá ser atribuído a um
+processo.
+
+75
+
+O sistema disponibiliza várias cores para a criação de Marcadores, entretanto não há impedimento
+de se usar a mesma cor para designar mais de um nome.
+25.2 Como atribuir Marcador a processos
+A atribuição de Marcadores a processos pode ser feita de duas maneiras:
+1. Na tela Controle de Processos, marque a caixa de seleção do(s) processo(s) e, em seguida,
+clique no ícone Adicionar Marcador
+
+, na Barra de Ícones.
+
+2. Na tela do processo, clique no ícone Gerenciar Marcador
+
+, disponível na barra de ícones.
+
+Depois de efetuar uma das opções descritas acima, será aberta a tela Adicionar Marcador.
+Nessa tela, o usuário poderá selecionar um Marcador já existente, na caixa Marcador; ou criar um
+Marcador clicando no ícone Novo Marcador
+
+, depois clique em Salvar.
+
+76
+
+O Marcador atribuído ao(s) processo(s) será visualizado, ao lado de seu número, na tela Controle
+de Processos e na tela do processo.
+
+Ao clicar sobre o ícone do Marcador, tanto na tela Controle de Processos quanto na tela do
+processo, será aberta a tela Marcadores do Processo. Nela, visualizam-se todos os Marcadores
+do processo e, por meio dos ícones disponíveis na coluna Ações, é possível: Alterar Texto do
+Marcador
+
+e Remover Marcador do Processo
+
+.
+
+Além disso, por meio dos botões disponíveis na tela, o usuário poderá: Adicionar um novo Marcador
+ao processo; Remover um Marcador, após selecioná-lo; ou visualizar o Histórico do Marcador.
+
+É possível atribuir mais de um Marcador ao mesmo processo. Nesse caso, como visto anteriormente,
+também será possível atribuir Marcador acessando a tela Marcadores do Processo.
+25.3 COMO REMOVER MARCADOR DE PROCESSO
+Há duas opções para remover um Marcador do processo:
+77
+
+1. Na tela Controle de Processos, selecione o(s) processo(s) e clique no ícone Remover Marcador
+, na Barra de Ícones.
+
+2. Na tela Controle de Processos ou na tela do processo, clique sobre o ícone do Marcador ao
+lado do número do processo.
+
+Na primeira opção, ao clicar no ícone Remover Marcador, será aberta a tela Remoção de Marcador.
+Nela, caso o processo tenha apenas um Marcador, clique no botão Remover. Se o processo tiver
+mais de um marcador, selecione, na caixa Marcador, aquele que será removido e, depois, clicar em
+Remover.
+
+Na segunda opção, ao clicar sobre o ícone do Marcador que fica ao lado do número do processo,
+tanto na tela Controle de Processos quanto na tela do processo, será aberta a tela Marcadores
+do Processo.
+78
+
+Nessa tela, o usuário poderá remover o Marcador por meio do ícone Remover Marcador do
+Processo
+
+, disponível na coluna Ações; ou por meio do botão Remover, após selecionar o
+
+Marcador.
+
+25.4 COMO CONSULTAR O HISTÓRICO DE MARCADORES DO PROCESSO
+Na tela do processo ou na tela Controle de Processos, clique no ícone do Marcador ao lado do
+número do processo para acessar a tela Marcadores do Processo. Em seguida, clique no botão
+Histórico.
+
+Na tela Histórico de Marcadores de Processo, será exibido o Histórico de Marcadores que
+apresenta as seguintes informações a respeito do Marcador: Data/Hora da inclusão; Usuário
+responsável pela inclusão; Operação (inclusão, alteração ou remoção); Marcador (ícone e nome);
+Texto (informações adicionais).
+
+25.5 COMO VISUALIZAR A TELA CONTROLE DE PROCESSOS POR MARCADORES
+Na tela Controle de Processos, clique no link Ver por marcadores.
+79
+
+Assim, a tela Controle de Processos exibirá a lista de Marcadores e a quantidade de processos
+por Marcador.
+
+Para visualizar os processos correspondentes a determinado Marcador, clique no número referente
+a ele, na coluna Processos. Então, a tela Controle de Processos exibirá apenas os processos com
+o Marcador selecionado.
+
+Para retornar à tela anterior e visualizar novamente a lista de Marcadores e a quantidade de
+processos por Marcador, clique no ícone Remover filtro pelo marcador
+
+, conforme demonstrado
+
+na imagem abaixo.
+
+80
+
+A visualização da tela Controle de Processos por Marcadores apresenta ainda os seguintes links:
+•
+
+Ver processos atribuídos a mim: serão exibidos todos os processos com Marcadores
+
+atribuídos ao usuário logado;
+•
+
+Ver por processos: serão exibidos novamente, na tela Controle de Processos, todos
+
+os processos abertos na unidade (com e sem Marcadores);
+•
+
+Ver por tipo de processo: será exibida, na tela Controle de Processos, a quantidade
+
+de processos abertos na unidade por Tipo (com e sem Marcadores). Para visualizar os
+processos, clique no número correspondente à quantidade de cada Tipo, na coluna Processos.
+
+25.6 COMO GERENCIAR MARCADORES
+No Menu Principal, selecione a opção Marcadores.
+
+Na tela seguinte, será exibida a Lista de Marcadores da unidade.
+
+Na tela Marcadores, por meio dos ícones disponíveis na coluna Ações, é possível:
+81
+
+•
+
+Alterar Marcador
+
+•
+
+Desativar Marcador
+
+•
+
+Excluir Marcador
+
+•
+
+Reativar Marcador
+
+: altera a cor e/ou o nome do Marcador;
+: desativa Marcador em desuso;
+: exclui Marcador não utilizado;
+: reativa Marcador para ser utilizado novamente.
+
+As ações de excluir e desativar Marcador, poderão ser realizadas também por meio dos botões
+Excluir e Desativar, respectivamente, após a seleção do Marcador.
+
+Além disso, como visto anteriormente, na tela Marcadores, é possível a criação de novos
+Marcadores por meio do botão Novo.
+
+Os Marcadores são visualizados e gerenciados somente no âmbito da unidade que os criou.
+É possível inativar um Marcador que esteja em uso. No entanto, o sistema não permite excluir um
+Marcador que já foi utilizado, mesmo que ele não esteja sendo utilizado no momento.
+26. PAINEL DE CONTROLE
+26.1 INFORMAÇÕES DISPONÍVEIS NO PAINEL DE CONTROLE
+Funcionalidade que possibilita ao usuário ter uma visão resumida e personalizada dos processos
+da unidade.
+Para acessá-la, clique na opção Painel de Controle, que se encontra no Menu Principal.
+
+Na tela Painel de Controle, conforme a configuração, poderão ser encontradas as seguintes
+informações sobre os processos da unidade:
+•
+
+Processos abertos;
+82
+
+•
+
+Controle de prazos;
+
+•
+
+Retornos Programados;
+
+•
+
+Blocos de Assinatura abertos;
+
+•
+
+Grupos de blocos de assinatura abertos;
+
+•
+
+Processos abertos por tipo;
+
+•
+
+Marcadores em processos;
+
+•
+
+Atribuições de processos;
+
+•
+
+Acompanhamentos Especiais em processos.
+
+Para visualizar todo o conteúdo da tela Painel de Controle, é necessário usar a barra de rolagem.
+
+A seguir, cada uma das opções encontradas no Painel de Controle será detalhada.
+26.1.1 Processos abertos
+Exibe a informação do Total de processos abertos na unidade. Mostra ainda o número de processos
+abertos Recebidos, Gerados, Sem Acompanhamento e Não Visualizados. E, na coluna com o
+ícone
+
+, há o número de processos abertos em que um documento foi incluído ou assinado.
+
+Para visualizar os processos, clique no número referente à informação desejada.
+
+83
+
+Assim, na tela Controle de Processos, aparecerá a Lista dos Processos de acordo com a opção
+escolhida. Para acessar um processo da lista, clique sobre seu número.
+
+Nessa tela, ao clicar no link Configurar nível de detalhe, será possível definir os dados referentes
+ao processo para exibição na Lista de Processos.
+
+Cada item selecionado na janela Configurar Nível de Detalhe corresponderá a uma coluna nas
+Listas de Processos, que serão apresentadas de acordo com a opção selecionada no Painel de
+Controle.
+
+26.1.2 Controles de Prazos
+Apresenta o número de processos da unidade com Controle de Prazo por tipo: Em andamento,
+Atrasados e Concluídos. E, em cada um desses tipos, na coluna com o ícone
+
+, há informação
+
+do número de processos com Controle de Prazos em que um documento foi incluído ou assinado.
+Diferentemente do Retorno Programado, o Controle de Prazo é inserido nos processos pela própria
+unidade.
+84
+
+Para visualizar os processos com Controles de Prazos, clique em cima do número referente à
+informação desejada.
+
+Em seguida, na tela Controle de Processos, será exibida a Lista de Processos por Controle de
+Prazo.
+
+Na Lista de Processos por Controles de Prazo Em andamento, poderá ser encontrada a
+informação de quantos dias faltam para o vencimento do prazo. Essa informação será exibida na
+coluna Controle de Prazo, bem como ao posicionar o cursor sobre o ícone Controle de Prazo
+.
+Na Lista de Processos por Controles de Prazo Atrasados, poderá ser visualizada a informação de
+há quantos dias o prazo já está vencido.
+
+E, na Lista de Processos por Controle de Prazo Concluídos, poderá ser visualizada a informação
+de quando o prazo foi concluído. Nessa Lista, a informação somente será exibida ao posicionar o
+mouse sobre o ícone Controle de Prazo
+
+.
+
+85
+
+26.1.3 Retornos Programados
+Permite visualizar os processos enviados a outras unidades com definição de retorno até
+determinada data (Aguardando retorno de outras unidades); e indica os processos recebidos
+na unidade que necessitam ser devolvidos, até determinada data (Processos para devolver), à
+unidade que os enviou.
+Os processos com Retorno Programado são exibidos, no Painel de Controle, por tipo:
+a) Aguardando retorno de outras unidades
+•
+
+Em andamento: o prazo de retorno por outra unidade ainda não venceu;
+
+•
+
+Atrasado: o prazo de retorno por outra unidade está vencido;
+
+•
+
+Retornado: o processo já foi devolvido por outra unidade.
+
+b) Processos para devolver
+•
+
+Em andamento: o prazo para devolução à outra unidade ainda não venceu;
+
+•
+
+Atrasado: o prazo para devolução à outra unidade está vencido;
+
+•
+
+Devolvido: o processo já foi devolvido à outra unidade.
+
+E, em cada um dos tipos, na coluna com o ícone
+
+, há informação do número de processos com
+
+Retorno Programado em que um documento foi incluído ou assinado.
+Para visualizar os processos com Retornos Programados, clique em cima dos números, nas
+colunas referentes à informação desejada.
+
+Assim, na tela Controle de Processos, será exibida a Lista de Processos por Retorno Programado.
+
+86
+
+Ao selecionar um dos itens do tipo Aguardando retorno de outras unidades, será possível
+visualizar dados relacionados aos prazos definidos para retorno de processos enviados a outras
+unidades.
+Na imagem acima, há um exemplo de processo Aguardando retorno de outra unidade, cujo
+prazo de retorno está Atrasado. Então, ao posicionar o cursor sobre o ícone Aguardando Retorno
+, serão exibidos a data definida para o retorno e o número de dias de atraso na devolução do
+processo por outra unidade.
+Esta última informação poderá ser encontrada também na coluna Aguardando Retorno.
+Por outro lado, ao selecionar, no Painel de Controle, algum item do tipo Processos para devolver,
+será possível visualizar dados relacionados à devolução do processo para outra unidade.
+
+Na próxima imagem, é possível visualizar um Processo para devolver, cujo prazo está Em
+andamento.
+Portanto, ao posicionar o cursor sobre o ícone Para Devolver
+
+, serão exibidos a data definida
+
+para a devolução e o número de dias que faltam para o retorno do processo a outra unidade. A
+última informação poderá ser encontrada também na coluna Para Devolver.
+
+Na lista de Processos por Retorno Programado Retornados ou Devolvidos, a informação da
+data do retorno ou da devolução aparecerá somente ao posicionar o mouse sobre o ícone Retorno
+Cumprido
+
+ou Devolução Cumprida
+
+.
+
+87
+
+26.1.4 Blocos de Assinatura abertos
+Possibilita visualizar o número de Blocos de Assinatura abertos por Situação: Recebidos (blocos
+recebidos de outras unidades), Gerados (blocos gerados na unidade), Disponibilizados (blocos
+disponibilizados para outras unidades), Retornados (blocos devolvidos por outras unidades).
+Em cada uma das Situações, haverá informações sobre o total de Blocos; o total de Documentos
+contidos em Blocos de Assinatura; e o total de documentos Sem Assinatura contidos em Blocos.
+Para acessar os Blocos de Assinatura ou Documentos contidos nos Blocos, clique sobre o número
+na coluna correspondente à informação desejada.
+
+Se o usuário clicar em um número da coluna Blocos, será aberta a tela Blocos de Assinatura. Nela,
+serão exibidos os Blocos de acordo com a situação escolhida (Recebido, Gerado, Disponibilizado
+ou Retornado).
+
+Se o usuário clicar em um número na coluna Documentos, aparecerão todos os documentos
+contidos em Blocos de Assinatura (com assinatura e sem assinatura), conforme a Situação
+escolhida (Recebido, Gerado, Disponibilizado ou Retornado).
+
+88
+
+E, se o usuário clicar em um número da coluna Sem Assinatura, visualizará somente os documentos
+contidos em Blocos que ainda não foram assinados, conforme a situação escolhida (Recebido,
+Gerado, Disponibilizado ou Retornado).
+
+26.1.5 Grupo de Blocos de Assinaturas abertos
+Apresenta, por Grupos de Blocos de Assinatura: o total de Blocos de Assinatura abertos na
+unidade; o total de Documentos contidos nesses Blocos; e o total de documentos Sem Assinatura
+contidos nos Blocos.
+Será possível também visualizar essas informações dos Blocos de Assinatura abertos na unidade
+Sem grupo definido.
+Para acessar os Blocos de Assinatura ou documentos contidos nos Blocos, clique sobre o número
+na coluna correspondente à informação desejada
+
+Se o usuário clicar em um número na coluna Blocos, será aberta a tela Blocos de Assinatura. Nela,
+serão exibidos os Blocos de acordo com o Grupo de Blocos de Assinatura selecionado.
+
+Se o usuário clicar em um número na coluna Documentos, aparecerão todos os documentos
+contidos em Blocos de Assinatura (com assinatura e sem assinatura) que foram adicionados ao
+Grupo de Blocos de Assinatura referente à coluna selecionada.
+
+89
+
+O usuário terá também a opção de clicar em um número na coluna Sem Assinatura, para visualizar
+somente os documentos contidos em Blocos que ainda não foram assinados referentes ao Grupo
+de Blocos de Assinaturas selecionado.
+
+26.1.6 Processos abertos por tipo
+Apresenta o total de Processos da unidade por tipo. E, em cada um dos Tipos de Processo, na
+coluna com o ícone
+
+, há informação do número de processos em que um documento foi incluído
+
+ou assinado.
+Para visualizar os processos, clique em cima dos números referentes a cada Tipo, na coluna
+correspondente à informação desejada. Assim, será aberta a lista de processos do referido tipo.
+
+O exemplo abaixo mostra, na tela Controle de Processos, a Lista de Processos do tipo Solicitações
+abertos na unidade.
+
+90
+
+26.1.7 Marcadores em processos
+Apresenta o número de Processos por Marcador e o número de processos Sem marcador
+definido. E, em cada uma dessas opções, na coluna com o ícone
+
+, há informação do número
+
+de processos em que um documento foi incluído ou assinado.
+Para visualizar os processos referentes a determinado Marcador ou Sem marcador definido,
+clique sobre o número na coluna correspondente à informação desejada.
+
+Assim, na tela Controle de Processos, será exibida a Lista de Processos por Marcador.
+
+É possível incluir a coluna Marcadores na tela que exibe a Lista de Processos por Marcador. Para
+isso, basta selecionar a opção Marcadores ao Configurar Nível de Detalhe para visualização
+detalhada na tela Controle de Processos. Nesse caso, o ícone do Marcador aparecerá nessa
+coluna em vez de aparecer ao lado do número do processo.
+
+26.1.8 Atribuição de processos
+Apresenta o número de Processos atribuídos a um usuário e de processos Sem atribuição
+definida. E, na coluna com o ícone
+
+, há o número de processos atribuídos a um usuário ou
+
+sem atribuição definida em que um documento foi incluído ou assinado.
+Para visualizar os processos atribuídos a um usuário, clique sobre o número correspondente à
+informação desejada, na respectiva coluna.
+
+Será exibida, na tela Controle de Processos, a Lista de Processos por Atribuição.
+
+26.1.9 Acompanhamentos Especiais em processo
+Encontram-se as seguintes informações, por Grupos, sobre os processos que foram incluídos em
+Acompanhamento Especial: número total de processos, número de processos Abertos, número
+de processos Fechados. E, na coluna com o ícone
+
+, há o número de processos em que um
+
+documento foi incluído ou assinado por Grupo de Acompanhamento Especial.
+Há também essas informações a respeito dos processos incluídos em Acompanhamento Especial
+Sem grupo definido.
+Para visualizar os processos referentes a determinado Grupo de Acompanhamento Especial
+ou Sem grupo definido, clique em cima do número correspondente à informação desejada, na
+respectiva coluna.
+
+Dessa forma, será aberta a tela Acompanhamento Especial referente à opção selecionada.
+
+26.2 COMO CONFIGURAR O PAINEL DE CONTROLE
+O usuário poderá definir as configurações do Painel de Controle da unidade. Para isso, basta clicar
+no botão Configurar, que aparece logo acima da tela Painel de Controle.
+
+92
+
+Ao clicar nesse botão, aparecerá a tela Configurar Painel de Controle.
+
+Nessa tela, o usuário poderá marcar as opções que deseja que apareçam no Painel de Controle
+da unidade.
+Em alguns casos, poderá ainda selecionar o que deseja que apareça no Painel de Controle referente
+a determinado recurso. Para isso, basta clicar no botão Configurar Minha Seleção correspondente.
+
+Para demonstrar como funciona o botão Configurar Minha Seleção, a seguir, será configurada
+uma seleção nos Marcadores em processos.
+Primeiramente, clique no botão Configurar Minha Seleção que se encontra logo abaixo da opção
+Marcadores em processos.
+
+93
+
+Serão listados todos os Marcadores criados na unidade. Selecione aqueles que deverão aparecer
+na seleção no Painel de Controle e clique no botão Salvar.
+
+Para visualizar, no item Marcadores em processos, apenas os marcadores selecionados na opção
+Configurar Minha Seleção, clique no botão Ver Minha Seleção que aparece à direita do título
+Marcadores em processos.
+
+Agora, no Painel de Controle, só serão exibidos os Marcadores selecionados na operação
+Configurar Minha Seleção. Para visualizar novamente todos os marcadores, clique no botão Ver
+Tudo.
+
+Esse recurso de Configurar Minha Seleção poderá ser utilizado em: grupos de blocos de assinatura
+abertos, processos abertos por tipo, marcadores em processos, atribuições de processos e grupos
+de acompanhamentos especiais em processos.
+26.3 COMO UTILIZAR O PAINEL DE CONTROLE COMO PÁGINA INICIAL
+O usuário poderá configurar o Painel de Controle para que ele seja sua página inicial no sistema.
+Nesse caso, ao acessar o SEI, o usuário irá para a tela Painel de Controle em vez de ir para a tela
+Controle de Processos. Para isso, clique no botão Configurar do Painel de Controle.
+94
+
+Depois, selecione a opção Utilizar como página inicial, que se encontra no final da tela Configurar
+Painel de Controle. Em seguida, clique no botão Salvar.
+
+Agora, após o login do usuário no sistema, em vez de aparecer a tela Controle de Processos,
+aparecerá como tela inicial o Painel de Controle, conforme imagem.
+
+Para retornar à configuração anterior, basta clicar no botão Configurar da tela Painel de Controle;
+desmarcar a opção Utilizar como página inicial; e clicar no botão Salvar.
+
+O Painel de Controle, além de permitir a visualização dos processos de uma forma resumida e
+organizada, é uma funcionalidade que também auxilia na recuperação de processos.
+95
+
+27. CORREIO ELETRÔNICO
+Recurso que permite enviar e-mail relacionado ao processo, com ou sem anexos.
+27.1 COMO ENVIAR UMA CORRESPONDÊNCIA ELETRÔNICA PELO SISTEMA
+Acesse o processo e clique no ícone Enviar Correspondência Eletrônica
+
+, disponível na Barra
+
+de Ícones.
+
+Na janela Enviar Correspondência Eletrônica, selecione o endereço de e-mail da unidade, na
+caixa de seleção De, e preencha o campo Para com o endereço de e-mail do destinatário. Em
+seguida, preencha o campo Assunto e, no campo Mensagem, digite a mensagem ou, se desejar,
+escolha um Texto Padrão por meio da caixa de seleção.
+
+Logo abaixo do campo Mensagem, há uma Lista de Documentos do processo. Se for o caso,
+selecione o(s) documento(s) que será(ão) anexados(s) à Correspondência Eletrônica.
+É possível também selecionar arquivos para serem encaminhados como anexos. Para isso, clique
+no botão Escolher Arquivo, logo abaixo da Lista de Documentos. Os anexos adicionados à
+Correspondência Eletrônica irão compor a Lista de Anexos.
+Por fim, após o preenchimento de todos os campos, clique no botão Enviar.
+Após o envio, o e-mail encaminhado passará a compor a Árvore do Processo e não poderá ser
+cancelado ou excluído.
+
+96
+
+27.2 COMO ENVIAR UM DOCUMENTO POR CORREIO ELETRÔNICO
+Acesse o processo, selecione o documento e clique no ícone Enviar Documento por Correio
+Eletrônico
+
+, disponível na Barra de Ícones.
+
+Na janela Enviar Documento por Correio Eletrônico, preencha os campos, conforme orientações
+do item anterior, e depois clique em Enviar.
+27.3 COMO ENCAMINHAR/REENVIAR CORRESPONDÊNCIA ELETRÔNICA
+Para encaminhar/reenviar Correspondência Eletrônica, selecione, na Árvore do Processo, o
+e-mail gerado e depois clique sobre o ícone Encaminhar/Reenviar Correspondência Eletrônica
+, disponível na Barra de Ícones.
+
+Será aberta a janela Encaminhar/Reenviar Correspondência Eletrônica em que constarão, nos
+respectivos campos, as informações referentes ao e-mail selecionado.
+Agora, poderão ser feitas as modificações necessárias para que o e-mail seja reenviado.
+É possível incluir novos destinatários, atualizar o assunto e a mensagem, bem como selecionar
+novos documentos do processo e realizar upload de arquivos. Após realizar as alterações desejadas,
+clique no botão Enviar.
+
+Depois do envio, será gerado um novo registro na Árvore do Processo, correspondente ao e-mail
+encaminhado.
+97
+
+
