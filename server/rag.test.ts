@@ -87,17 +87,45 @@ describe("RAG Service", () => {
   });
 
   describe("SYSTEM_PROMPT", () => {
+    it("should contain Mentor do SEI identity", () => {
+      expect(SYSTEM_PROMPT).toContain("MENTOR DO SEI");
+      expect(SYSTEM_PROMPT).toContain("Consultor Sênior de Processos");
+      expect(SYSTEM_PROMPT).toContain("4ª CRE");
+      expect(SYSTEM_PROMPT).toContain("SME-RJ");
+    });
+
     it("should contain key instructions", () => {
       expect(SYSTEM_PROMPT).toContain("SEI");
-      expect(SYSTEM_PROMPT).toContain("Fonte");
-      expect(SYSTEM_PROMPT).toContain("4ª CRE");
       expect(SYSTEM_PROMPT).toContain("HIERARQUIA DE RESPOSTA");
       expect(SYSTEM_PROMPT).toContain("GUARDRAILS");
+    });
+
+    it("should contain formatting rules", () => {
+      expect(SYSTEM_PROMPT).toContain("Listas Numeradas");
+      expect(SYSTEM_PROMPT).toContain("Negrito");
+      expect(SYSTEM_PROMPT).toContain("Dica de Ouro");
     });
 
     it("should be a non-empty string", () => {
       expect(typeof SYSTEM_PROMPT).toBe("string");
       expect(SYSTEM_PROMPT.length).toBeGreaterThan(100);
+    });
+  });
+
+  describe("Multi-Query RAG", () => {
+    it("should find results for 'abrir processo' using synonyms", () => {
+      const results = searchKnowledgeBase("como abrir um processo no SEI", 12);
+      expect(results.length).toBeGreaterThan(0);
+    });
+
+    it("should find results for 'iniciar processo' as synonym", () => {
+      const results = searchKnowledgeBase("como iniciar um processo", 12);
+      expect(results.length).toBeGreaterThan(0);
+    });
+
+    it("should return up to 12 chunks with increased Top-K", () => {
+      const results = searchKnowledgeBase("SEI processo documento", 12);
+      expect(results.length).toBeLessThanOrEqual(12);
     });
   });
 });

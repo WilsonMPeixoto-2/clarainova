@@ -39,3 +39,17 @@
 - [x] Adicionar regras de formatação e estilo (passo a passo, destaques, citações)
 - [x] Implementar guardrails de segurança (proteção de dados, escopo negativo)
 - [x] Atualizar identidade do assistente para 4ª CRE
+
+## Correções RAG - Debug & Tuning
+- [x] Implementar Multi-Query RAG com expansão automática de consultas
+- [x] Classificar intenção da pergunta (CREATE_PROCESS, etc)
+- [x] Gerar 3-6 consultas alternativas com sinônimos
+- [x] Aumentar Top-K para 12 chunks
+- [x] Aumentar tamanho dos chunks para 4000 caracteres com overlap de 500
+- [x] Implementar dois passes antes de negar (original + expandida)
+- [ ] Implementar fallback web obrigatório com Google Search
+- [ ] Restringir busca web a domínios .gov.br
+- [x] Atualizar System Prompt para "O Mentor do SEI"
+- [x] Adicionar protocolo cognitivo (análise de intenção, tradução técnica)
+- [x] Implementar formatação visual obrigatória (listas, negrito, itálico)
+- [x] Adicionar dicas de ouro e antecipação de dúvidas
