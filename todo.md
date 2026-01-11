@@ -87,3 +87,14 @@
 - [x] Configurar thinking_level para 'high'
 - [x] Implementar fallback para gemini-1.5-pro-latest em caso de erro
 - [x] Testar funcionamento do novo modelo
+
+
+## Melhorias de UX - Caixa de Input do Chat
+- [x] Trocar input simples por textarea expansível
+- [x] Aumentar altura mínima (min-h-[80px] ou rows={3})
+- [x] Adicionar padding interno generoso (p-4)
+- [x] Melhorar contraste com borda visível (border-2 border-slate-300)
+- [x] Adicionar sombra suave (shadow-md)
+- [x] Implementar estado de foco (focus:border-blue-600 focus:ring-2)
+- [x] Garantir fundo branco puro (bg-white)
+- [x] Posicionar botão de enviar dentro da caixa com destaque visual

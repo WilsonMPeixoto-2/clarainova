@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
+// Input substituído por textarea customizado
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Streamdown } from "streamdown";
 import { 
@@ -38,7 +38,7 @@ export default function Home() {
   const [inputValue, setInputValue] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const sendMessageMutation = trpc.chat.sendMessage.useMutation({
     onSuccess: (data) => {
@@ -107,7 +107,7 @@ export default function Home() {
     setSessionId(null);
     setMessages([]);
     setInputValue("");
-    inputRef.current?.focus();
+    textareaRef.current?.focus();
   };
 
   return (
@@ -272,31 +272,38 @@ export default function Home() {
                 )}
               </ScrollArea>
 
-              {/* Input Area */}
-              <CardContent className="p-4 border-t bg-card">
-                <div className="flex gap-2">
-                  <Input
-                    ref={inputRef}
+              {/* Input Area - Melhorado para UX */}
+              <CardContent className="p-4 border-t bg-muted/30">
+                <div className="relative bg-white rounded-xl border-2 border-slate-300 shadow-md focus-within:border-blue-600 focus-within:ring-2 focus-within:ring-blue-600/20 transition-all duration-200">
+                  <textarea
+                    ref={textareaRef}
                     value={inputValue}
-                    onChange={(e) => setInputValue(e.target.value)}
+                    onChange={(e) => {
+                      setInputValue(e.target.value);
+                      // Auto-resize textarea
+                      e.target.style.height = 'auto';
+                      e.target.style.height = Math.min(e.target.scrollHeight, 200) + 'px';
+                    }}
                     onKeyDown={handleKeyPress}
-                    placeholder="Digite sua pergunta sobre o SEI ou SDP..."
+                    placeholder="💬 Digite sua pergunta sobre o SEI ou SDP aqui..."
                     disabled={isLoading}
-                    className="flex-1"
+                    rows={3}
+                    className="w-full min-h-[80px] max-h-[200px] p-4 pr-16 bg-transparent text-foreground placeholder:text-muted-foreground/70 resize-none focus:outline-none text-base leading-relaxed"
                   />
                   <Button
                     onClick={() => handleSendMessage(inputValue)}
                     disabled={!inputValue.trim() || isLoading}
-                    className="shrink-0"
+                    size="lg"
+                    className="absolute bottom-3 right-3 h-10 w-10 rounded-lg bg-primary hover:bg-primary/90 shadow-lg transition-all duration-200 hover:scale-105"
                   >
                     {isLoading ? (
-                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <Loader2 className="w-5 h-5 animate-spin" />
                     ) : (
-                      <Send className="w-4 h-4" />
+                      <Send className="w-5 h-5" />
                     )}
                   </Button>
                 </div>
-                <p className="text-xs text-muted-foreground mt-2 text-center">
+                <p className="text-xs text-muted-foreground mt-3 text-center">
                   As respostas são baseadas nos manuais do SEI e documentos de prestação de contas do SDP.
                 </p>
               </CardContent>
