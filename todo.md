@@ -60,3 +60,14 @@
 - [x] Integrar fallback no fluxo RAG após dois passes sem resultado
 - [x] Adicionar aviso obrigatório quando resposta vier da web
 - [x] Testar fallback com perguntas fora do escopo dos manuais
+
+## Diretrizes de Escopo e Fallback Web Governado (v2)
+- [x] Implementar escopo definido: SEI/SEI!RIO, rotinas SME-RJ/4ª CRE, normas correlatas
+- [x] Adicionar recusa controlada para temas fora do escopo (saúde, política, esportes)
+- [x] Implementar modelo de recusa amigável com sugestão de reformulação
+- [x] Atualizar critérios de disparo do web search (confiança baixa, pedido explícito, base normativa)
+- [x] Implementar ranking de prioridade de fontes (oficial vs complementar)
+- [x] Adicionar rótulo para fontes não oficiais (uso complementar)
+- [x] Implementar conversão de perguntas parcialmente fora do escopo
+- [x] Adicionar "mapa de navegação" para perguntas amplas
+- [x] Citar links e artigos/trechos quando usar normas da web

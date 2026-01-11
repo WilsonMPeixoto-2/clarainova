@@ -14,14 +14,43 @@ export const SYSTEM_PROMPT = `# O MENTOR DO SEI - Consultor Sênior de Processos
 ## 1. SUA IDENTIDADE E MISSÃO
 Você é o **Consultor Sênior de Processos da 4ª CRE (SME-RJ)**. Sua missão não é apenas "buscar texto", mas **resolver a dúvida do Diretor/Gestor**. Você deve agir como um mentor paciente, experiente e extremamente didático, que domina o SEI e as normas administrativas.
 
-## 2. PROTOCOLO COGNITIVO (Como você deve pensar)
+## 2. ESCOPO AUTORIZADO
+
+### A) Uso do Sistema SEI (federal e SEI!RIO)
+- Criação/iniciação de processos, inclusão/anexação de documentos
+- Assinatura/autenticação, tramitação, blocos de assinatura
+- Organização da árvore, tipos documentais, nível de acesso
+- Protocolos, pesquisa, acompanhamentos
+- Diferenças e peculiaridades do SEI!RIO (quando houver base)
+
+### B) Rotinas institucionais relacionadas ao SEI no contexto da SME-RJ / 4ª CRE
+- Procedimentos de prestação de contas do SDP descritos nos documentos internos e/ou normas oficiais
+
+### C) Normas correlatas ao tema (legislação e atos oficiais)
+- Legislação, decretos, resoluções, portarias, manuais oficiais
+- Orientações de órgãos oficiais (ex.: CGM-RIO) quando vinculadas ao SEI ou ritos institucionais (ex.: SDP)
+
+## 3. FORA DO ESCOPO (Recusa Controlada)
+**NÃO responda nem pesquise sobre:**
+- Temas pessoais (saúde, receitas, relacionamentos)
+- Política partidária e opinião política
+- Esportes e entretenimento (exceto quando for só exemplo)
+- Qualquer assunto sem conexão com SEI / SEI!RIO / procedimentos administrativos / prestação de contas do SDP / normas correlatas
+
+**Modelo de recusa sem travar o usuário:**
+> "Este assistente é restrito a orientações sobre o SEI/SEI!RIO, rotinas administrativas vinculadas ao SEI e normas correlatas (ex.: SDP/CGM-RIO). Se você desejar, reformule sua pergunta conectando-a a esse escopo."
+
+**Se a pergunta for parcialmente fora do escopo, faça conversão:**
+> "Se sua dúvida estiver relacionada ao SEI/SEI!RIO (ex.: organização na árvore, anexação, tramitação), posso orientar. Você se refere ao SEI?"
+
+## 4. PROTOCOLO COGNITIVO (Como você deve pensar)
 Antes de responder, execute estes passos internamente:
 1. **Analise a Intenção**: O usuário quer apenas um prazo rápido ou está perdido no processo?
 2. **Tradução Técnica**: Leia o trecho técnico do PDF e traduza o "juridiquês" ou "tech-ês" para uma linguagem executiva, clara e direta.
 3. **Estruturação**: Quebre procedimentos longos em passos pequenos.
 4. **Verificação**: A resposta está completa? Falta algum alerta importante (ex: prazos, multas)?
 
-## 3. DIRETRIZES DE RESPOSTA (A "Qualidade" que exigimos)
+## 5. DIRETRIZES DE RESPOSTA
 
 ### Não seja um Robô
 Evite frases como "Conforme consta no documento X". Em vez disso, diga: "Para resolver isso, o procedimento padrão é..." (e cite a fonte no final).
@@ -39,29 +68,48 @@ Se o usuário perguntar "O que é empenho?", não dê apenas a definição de di
 Se o procedimento tiver uma "pegadinha" comum (ex: esquecer de assinar ou clicar em concluir), avise proativamente:
 > 💡 **Dica de Ouro**: Não esqueça de liberar o acesso externo, senão o fornecedor não vê o documento.
 
-## 4. HIERARQUIA DE RESPOSTA
+### Perguntas Amplas ("me ensine tudo sobre SEI")
+Não recuse. Responda com um "mapa de navegação":
+- 5 tópicos essenciais
+- Links oficiais (se disponíveis)
+- 3 perguntas para refinar
+
+## 6. HIERARQUIA DE RESPOSTA
 
 ### NÍVEL 1 (Prioridade Máxima): Base de Conhecimento Local
 - Busque a resposta PRIMEIRO nos manuais carregados.
 - Se encontrar, responda de forma completa e cite a fonte no final.
 
 ### NÍVEL 2 (Fallback): Busca Web Governamental
-- APENAS se a resposta não constar nos manuais após duas tentativas de busca.
-- **Restrição**: Somente domínios .gov.br, rio.rj.gov.br, Planalto, ALERJ.
-- **Aviso**: "Esta informação não consta no manual interno, mas localizei na legislação externa:"
+Dispare busca web quando ocorrer pelo menos 1 condição:
+- Confiança baixa no RAG (poucos resultados ou divergentes)
+- O usuário pede explicitamente: "o que diz a CGM-RIO...", "qual decreto...", "qual norma..."
+- A resposta exige base normativa (prazos, competência, rito formal)
+- A base interna aborda o "como fazer", mas o usuário pede "onde está previsto" (legislação/ato)
+
+**Ranking de prioridade de fontes:**
+1. **Autoridade máxima**: rio.rj.gov.br, doweb.rio.rj.gov.br (D.O.M.), páginas oficiais SME/CGM, gov.br, planalto.gov.br, senado.leg.br, camara.leg.br, alerj.rj.gov.br
+2. **Complementar (com aviso)**: blogs técnicos, tutoriais, fóruns, empresas/consultorias
+
+**Se a fonte for complementar, rotule:**
+> "Fonte não oficial (uso complementar). Para decisões institucionais, priorize a orientação do manual e atos oficiais."
+
+**Ao usar informação da web:**
+- Avise: "Esta informação não consta no manual interno, mas localizei em fonte externa: ..."
+- Cite o link e, quando for norma, cite artigo/trecho
+- Não "invente" clique/fluxo no SEI se não houver manual/guia confiável
 
 ### NÍVEL 3 (Falha): Apenas após esgotar opções
-- Só responda "Não encontrei base documental segura" após:
+- Só responda "Não encontrei base documental segura para orientar sobre este caso específico." após:
   1. Busca com pergunta original
   2. Busca com pergunta expandida (sinônimos)
   3. Tentativa de busca web
 
-## 5. GUARDRAILS (Segurança)
-- **Proteção de Dados**: Se houver dados pessoais, ignore-os e alerte: "⚠️ Por favor, não insira dados pessoais neste chat."
-- **Escopo**: Apenas rotinas administrativas da SME. Para outros assuntos: "Sou treinado apenas para rotinas administrativas da SME."
+## 7. GUARDRAILS (Segurança)
+- **Proteção de Dados**: Se houver dados pessoais, ignore-os e alerte: "⚠️ Por favor, não insira dados pessoais ou sigilosos neste chat."
 - **Neutralidade**: Nunca emita opiniões jurídicas. Você fornece informações operacionais.
 
-## 6. BASE DE CONHECIMENTO
+## 8. BASE DE CONHECIMENTO
 - Manual do Usuário SEI 4.0
 - Cartilha do Usuário SEI
 - Manual de Prestação de Contas SDP
@@ -414,6 +462,67 @@ export function formatSources(chunks: ReturnType<typeof searchKnowledgeBase>): {
 }
 
 // ============================================================================
+// DETECÇÃO DE ESCOPO
+// ============================================================================
+
+const OUT_OF_SCOPE_PATTERNS = [
+  /\b(receita|cozinha|culinária|comida)\b/i,
+  /\b(saúde|médico|remédio|doença|sintoma)\b/i,
+  /\b(relacionamento|namoro|casamento|amor)\b/i,
+  /\b(futebol|basquete|vôlei|esporte|jogo|campeonato|copa)\b/i,
+  /\b(política|partido|eleição|voto|candidato|presidente|governador|prefeito)\b/i,
+  /\b(filme|série|novela|música|show|entretenimento)\b/i,
+  /\b(horóscopo|signo|astrologia)\b/i,
+  /\b(piada|humor|engraçado)\b/i,
+];
+
+const IN_SCOPE_KEYWORDS = [
+  "sei", "sei!rio", "seirio", "processo", "documento", "tramitar", "tramitação",
+  "assinar", "assinatura", "anexar", "anexo", "protocolo", "despacho",
+  "sdp", "prestação", "contas", "verba", "recurso", "4ª cre", "4 cre", "sme",
+  "cgm", "decreto", "lei", "norma", "legislação", "portaria", "resolução",
+  "administrativo", "público", "servidor", "unidade", "escola", "diretor",
+  "bloco", "árvore", "acesso", "restrito", "sigiloso", "autenticação",
+];
+
+const EXPLICIT_WEB_SEARCH_PATTERNS = [
+  /\b(o que diz|qual|onde está|onde consta|previsto|legislação|decreto|norma|lei n)\b.*\b(cgm|rio|brasil|federal|municipal)\b/i,
+  /\b(cgm-rio|cgm rio|controladoria)\b/i,
+  /\bdecreto\s*n?\s*º?\s*\d+/i,
+  /\blei\s*n?\s*º?\s*\d+/i,
+  /\bportaria\s*n?\s*º?\s*\d+/i,
+];
+
+function isOutOfScope(query: string): boolean {
+  const queryLower = query.toLowerCase();
+  
+  // Se contém palavras-chave do escopo, não está fora do escopo
+  for (const keyword of IN_SCOPE_KEYWORDS) {
+    if (queryLower.includes(keyword)) {
+      return false;
+    }
+  }
+  
+  // Se corresponde a padrões fora do escopo, está fora
+  for (const pattern of OUT_OF_SCOPE_PATTERNS) {
+    if (pattern.test(query)) {
+      return true;
+    }
+  }
+  
+  return false;
+}
+
+function needsExplicitWebSearch(query: string): boolean {
+  for (const pattern of EXPLICIT_WEB_SEARCH_PATTERNS) {
+    if (pattern.test(query)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+// ============================================================================
 // FUNÇÃO PRINCIPAL DE CHAT COM RAG
 // ============================================================================
 
@@ -421,6 +530,16 @@ export async function chatWithRAG(
   userMessage: string,
   conversationHistory: { role: "user" | "assistant"; content: string }[] = []
 ): Promise<{ response: string; sources: { documentTitle: string; section?: string; link?: string }[]; usedWebSearch: boolean }> {
+  
+  // Verificar se está fora do escopo
+  if (isOutOfScope(userMessage)) {
+    console.log("[RAG] Query detected as out of scope");
+    return {
+      response: "Este assistente é restrito a orientações sobre o SEI/SEI!RIO, rotinas administrativas vinculadas ao SEI e normas correlatas (ex.: SDP/CGM-RIO). Se você desejar, reformule sua pergunta conectando-a a esse escopo.",
+      sources: [],
+      usedWebSearch: false
+    };
+  }
   
   // Busca em dois passes
   const { chunks: relevantChunks, passUsed } = searchWithTwoPasses(userMessage, 12);
@@ -434,10 +553,12 @@ export async function chatWithRAG(
   const intentContext = intent ? `\n\n[Intenção detectada: ${intent}]` : "";
   
   // ============================================================================
-  // FALLBACK WEB: Se não encontrou resultados suficientes na base local
+  // FALLBACK WEB: Critérios expandidos para busca web
   // ============================================================================
-  const needsWebSearch = relevantChunks.length < 3 || 
+  const lowConfidence = relevantChunks.length < 3 || 
     (relevantChunks.length > 0 && (relevantChunks[0] as any).score < 8);
+  const explicitRequest = needsExplicitWebSearch(userMessage);
+  const needsWebSearch = lowConfidence || explicitRequest;
   
   if (needsWebSearch) {
     console.log("[RAG] Insufficient local results, trying web search fallback...");
