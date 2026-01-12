@@ -98,3 +98,16 @@
 - [x] Implementar estado de foco (focus:border-blue-600 focus:ring-2)
 - [x] Garantir fundo branco puro (bg-white)
 - [x] Posicionar botão de enviar dentro da caixa com destaque visual
+
+
+## Notas de Governança e Ressalvas
+- [x] Adicionar seção "Sobre este assistente" com texto de ferramenta em desenvolvimento
+- [x] Adicionar seção "Ressalva" sobre caráter orientativo das respostas
+- [x] Adicionar seção "Limites de atuação e governança" sobre escopo do conteúdo
+- [x] Adicionar seção "Complemento por busca externa" sobre filtros de escopo
+- [x] Ajustar rodapé para versão neutra ("Projeto em desenvolvimento pela 4ª CRE — Versão de testes")
+- [x] Adicionar linha discreta "Uso interno orientativo — sujeito a validação por fontes oficiais"
+- [x] Substituir "foi treinado" por "responde com base em" ou "foi alimentado com"
+- [x] Remover menções institucionais oficiais (SME, Secretaria Municipal de Educação)
+- [x] Manter apenas "4ª CRE" como unidade desenvolvedora
+- [x] Usar termos neutros: "iniciativa interna", "projeto em testes", "ferramenta em desenvolvimento"

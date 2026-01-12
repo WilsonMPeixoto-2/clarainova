@@ -304,7 +304,7 @@ export default function Home() {
                   </Button>
                 </div>
                 <p className="text-xs text-muted-foreground mt-3 text-center">
-                  As respostas são baseadas nos manuais do SEI e documentos de prestação de contas do SDP.
+                  As respostas são baseadas em manuais e guias do SEI inseridos na base de conhecimento.
                 </p>
               </CardContent>
             </Card>
@@ -342,15 +342,56 @@ export default function Home() {
                   />
                 </div>
 
+                {/* Seção: Sobre este assistente */}
                 <div className="mt-6 p-3 bg-primary/5 rounded-lg">
                   <h4 className="text-sm font-medium text-foreground mb-2">
                     Sobre este assistente
                   </h4>
                   <p className="text-xs text-muted-foreground leading-relaxed">
-                    Este assistente foi treinado com os manuais oficiais do SEI e 
-                    documentos de prestação de contas do Sistema Descentralizado de 
-                    Pagamento (SDP) da 4ª CRE. As respostas são baseadas exclusivamente 
-                    nestes documentos.
+                    Ferramenta em desenvolvimento pela 4ª CRE, em fase de validação 
+                    e aprimoramento, voltada ao apoio operacional na utilização do 
+                    Sistema Eletrônico de Informações (SEI).
+                  </p>
+                </div>
+
+                {/* Seção: Ressalva */}
+                <div className="mt-3 p-3 bg-amber-50 dark:bg-amber-900/20 rounded-lg border border-amber-200 dark:border-amber-800">
+                  <h4 className="text-sm font-medium text-amber-800 dark:text-amber-300 mb-2 flex items-center gap-1">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    </svg>
+                    Ressalva
+                  </h4>
+                  <p className="text-xs text-amber-700 dark:text-amber-400 leading-relaxed">
+                    As respostas têm caráter orientativo, podendo conter limitações 
+                    inerentes a sistemas automatizados. Recomenda-se validação por 
+                    documentação oficial vigente e pelos fluxos e orientações dos 
+                    setores responsáveis.
+                  </p>
+                </div>
+
+                {/* Seção: Limites de atuação */}
+                <div className="mt-3 p-3 bg-muted/50 rounded-lg">
+                  <h4 className="text-sm font-medium text-foreground mb-2">
+                    Limites de atuação
+                  </h4>
+                  <p className="text-xs text-muted-foreground leading-relaxed">
+                    O conteúdo gerado baseia-se em documentação oficial inserida na 
+                    base de conhecimento (manuais e guias do SEI). O assistente 
+                    limita-se ao tema SEI e normas correlatas aplicáveis a procedimentos 
+                    administrativos.
+                  </p>
+                </div>
+
+                {/* Seção: Complemento por busca externa */}
+                <div className="mt-3 p-3 bg-muted/50 rounded-lg">
+                  <h4 className="text-sm font-medium text-foreground mb-2">
+                    Busca externa
+                  </h4>
+                  <p className="text-xs text-muted-foreground leading-relaxed">
+                    Na ausência de base documental interna suficiente, o assistente 
+                    poderá consultar fontes externas governamentais (.gov.br), mantendo 
+                    o tema restrito ao SEI e normas correlatas.
                   </p>
                 </div>
               </CardContent>
@@ -359,11 +400,14 @@ export default function Home() {
         </div>
       </main>
 
-      {/* Footer */}
+      {/* Footer - Versão neutra */}
       <footer className="bg-card border-t py-4">
         <div className="container">
           <p className="text-center text-sm text-muted-foreground">
-            Central de Inteligência SEI!RIO — GAD / 4ª CRE — Secretaria Municipal de Educação do Rio de Janeiro
+            Central de Inteligência SEI!RIO — Projeto em desenvolvimento pela 4ª CRE — Versão de testes
+          </p>
+          <p className="text-center text-xs text-muted-foreground/70 mt-1">
+            Uso interno orientativo — sujeito a validação por fontes oficiais
           </p>
         </div>
       </footer>
