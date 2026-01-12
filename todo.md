@@ -111,3 +111,18 @@
 - [x] Remover menções institucionais oficiais (SME, Secretaria Municipal de Educação)
 - [x] Manter apenas "4ª CRE" como unidade desenvolvedora
 - [x] Usar termos neutros: "iniciativa interna", "projeto em testes", "ferramenta em desenvolvimento"
+
+
+## Ajustes Estéticos e de Governança (v2)
+- [x] Adicionar texto explícito "Este ambiente não constitui canal oficial..." em "Sobre este assistente"
+- [x] Atualizar "Limites de atuação" com texto sobre documentação oficial SEI Federal e SEI!RIO
+- [x] Atualizar "Busca externa" com texto sobre fontes .gov.br e indicação de links
+- [x] Adicionar badge "Versão de testes (Beta)" no header
+- [x] Aplicar alinhamento justificado em todos os textos do painel direito
+- [x] Padronizar cards com verbos no infinitivo (Abrir, Anexar, Fazer, Consultar)
+- [x] Adicionar feedback visual de clique nos cards (hover, sombra, cursor pointer)
+- [x] Adicionar 2 exemplos avançados (Assinar/autenticar, Tramitar para outra unidade)
+- [x] Adicionar "Base atualizada em: DD/MM/AAAA" na seção Base de Conhecimento
+- [x] Aumentar line-height dos parágrafos do painel direito
+- [x] Reduzir tamanho do texto de rodapé
+- [x] Garantir consistência de títulos (mesmo peso e tamanho)

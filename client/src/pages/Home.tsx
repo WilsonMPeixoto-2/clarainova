@@ -26,10 +26,12 @@ interface ChatMessage {
 }
 
 const EXAMPLE_QUESTIONS = [
-  { icon: FileSearch, text: "Como abrir um processo no SEI?" },
-  { icon: ClipboardList, text: "Como anexar documentos externos?" },
-  { icon: BookOpen, text: "Como fazer a prestação de contas do SDP?" },
-  { icon: HelpCircle, text: "Quais são os níveis de acesso no SEI?" },
+  { icon: FileSearch, text: "Abrir um processo no SEI" },
+  { icon: ClipboardList, text: "Anexar documentos externos" },
+  { icon: BookOpen, text: "Fazer a prestação de contas do SDP" },
+  { icon: HelpCircle, text: "Consultar níveis de acesso no SEI" },
+  { icon: FileText, text: "Assinar e autenticar documentos no SEI" },
+  { icon: MessageSquare, text: "Tramitar processo para outra unidade" },
 ];
 
 export default function Home() {
@@ -115,7 +117,7 @@ export default function Home() {
       {/* Header */}
       <header className="bg-sei-gradient text-white shadow-lg">
         <div className="container py-4">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between flex-wrap gap-2">
             <div className="flex items-center gap-4">
               <div className="w-12 h-12 bg-white/10 rounded-lg flex items-center justify-center backdrop-blur-sm">
                 <MessageSquare className="w-7 h-7 text-white" />
@@ -128,7 +130,10 @@ export default function Home() {
                   Assistente Virtual para o Sistema Eletrônico de Informações
                 </p>
               </div>
-            </div>
+              <span className="inline-flex items-center px-2 py-1 text-xs font-medium bg-amber-400/20 text-amber-100 rounded-full border border-amber-400/30">
+                Versão de testes (Beta)
+              </span>
+              </div>
             {messages.length > 0 && (
               <Button
                 variant="outline"
@@ -166,12 +171,12 @@ export default function Home() {
                     </p>
                     
                     {/* Example Questions */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full max-w-lg">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full max-w-2xl">
                       {EXAMPLE_QUESTIONS.map((question, index) => (
                         <button
                           key={index}
                           onClick={() => handleSendMessage(question.text)}
-                          className="flex items-center gap-3 p-3 rounded-lg border border-border bg-card hover:bg-accent transition-colors text-left group"
+                          className="flex items-center gap-3 p-3 rounded-lg border border-border bg-card hover:bg-accent hover:shadow-md hover:-translate-y-0.5 active:translate-y-0 active:shadow-sm transition-all duration-200 text-left group cursor-pointer"
                         >
                           <question.icon className="w-5 h-5 text-primary shrink-0" />
                           <span className="text-sm text-foreground group-hover:text-primary transition-colors">
@@ -341,57 +346,69 @@ export default function Home() {
                     status="indexed"
                   />
                 </div>
+                
+                {/* Data de atualização da base */}
+                <p className="text-xs text-muted-foreground mt-3 text-center italic">
+                  Base atualizada em: 12/01/2026
+                </p>
 
                 {/* Seção: Sobre este assistente */}
                 <div className="mt-6 p-3 bg-primary/5 rounded-lg">
-                  <h4 className="text-sm font-medium text-foreground mb-2">
+                  <h4 className="text-sm font-semibold text-foreground mb-2">
                     Sobre este assistente
                   </h4>
-                  <p className="text-xs text-muted-foreground leading-relaxed">
+                  <p className="text-xs text-muted-foreground leading-relaxed text-justify" style={{ lineHeight: '1.6' }}>
                     Ferramenta em desenvolvimento pela 4ª CRE, em fase de validação 
                     e aprimoramento, voltada ao apoio operacional na utilização do 
                     Sistema Eletrônico de Informações (SEI).
+                  </p>
+                  <p className="text-xs text-muted-foreground leading-relaxed text-justify mt-2 font-medium" style={{ lineHeight: '1.6' }}>
+                    Este ambiente não constitui canal oficial do Município do Rio de Janeiro 
+                    ou do sistema SEI!RIO, nem substitui orientações formais.
                   </p>
                 </div>
 
                 {/* Seção: Ressalva */}
                 <div className="mt-3 p-3 bg-amber-50 dark:bg-amber-900/20 rounded-lg border border-amber-200 dark:border-amber-800">
-                  <h4 className="text-sm font-medium text-amber-800 dark:text-amber-300 mb-2 flex items-center gap-1">
+                  <h4 className="text-sm font-semibold text-amber-800 dark:text-amber-300 mb-2 flex items-center gap-1">
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                     </svg>
                     Ressalva
                   </h4>
-                  <p className="text-xs text-amber-700 dark:text-amber-400 leading-relaxed">
+                  <p className="text-xs text-amber-700 dark:text-amber-400 leading-relaxed text-justify" style={{ lineHeight: '1.6' }}>
                     As respostas têm caráter orientativo, podendo conter limitações 
                     inerentes a sistemas automatizados. Recomenda-se validação por 
                     documentação oficial vigente e pelos fluxos e orientações dos 
-                    setores responsáveis.
+                    setores responsáveis e dos órgãos competentes.
                   </p>
                 </div>
 
                 {/* Seção: Limites de atuação */}
                 <div className="mt-3 p-3 bg-muted/50 rounded-lg">
-                  <h4 className="text-sm font-medium text-foreground mb-2">
+                  <h4 className="text-sm font-semibold text-foreground mb-2">
                     Limites de atuação
                   </h4>
-                  <p className="text-xs text-muted-foreground leading-relaxed">
-                    O conteúdo gerado baseia-se em documentação oficial inserida na 
-                    base de conhecimento (manuais e guias do SEI). O assistente 
-                    limita-se ao tema SEI e normas correlatas aplicáveis a procedimentos 
-                    administrativos.
+                  <p className="text-xs text-muted-foreground leading-relaxed text-justify" style={{ lineHeight: '1.6' }}>
+                    O conteúdo gerado baseia-se na documentação oficial inserida na 
+                    base de conhecimento (manuais e guias do SEI Federal e da instância 
+                    SEI!RIO utilizada no Município do Rio de Janeiro). O assistente 
+                    limita-se a orientações sobre o SEI e a normas administrativas 
+                    diretamente correlatas ao uso do sistema.
                   </p>
                 </div>
 
                 {/* Seção: Complemento por busca externa */}
                 <div className="mt-3 p-3 bg-muted/50 rounded-lg">
-                  <h4 className="text-sm font-medium text-foreground mb-2">
+                  <h4 className="text-sm font-semibold text-foreground mb-2">
                     Busca externa
                   </h4>
-                  <p className="text-xs text-muted-foreground leading-relaxed">
+                  <p className="text-xs text-muted-foreground leading-relaxed text-justify" style={{ lineHeight: '1.6' }}>
                     Na ausência de base documental interna suficiente, o assistente 
-                    poderá consultar fontes externas governamentais (.gov.br), mantendo 
-                    o tema restrito ao SEI e normas correlatas.
+                    poderá consultar fontes externas oficiais (preferencialmente .gov.br 
+                    e repositórios normativos), mantendo o tema restrito ao SEI e normas 
+                    correlatas. Quando utilizar fontes externas, os links serão indicados 
+                    na resposta.
                   </p>
                 </div>
               </CardContent>
@@ -401,12 +418,12 @@ export default function Home() {
       </main>
 
       {/* Footer - Versão neutra */}
-      <footer className="bg-card border-t py-4">
+      <footer className="bg-card border-t py-3">
         <div className="container">
-          <p className="text-center text-sm text-muted-foreground">
+          <p className="text-center text-xs text-muted-foreground">
             Central de Inteligência SEI!RIO — Projeto em desenvolvimento pela 4ª CRE — Versão de testes
           </p>
-          <p className="text-center text-xs text-muted-foreground/70 mt-1">
+          <p className="text-center text-[10px] text-muted-foreground/60 mt-1">
             Uso interno orientativo — sujeito a validação por fontes oficiais
           </p>
         </div>
