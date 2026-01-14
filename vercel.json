@@ -1,1 +1,28 @@
-{"version": 2, "builds": [{"src": "server/_core/index.ts", "use": "@vercel/node"}, {"src": "dist/public/**", "use": "@vercel/static"}], "routes": [{"src": "/api/(.*)", "dest": "server/_core/index.ts"}, {"src": "/(.*)", "dest": "dist/public/index.html"}]}
+{
+  "version": 2,
+  "builds": [
+    {
+      "src": "package.json",
+      "use": "@vercel/node",
+      "config": {
+        "includeFiles": [
+          "dist/**",
+          "knowledge-base/**",
+          "server/**",
+          "shared/**",
+          "drizzle/**"
+        ]
+      }
+    }
+  ],
+  "routes": [
+    {
+      "src": "/api/trpc/(.*)",
+      "dest": "/dist/index.js"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/dist/public/$1"
+    }
+  ]
+}
