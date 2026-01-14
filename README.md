@@ -38,7 +38,7 @@ Sistema de chat RAG (Retrieval-Augmented Generation) independente, especializado
    
    Edite o arquivo `.env` e configure:
    - `DATABASE_URL`: String de conexão com o MySQL
-   - `GOOGLE_GENERATIVE_AI_API_KEY`: Sua chave de API do Google Gemini
+   - `BUILT_IN_FORGE_API_URL` e `BUILT_IN_FORGE_API_KEY`: Credenciais do Manus Forge API
    - `JWT_SECRET`: Uma string secreta aleatória para sessões
    - `PORT`: Porta do servidor (padrão: 3000)
 
@@ -140,6 +140,21 @@ Este projeto foi adaptado para funcionar independentemente do sistema Manus, man
 - ✅ Simplificado para acesso público
 - ✅ Mantido sistema RAG completo
 - ✅ Mantida busca web integrada
+
+### ⚠️ Observação sobre Integração LLM
+
+Atualmente, o sistema utiliza o **Manus Forge API** como proxy para o Google Gemini. Para usar este projeto independentemente:
+
+**Opção 1: Usar Manus Forge (configuração atual)**
+- Requer credenciais do Manus Forge
+- Configure `BUILT_IN_FORGE_API_URL` e `BUILT_IN_FORGE_API_KEY`
+
+**Opção 2: Migrar para Google Gemini direto (requer modificação)**
+- Modifique `server/_core/llm.ts` para usar a SDK oficial do Google Gemini
+- Configure `GOOGLE_GENERATIVE_AI_API_KEY`
+- Remova dependências do Forge API
+
+Para contribuições que implementem integração direta com Google Gemini, consulte a seção de Contribuindo.
 
 ## 🤝 Contribuindo
 
