@@ -16,9 +16,9 @@ interface KnowledgeChunk {
 let knowledgeBase: KnowledgeChunk[] = [];
 
 // ============================================================================
-// SYSTEM PROMPT - "O Mentor do SEI"
+// SYSTEM PROMPT - CLARA - Consultora de Legislação e Apoio a Rotinas Administrativas
 // ============================================================================
-export const SYSTEM_PROMPT = `# O MENTOR DO SEI - Consultor Sênior de Processos da 4ª CRE
+export const SYSTEM_PROMPT = `# CLARA - Consultora de Legislação e Apoio a Rotinas Administrativas da 4ª CRE
 
 ## 0. EMPATIA COGNITIVA (DIRETRIZ PRIORITÁRIA)
 
@@ -44,7 +44,7 @@ Você deve demonstrar **Empatia Cognitiva** em todas as interações. Reconheça
 - Se houver risco de erro comum, alerte com empatia: "💡 Muitos gestores esquecem este passo, então preste atenção especial aqui..."
 
 ## 1. SUA IDENTIDADE E MISSÃO
-Você é o **Consultor Sênior de Processos da 4ª CRE (SME-RJ)**. Sua missão não é apenas "buscar texto", mas **resolver a dúvida do Diretor/Gestor**. Você deve agir como um mentor paciente, experiente e extremamente didático, que domina o SEI e as normas administrativas.
+Você é **CLARA: Consultora de Legislação e Apoio a Rotinas Administrativas da 4ª CRE (SME-RJ)**. Sua missão não é apenas "buscar texto", mas **resolver a dúvida do Diretor/Gestor**. Você deve agir como uma consultora paciente, experiente e extremamente didática, que domina o SEI e as normas administrativas.
 
 ## 2. ESCOPO AUTORIZADO
 
@@ -661,6 +661,43 @@ function needsExplicitWebSearch(query: string): boolean {
 }
 
 // ============================================================================
+// SANITIZAÇÃO DE FONTES DUPLICADAS
+// ============================================================================
+
+/**
+ * Remove blocos de "Fonte:", "Fontes:", etc. do corpo da resposta do LLM
+ * para evitar duplicação (fontes devem aparecer apenas no rodapé)
+ */
+function sanitizeSourceDuplication(response: string): string {
+  // Remover blocos de fontes que o LLM pode ter adicionado no corpo
+  let sanitized = response;
+  
+  // Padrões para detectar blocos de fonte no corpo da resposta
+  const sourcePatterns = [
+    // "Fonte:" ou "Fontes:" no início de linha, seguido de conteúdo
+    /^[\s]*Fontes?:\s*$/gim,
+    // "Fonte:" seguido de lista
+    /\n[\s]*Fontes?:\s*\n[\s]*[-•*]\s+.+$/gim,
+    // Seção completa de fontes no final
+    /\n[\s]*#{1,4}\s*Fontes?\s*consultadas?\s*:?\s*\n[\s\S]*$/gim,
+    // Referências explícitas como "[Fonte: ...]"
+    /\[Fonte:\s*[^\]]+\]/gi,
+  ];
+  
+  for (const pattern of sourcePatterns) {
+    sanitized = sanitized.replace(pattern, '');
+  }
+  
+  // Remover múltiplas linhas em branco consecutivas
+  sanitized = sanitized.replace(/\n{3,}/g, '\n\n');
+  
+  // Limpar espaços no final
+  sanitized = sanitized.trim();
+  
+  return sanitized;
+}
+
+// ============================================================================
 // FUNÇÃO PRINCIPAL DE CHAT COM RAG
 // ============================================================================
 
@@ -709,7 +746,8 @@ export async function chatWithRAG(
     console.log("[RAG] Insufficient local results, trying web search fallback...");
     
     try {
-      const webResponse = await searchGovernmentSites(userMessage, 5);
+      // Limitar a 8 resultados máximos conforme especificação
+      const webResponse = await searchGovernmentSites(userMessage, 8);
       
       if (webResponse.success && webResponse.results.length > 0) {
         usedWebSearch = true;
@@ -719,8 +757,8 @@ export async function chatWithRAG(
         const webContext = formatWebSearchContext(webSearchResults);
         context += webContext;
         
-        // Adicionar fontes web
-        const webSources = formatWebSources(webSearchResults);
+        // Adicionar fontes web (limitar a 8 links)
+        const webSources = formatWebSources(webSearchResults.slice(0, 8));
         sources = [...sources, ...webSources];
         
         console.log(`[RAG] Web search added ${webSearchResults.length} results`);
@@ -735,7 +773,7 @@ export async function chatWithRAG(
     { role: "system", content: SYSTEM_PROMPT },
     { 
       role: "system", 
-      content: `Contexto relevante da base de conhecimento (${relevantChunks.length} trechos encontrados, passe ${passUsed}${usedWebSearch ? " + busca web" : ""}):${intentContext}\n\n${context}` 
+      content: `Contexto relevante da base de conhecimento (${relevantChunks.length} trechos encontrados, passe ${passUsed}${usedWebSearch ? " + busca web" : ""}):${intentContext}\n\n${context}\n\n[IMPORTANTE: NÃO inclua seções de "Fonte:", "Fontes:" ou referências no corpo da sua resposta. As fontes serão exibidas automaticamente no rodapé pelo sistema.]` 
     }
   ];
   
@@ -762,11 +800,14 @@ export async function chatWithRAG(
     const result = await invokeLLM({ messages });
     
     const responseContent = result.choices[0]?.message?.content;
-    const response = typeof responseContent === "string" 
+    let response = typeof responseContent === "string" 
       ? responseContent 
       : Array.isArray(responseContent) 
         ? responseContent.map(c => c.type === "text" ? c.text : "").join("") 
         : "Desculpe, não consegui processar sua pergunta.";
+    
+    // Sanitizar duplicação de fontes no corpo da resposta
+    response = sanitizeSourceDuplication(response);
     
     return { response, sources, usedWebSearch };
   } catch (error) {

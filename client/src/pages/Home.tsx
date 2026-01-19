@@ -7,7 +7,6 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Streamdown } from "streamdown";
 import { 
   Send, 
-  MessageSquare, 
   FileText, 
   HelpCircle, 
   Loader2,
@@ -18,6 +17,7 @@ import {
   Settings
 } from "lucide-react";
 import { Link } from "wouter";
+import ClaraLogo from "@/components/ClaraLogo";
 
 interface ChatMessage {
   id: number;
@@ -33,7 +33,7 @@ const EXAMPLE_QUESTIONS = [
   { icon: BookOpen, text: "Fazer a prestação de contas do SDP" },
   { icon: HelpCircle, text: "Consultar níveis de acesso no SEI" },
   { icon: FileText, text: "Assinar e autenticar documentos no SEI" },
-  { icon: MessageSquare, text: "Tramitar processo para outra unidade" },
+  { icon: FileSearch, text: "Tramitar processo para outra unidade" },
 ];
 
 export default function Home() {
@@ -122,14 +122,14 @@ export default function Home() {
           <div className="flex items-center justify-between flex-wrap gap-2">
             <div className="flex items-center gap-4">
               <div className="w-12 h-12 bg-white/10 rounded-lg flex items-center justify-center backdrop-blur-sm">
-                <MessageSquare className="w-7 h-7 text-white" />
+                <ClaraLogo size={28} className="filter brightness-0 invert" />
               </div>
               <div>
                 <h1 className="text-xl md:text-2xl font-bold tracking-tight">
-                  Central de Inteligência SEI!RIO
+                  CLARA
                 </h1>
                 <p className="text-sm text-white/80 hidden sm:block">
-                  Assistente Virtual para o Sistema Eletrônico de Informações
+                  Consultora de Legislação e Apoio a Rotinas Administrativas
                 </p>
               </div>
               <span className="inline-flex items-center px-2 py-1 text-xs font-medium bg-amber-400/20 text-amber-100 rounded-full border border-amber-400/30">
@@ -165,11 +165,12 @@ export default function Home() {
                       <BookOpen className="w-10 h-10 text-primary" />
                     </div>
                     <h2 className="text-xl font-semibold text-foreground mb-2">
-                      Bem-vindo à Central de Inteligência SEI!RIO
+                      Bem-vindo à CLARA
                     </h2>
                     <p className="text-muted-foreground max-w-md mb-8">
-                      Sou um assistente especializado no Sistema SEI e em procedimentos 
-                      de prestação de contas do SDP. Como posso ajudá-lo hoje?
+                      Sou sua consultora especializada em legislação e rotinas administrativas, 
+                      com foco no Sistema SEI e procedimentos de prestação de contas do SDP. 
+                      Como posso ajudá-lo hoje?
                     </p>
                     
                     {/* Example Questions */}
@@ -423,7 +424,7 @@ export default function Home() {
       <footer className="bg-card border-t py-3">
         <div className="container">
           <p className="text-center text-xs text-muted-foreground">
-            Central de Inteligência SEI!RIO — Projeto em desenvolvimento pela 4ª CRE — Versão de testes
+            CLARA — Consultora de Legislação e Apoio a Rotinas Administrativas — Projeto em desenvolvimento pela 4ª CRE — Versão de testes
           </p>
           <p className="text-center text-[10px] text-muted-foreground/60 mt-1">
             Uso interno orientativo — sujeito a validação por fontes oficiais

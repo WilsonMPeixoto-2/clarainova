@@ -87,9 +87,9 @@ describe("RAG Service", () => {
   });
 
   describe("SYSTEM_PROMPT", () => {
-    it("should contain Mentor do SEI identity", () => {
-      expect(SYSTEM_PROMPT).toContain("MENTOR DO SEI");
-      expect(SYSTEM_PROMPT).toContain("Consultor Sênior de Processos");
+    it("should contain CLARA identity", () => {
+      expect(SYSTEM_PROMPT).toContain("CLARA");
+      expect(SYSTEM_PROMPT).toContain("Consultora de Legislação e Apoio a Rotinas Administrativas");
       expect(SYSTEM_PROMPT).toContain("4ª CRE");
       expect(SYSTEM_PROMPT).toContain("SME-RJ");
     });
