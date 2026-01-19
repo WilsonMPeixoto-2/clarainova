@@ -2,6 +2,7 @@ interface ClaraLogoProps {
   size?: number;
   className?: string;
   title?: string;
+  variant?: "default" | "light";
 }
 
 /**
@@ -12,8 +13,24 @@ interface ClaraLogoProps {
 export default function ClaraLogo({ 
   size = 48, 
   className = "", 
-  title = "CLARA - Consultora de Legislação e Apoio a Rotinas Administrativas" 
+  title = "CLARA - Consultora de Legislação e Apoio a Rotinas Administrativas",
+  variant = "default"
 }: ClaraLogoProps) {
+  // Color scheme based on variant
+  const colors = variant === "light" 
+    ? {
+        primary: "#ffffff",
+        secondary: "#ffffff",
+        accent: "#f59e0b",
+        bg: "rgba(255, 255, 255, 0.1)"
+      }
+    : {
+        primary: "#1e3a8a",
+        secondary: "#1e3a8a", 
+        accent: "#f59e0b",
+        bg: "rgba(30, 58, 138, 0.1)"
+      };
+  
   return (
     <svg
       width={size}
@@ -27,60 +44,60 @@ export default function ClaraLogo({
     >
       {title && <title>{title}</title>}
       
-      {/* Background Circle - Royal Blue */}
-      <circle cx="24" cy="24" r="22" fill="#1e3a8a" opacity="0.1" />
+      {/* Background Circle */}
+      <circle cx="24" cy="24" r="22" fill={colors.bg} />
       
       {/* Origami Paper Fold Effect - Main Shape */}
-      {/* Top Triangle - Royal Blue */}
+      {/* Top Triangle */}
       <path
         d="M24 6 L38 18 L24 18 Z"
-        fill="#1e3a8a"
+        fill={colors.primary}
         opacity="0.9"
       />
       
-      {/* Left Fold - Royal Blue Darker */}
+      {/* Left Fold */}
       <path
         d="M10 18 L24 18 L17 30 Z"
-        fill="#1e3a8a"
+        fill={colors.secondary}
       />
       
       {/* Right Fold - Amber */}
       <path
         d="M24 18 L38 18 L31 30 Z"
-        fill="#f59e0b"
+        fill={colors.accent}
       />
       
-      {/* Bottom Left Triangle - Royal Blue */}
+      {/* Bottom Left Triangle */}
       <path
         d="M17 30 L24 42 L10 42 Z"
-        fill="#1e3a8a"
+        fill={colors.primary}
         opacity="0.8"
       />
       
       {/* Bottom Right Triangle - Amber Lighter */}
       <path
         d="M31 30 L38 42 L24 42 Z"
-        fill="#f59e0b"
+        fill={colors.accent}
         opacity="0.8"
       />
       
       {/* Center Diamond - Accent */}
       <path
         d="M24 18 L31 30 L24 42 L17 30 Z"
-        fill="#1e3a8a"
+        fill={colors.primary}
         opacity="0.3"
       />
       
       {/* Highlight Lines - White for depth */}
       <path
         d="M24 18 L24 42"
-        stroke="white"
+        stroke={variant === "light" ? "white" : "white"}
         strokeWidth="0.5"
         opacity="0.4"
       />
       <path
         d="M17 30 L31 30"
-        stroke="white"
+        stroke={variant === "light" ? "white" : "white"}
         strokeWidth="0.5"
         opacity="0.4"
       />
@@ -88,7 +105,7 @@ export default function ClaraLogo({
       {/* Letter C - Stylized in center */}
       <path
         d="M26 24 A4 4 0 1 0 26 30"
-        stroke="white"
+        stroke={variant === "light" ? "white" : "white"}
         strokeWidth="2"
         strokeLinecap="round"
         fill="none"

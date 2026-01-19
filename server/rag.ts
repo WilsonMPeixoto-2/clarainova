@@ -674,14 +674,16 @@ function sanitizeSourceDuplication(response: string): string {
   
   // Padrões para detectar blocos de fonte no corpo da resposta
   const sourcePatterns = [
-    // "Fonte:" ou "Fontes:" no início de linha, seguido de conteúdo
-    /^[\s]*Fontes?:\s*$/gim,
-    // "Fonte:" seguido de lista
-    /\n[\s]*Fontes?:\s*\n[\s]*[-•*]\s+.+$/gim,
-    // Seção completa de fontes no final
-    /\n[\s]*#{1,4}\s*Fontes?\s*consultadas?\s*:?\s*\n[\s\S]*$/gim,
+    // "Fonte:" ou "Fontes:" no início de linha, com ou sem conteúdo na mesma linha
+    /^[\s]*Fontes?:\s*.*$/gim,
+    // "Fonte:" seguido de lista com bullets
+    /\n[\s]*Fontes?:\s*\n[\s]*[-•*]\s+.+(\n[\s]*[-•*]\s+.+)*/gim,
+    // Seção completa de fontes (título + conteúdo)
+    /\n[\s]*#{1,4}\s*Fontes?\s*consultadas?\s*:?\s*\n[\s\S]*?(?=\n#{1,4}\s|\n\n[A-Z]|$)/gim,
     // Referências explícitas como "[Fonte: ...]"
     /\[Fonte:\s*[^\]]+\]/gi,
+    // Padrão "Fontes consultadas:" seguido de conteúdo até o próximo parágrafo
+    /\n[\s]*Fontes?\s+consultadas?:?\s*\n[\s\S]*?(?=\n\n|$)/gim,
   ];
   
   for (const pattern of sourcePatterns) {

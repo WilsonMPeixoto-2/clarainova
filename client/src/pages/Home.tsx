@@ -122,7 +122,7 @@ export default function Home() {
           <div className="flex items-center justify-between flex-wrap gap-2">
             <div className="flex items-center gap-4">
               <div className="w-12 h-12 bg-white/10 rounded-lg flex items-center justify-center backdrop-blur-sm">
-                <ClaraLogo size={28} className="filter brightness-0 invert" />
+                <ClaraLogo size={28} variant="light" />
               </div>
               <div>
                 <h1 className="text-xl md:text-2xl font-bold tracking-tight">
