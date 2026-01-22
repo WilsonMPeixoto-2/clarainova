@@ -2,95 +2,72 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
-All colors MUST be HSL.
-*/
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    /* CLARA Design System - LegalTech Premium */
+    --background: 216 45% 7%;
+    --foreground: 210 40% 98%;
 
-    --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    --card: 216 40% 12%;
+    --card-foreground: 210 40% 98%;
 
-    --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
+    --popover: 216 40% 12%;
+    --popover-foreground: 210 40% 98%;
 
-    --primary: 222.2 47.4% 11.2%;
-    --primary-foreground: 210 40% 98%;
+    --primary: 30 45% 64%;
+    --primary-foreground: 216 45% 7%;
 
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
+    --secondary: 216 35% 18%;
+    --secondary-foreground: 210 40% 98%;
 
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
+    --muted: 216 30% 15%;
+    --muted-foreground: 210 20% 70%;
 
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
+    --accent: 24 100% 63%;
+    --accent-foreground: 216 45% 7%;
 
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 210 40% 98%;
 
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
+    --border: 216 30% 22%;
+    --input: 216 30% 18%;
+    --ring: 30 45% 64%;
 
-    --radius: 0.5rem;
+    --radius: 0.75rem;
 
-    --sidebar-background: 0 0% 98%;
-
-    --sidebar-foreground: 240 5.3% 26.1%;
-
-    --sidebar-primary: 240 5.9% 10%;
-
-    --sidebar-primary-foreground: 0 0% 98%;
-
-    --sidebar-accent: 240 4.8% 95.9%;
-
-    --sidebar-accent-foreground: 240 5.9% 10%;
-
-    --sidebar-border: 220 13% 91%;
-
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    /* Custom CLARA tokens */
+    --clara-deep: 216 45% 7%;
+    --clara-navy: 216 40% 16%;
+    --clara-navy-light: 210 35% 25%;
+    --clara-amber: 30 45% 64%;
+    --clara-amber-bright: 24 100% 63%;
+    --clara-text-primary: 210 40% 98%;
+    --clara-text-secondary: 210 20% 75%;
+    --clara-glass: 216 40% 12%;
   }
 
   .dark {
-    --background: 222.2 84% 4.9%;
+    --background: 216 45% 7%;
     --foreground: 210 40% 98%;
-
-    --card: 222.2 84% 4.9%;
+    --card: 216 40% 12%;
     --card-foreground: 210 40% 98%;
-
-    --popover: 222.2 84% 4.9%;
+    --popover: 216 40% 12%;
     --popover-foreground: 210 40% 98%;
-
-    --primary: 210 40% 98%;
-    --primary-foreground: 222.2 47.4% 11.2%;
-
-    --secondary: 217.2 32.6% 17.5%;
+    --primary: 30 45% 64%;
+    --primary-foreground: 216 45% 7%;
+    --secondary: 216 35% 18%;
     --secondary-foreground: 210 40% 98%;
-
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
-
+    --muted: 216 30% 15%;
+    --muted-foreground: 210 20% 70%;
+    --accent: 24 100% 63%;
+    --accent-foreground: 216 45% 7%;
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 210 40% 98%;
-
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 212.7 26.8% 83.9%;
-    --sidebar-background: 240 5.9% 10%;
-    --sidebar-foreground: 240 4.8% 95.9%;
-    --sidebar-primary: 224.3 76.3% 48%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 240 3.7% 15.9%;
-    --sidebar-accent-foreground: 240 4.8% 95.9%;
-    --sidebar-border: 240 3.7% 15.9%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    --border: 216 30% 22%;
+    --input: 216 30% 18%;
+    --ring: 30 45% 64%;
   }
 }
 
@@ -100,6 +77,142 @@ All colors MUST be HSL.
   }
 
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground font-sans antialiased;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  }
+}
+
+@layer components {
+  /* Glassmorphism card */
+  .glass-card {
+    @apply bg-card/60 backdrop-blur-xl border border-border/50 shadow-xl;
+  }
+
+  /* Hero gradient overlay */
+  .hero-overlay {
+    background: linear-gradient(
+      90deg,
+      hsl(216 45% 7% / 0.98) 0%,
+      hsl(216 45% 7% / 0.94) 30%,
+      hsl(216 45% 7% / 0.75) 50%,
+      hsl(216 45% 7% / 0.35) 70%,
+      hsl(216 45% 7% / 0.1) 85%,
+      hsl(216 45% 7% / 0) 100%
+    );
+  }
+
+  /* Hero overlay mobile */
+  .hero-overlay-mobile {
+    background: linear-gradient(
+      180deg,
+      hsl(216 45% 7% / 0.92) 0%,
+      hsl(216 45% 7% / 0.85) 40%,
+      hsl(216 45% 7% / 0.7) 100%
+    );
+  }
+
+  /* Amber glow effect */
+  .amber-glow {
+    text-shadow: 0 0 40px hsl(30 45% 64% / 0.3);
+  }
+
+  /* Subtle text glow */
+  .text-glow {
+    text-shadow: 0 2px 20px hsl(0 0% 0% / 0.5);
+  }
+
+  /* Focus ring amber */
+  .focus-amber {
+    @apply focus:outline-none focus:ring-2 focus:ring-primary/50 focus:ring-offset-2 focus:ring-offset-background;
+  }
+
+  /* Button primary clara */
+  .btn-clara-primary {
+    @apply bg-primary text-primary-foreground font-semibold px-6 py-3 rounded-lg 
+           transition-all duration-300 ease-out
+           hover:bg-primary/90 hover:shadow-lg hover:shadow-primary/25
+           focus:outline-none focus:ring-2 focus:ring-primary/50 focus:ring-offset-2 focus:ring-offset-background;
+  }
+
+  /* Button secondary clara */
+  .btn-clara-secondary {
+    @apply bg-transparent border border-foreground/30 text-foreground font-medium px-6 py-3 rounded-lg
+           transition-all duration-300 ease-out
+           hover:bg-foreground/10 hover:border-foreground/50
+           focus:outline-none focus:ring-2 focus:ring-foreground/30 focus:ring-offset-2 focus:ring-offset-background;
+  }
+
+  /* Search input clara */
+  .search-input-clara {
+    @apply w-full bg-input/80 backdrop-blur-sm border border-border/60 rounded-xl px-5 py-4
+           text-foreground placeholder:text-muted-foreground/70
+           transition-all duration-300
+           focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary/50;
+  }
+
+  /* Feature card */
+  .feature-card {
+    @apply glass-card rounded-2xl p-8 transition-all duration-300
+           hover:border-primary/30 hover:shadow-2xl hover:shadow-primary/5
+           hover:-translate-y-1;
+  }
+
+  /* Badge chip */
+  .badge-chip {
+    @apply inline-flex items-center gap-2 px-4 py-2 rounded-full 
+           bg-primary/15 border border-primary/30 text-primary text-sm font-medium;
+  }
+
+  /* Test badge */
+  .test-badge {
+    @apply text-xs px-2 py-0.5 rounded bg-accent/20 text-accent font-medium;
+  }
+}
+
+@layer utilities {
+  /* Fade in animation */
+  .animate-fade-in {
+    animation: fadeIn 0.6s ease-out forwards;
+  }
+
+  .animate-fade-in-delay {
+    animation: fadeIn 0.6s ease-out 0.2s forwards;
+    opacity: 0;
+  }
+
+  .animate-fade-in-delay-2 {
+    animation: fadeIn 0.6s ease-out 0.4s forwards;
+    opacity: 0;
+  }
+
+  .animate-slide-up {
+    animation: slideUp 0.7s ease-out forwards;
+  }
+
+  .animate-slide-up-delay {
+    animation: slideUp 0.7s ease-out 0.15s forwards;
+    opacity: 0;
+  }
+
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+      transform: translateY(12px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes slideUp {
+    from {
+      opacity: 0;
+      transform: translateY(24px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
   }
 }
