@@ -1,6 +1,10 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { GoogleGenerativeAI } from "https://esm.sh/@google/generative-ai@0.21.0";
+// @ts-ignore - mammoth for DOCX parsing
+import mammoth from "https://esm.sh/mammoth@1.6.0";
+// @ts-ignore - pdf-parse for PDF parsing  
+import * as pdfParse from "https://esm.sh/pdf-parse@1.1.1";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -184,21 +188,40 @@ serve(async (req) => {
       
       if (file.type === "text/plain" || file.name.endsWith(".txt")) {
         contentText = await file.text();
-      } else {
-        // Para PDF e DOCX, precisaríamos de bibliotecas específicas
-        // Por enquanto, vamos aceitar apenas TXT ou receber o texto diretamente
-        const textContent = formData.get("text_content") as string;
-        if (textContent) {
-          contentText = textContent;
-        } else {
+      } else if (file.type === "application/pdf" || file.name.endsWith(".pdf")) {
+        // Extrair texto do PDF
+        try {
+          const arrayBuffer = await file.arrayBuffer();
+          const uint8Array = new Uint8Array(arrayBuffer);
+          const pdfData = await pdfParse.default(uint8Array);
+          contentText = pdfData.text;
+          console.log(`PDF extraído: ${contentText.length} caracteres`);
+        } catch (pdfError) {
+          console.error("Erro ao extrair PDF:", pdfError);
           return new Response(
-            JSON.stringify({ 
-              error: "Para PDF e DOCX, envie também o campo 'text_content' com o texto extraído.",
-              hint: "Você pode usar ferramentas como pdf.js ou mammoth para extrair o texto antes do upload."
-            }),
+            JSON.stringify({ error: "Erro ao processar PDF. Verifique se o arquivo não está corrompido." }),
             { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
           );
         }
+      } else if (file.type === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" || file.name.endsWith(".docx")) {
+        // Extrair texto do DOCX
+        try {
+          const arrayBuffer = await file.arrayBuffer();
+          const result = await mammoth.extractRawText({ arrayBuffer });
+          contentText = result.value;
+          console.log(`DOCX extraído: ${contentText.length} caracteres`);
+        } catch (docxError) {
+          console.error("Erro ao extrair DOCX:", docxError);
+          return new Response(
+            JSON.stringify({ error: "Erro ao processar DOCX. Verifique se o arquivo não está corrompido." }),
+            { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+      } else {
+        return new Response(
+          JSON.stringify({ error: "Tipo de arquivo não suportado. Use PDF, DOCX ou TXT." }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
       }
       
       if (!contentText || contentText.trim().length < 100) {
