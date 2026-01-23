@@ -1,7 +1,11 @@
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Search, MessageCircle, BookOpen } from 'lucide-react';
 import claraHero from '@/assets/clara-hero.png';
 
 const HeroSection = () => {
+  const navigate = useNavigate();
+  const [searchQuery, setSearchQuery] = useState('');
   return (
     <section className="relative min-h-screen flex items-center overflow-hidden">
       {/* Background Image Layer - Integrated, no frame */}
@@ -57,11 +61,20 @@ const HeroSection = () => {
 
             {/* CTAs */}
             <div className="flex flex-col sm:flex-row gap-4 pt-2 animate-fade-in-delay-2">
-              <button className="btn-clara-primary flex items-center justify-center gap-2">
+              <button 
+                onClick={() => navigate('/chat')}
+                className="btn-clara-primary flex items-center justify-center gap-2"
+              >
                 <MessageCircle size={20} />
                 Iniciar conversa
               </button>
-              <button className="btn-clara-secondary flex items-center justify-center gap-2">
+              <button 
+                onClick={() => {
+                  const featuresSection = document.getElementById('features');
+                  featuresSection?.scrollIntoView({ behavior: 'smooth' });
+                }}
+                className="btn-clara-secondary flex items-center justify-center gap-2"
+              >
                 <BookOpen size={20} />
                 Ver tópicos
               </button>
@@ -69,17 +82,27 @@ const HeroSection = () => {
 
             {/* Search Bar */}
             <div className="pt-4 animate-fade-in-delay-2">
-              <div className="relative max-w-xl">
+              <form 
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  if (searchQuery.trim()) {
+                    navigate(`/chat?q=${encodeURIComponent(searchQuery.trim())}`);
+                  }
+                }}
+                className="relative max-w-xl"
+              >
                 <Search 
                   className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground/60" 
                   size={20} 
                 />
                 <input
                   type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Descreva sua dúvida com suas próprias palavras…"
                   className="search-input-clara pl-12"
                 />
-              </div>
+              </form>
             </div>
           </div>
 
