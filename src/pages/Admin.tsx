@@ -129,71 +129,91 @@ const Admin = () => {
   const handleFileUpload = async (files: FileList | null) => {
     if (!files || files.length === 0) return;
 
-    const file = files[0];
     const allowedTypes = [
       'application/pdf',
       'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
       'text/plain',
     ];
 
-    if (!allowedTypes.includes(file.type)) {
-      toast({
-        title: 'Tipo de arquivo não suportado',
-        description: 'Use apenas PDF, DOCX ou TXT.',
-        variant: 'destructive',
-      });
-      return;
-    }
+    const validFiles = Array.from(files).filter(file => {
+      const isValid = allowedTypes.includes(file.type) || file.name.endsWith('.txt');
+      if (!isValid) {
+        toast({
+          title: `Arquivo ignorado: ${file.name}`,
+          description: 'Use apenas PDF, DOCX ou TXT.',
+          variant: 'destructive',
+        });
+      }
+      return isValid;
+    });
+
+    if (validFiles.length === 0) return;
 
     setIsUploading(true);
-    setUploadProgress(10);
+    setUploadProgress(5);
 
-    try {
-      const formData = new FormData();
-      formData.append('file', file);
-      formData.append('title', file.name.replace(/\.[^/.]+$/, ''));
-      formData.append('category', 'manual');
+    const totalFiles = validFiles.length;
+    let completedFiles = 0;
+    let hasErrors = false;
 
-      setUploadProgress(30);
+    for (const file of validFiles) {
+      try {
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('title', file.name.replace(/\.[^/.]+$/, ''));
+        formData.append('category', 'manual');
 
-      const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/documents`,
-        {
-          method: 'POST',
-          headers: {
-            'x-admin-key': adminKey,
-            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-          },
-          body: formData,
+        setUploadProgress(Math.round(((completedFiles + 0.3) / totalFiles) * 100));
+
+        const response = await fetch(
+          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/documents`,
+          {
+            method: 'POST',
+            headers: {
+              'x-admin-key': adminKey,
+              'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+            },
+            body: formData,
+          }
+        );
+
+        setUploadProgress(Math.round(((completedFiles + 0.7) / totalFiles) * 100));
+
+        if (!response.ok) {
+          const error = await response.json();
+          throw new Error(error.error || 'Erro ao fazer upload');
         }
-      );
 
-      setUploadProgress(70);
+        completedFiles++;
+        setUploadProgress(Math.round((completedFiles / totalFiles) * 100));
 
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Erro ao fazer upload');
+        toast({
+          title: 'Upload concluído',
+          description: `"${file.name}" processado (${completedFiles}/${totalFiles}).`,
+        });
+
+      } catch (error: any) {
+        hasErrors = true;
+        toast({
+          title: `Erro: ${file.name}`,
+          description: error.message,
+          variant: 'destructive',
+        });
       }
-
-      setUploadProgress(100);
-
-      toast({
-        title: 'Upload concluído',
-        description: `"${file.name}" foi processado e adicionado à base de conhecimento.`,
-      });
-
-      // Refresh documents list
-      await fetchDocuments();
-    } catch (error: any) {
-      toast({
-        title: 'Erro no upload',
-        description: error.message,
-        variant: 'destructive',
-      });
-    } finally {
-      setIsUploading(false);
-      setUploadProgress(0);
     }
+
+    // Refresh documents list
+    await fetchDocuments();
+
+    if (!hasErrors && totalFiles > 1) {
+      toast({
+        title: 'Todos os uploads concluídos',
+        description: `${totalFiles} documentos processados com sucesso.`,
+      });
+    }
+
+    setIsUploading(false);
+    setUploadProgress(0);
   };
 
   const handleDelete = async () => {
@@ -351,7 +371,7 @@ const Admin = () => {
               Upload de Documento
             </CardTitle>
             <CardDescription>
-              Arraste e solte um arquivo ou clique para selecionar. Formatos aceitos: PDF, DOCX, TXT.
+              Arraste e solte arquivos ou clique para selecionar. Formatos aceitos: PDF, DOCX, TXT. <strong>Múltiplos arquivos permitidos.</strong>
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -373,6 +393,7 @@ const Admin = () => {
                 id="file-input"
                 type="file"
                 accept=".pdf,.docx,.txt"
+                multiple
                 onChange={(e) => handleFileUpload(e.target.files)}
                 className="hidden"
               />
@@ -393,10 +414,10 @@ const Admin = () => {
                   <Upload className={`w-12 h-12 mx-auto ${isDragOver ? 'text-primary' : 'text-muted-foreground'}`} />
                   <div>
                     <p className="text-lg font-medium">
-                      {isDragOver ? 'Solte o arquivo aqui' : 'Arraste um arquivo ou clique para selecionar'}
+                      {isDragOver ? 'Solte os arquivos aqui' : 'Arraste arquivos ou clique para selecionar'}
                     </p>
                     <p className="text-sm text-muted-foreground mt-1">
-                      PDF, DOCX ou TXT até 10MB
+                      PDF, DOCX ou TXT até 50MB cada • Múltiplos arquivos permitidos
                     </p>
                   </div>
                 </div>
