@@ -135,16 +135,31 @@ const Admin = () => {
       'text/plain',
     ];
 
+    const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20MB limit
+    
     const validFiles = Array.from(files).filter(file => {
-      const isValid = allowedTypes.includes(file.type) || file.name.endsWith('.txt');
-      if (!isValid) {
+      const isValidType = allowedTypes.includes(file.type) || file.name.endsWith('.txt');
+      const isValidSize = file.size <= MAX_FILE_SIZE;
+      
+      if (!isValidType) {
         toast({
           title: `Arquivo ignorado: ${file.name}`,
           description: 'Use apenas PDF, DOCX ou TXT.',
           variant: 'destructive',
         });
+        return false;
       }
-      return isValid;
+      
+      if (!isValidSize) {
+        toast({
+          title: `Arquivo muito grande: ${file.name}`,
+          description: `Limite: 20MB. Seu arquivo: ${Math.round(file.size / 1024 / 1024)}MB. Tente dividir o documento em partes menores.`,
+          variant: 'destructive',
+        });
+        return false;
+      }
+      
+      return true;
     });
 
     if (validFiles.length === 0) return;
@@ -417,7 +432,7 @@ const Admin = () => {
                       {isDragOver ? 'Solte os arquivos aqui' : 'Arraste arquivos ou clique para selecionar'}
                     </p>
                     <p className="text-sm text-muted-foreground mt-1">
-                      PDF, DOCX ou TXT até 50MB cada • Múltiplos arquivos permitidos
+                      PDF, DOCX ou TXT até 20MB cada • Múltiplos arquivos permitidos
                     </p>
                   </div>
                 </div>
