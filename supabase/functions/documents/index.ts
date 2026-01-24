@@ -139,7 +139,7 @@ serve(async (req) => {
     }
 
     // =============================================
-    // POST /documents - Upload e processamento
+    // POST /documents - Processar documento do Storage
     // =============================================
     if (req.method === "POST") {
       // Verificar admin key
@@ -155,48 +155,55 @@ serve(async (req) => {
         throw new Error("GEMINI_API_KEY não configurada");
       }
       
-      const formData = await req.formData();
-      const file = formData.get("file") as File | null;
-      const title = formData.get("title") as string || "Documento sem título";
-      const category = formData.get("category") as string || "manual";
+      // Parse JSON body (not FormData anymore)
+      const body = await req.json();
+      const { filePath, title, category, fileType, originalName } = body;
       
-      if (!file) {
+      if (!filePath) {
         return new Response(
-          JSON.stringify({ error: "Arquivo é obrigatório" }),
+          JSON.stringify({ error: "filePath é obrigatório" }),
           { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
       
-      // Validar tipo de arquivo
-      const allowedTypes = [
-        "text/plain",
-        "application/pdf",
-        "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-      ];
+      console.log(`[documents] Processing file from Storage: ${filePath}`);
       
-      if (!allowedTypes.includes(file.type) && !file.name.endsWith(".txt")) {
+      // Download file from Storage
+      const { data: fileData, error: downloadError } = await supabase.storage
+        .from("knowledge-base")
+        .download(filePath);
+      
+      if (downloadError || !fileData) {
+        console.error("Erro ao baixar arquivo do Storage:", downloadError);
         return new Response(
-          JSON.stringify({ error: "Tipo de arquivo não suportado. Use PDF, DOCX ou TXT." }),
-          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          JSON.stringify({ error: "Arquivo não encontrado no Storage" }),
+          { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
       
-      // Ler conteúdo do arquivo
+      console.log(`[documents] Downloaded file: ${filePath}, size: ${Math.round(fileData.size / 1024)}KB`);
+      
+      // Determine file type from path or provided type
+      const isPDF = filePath.endsWith(".pdf") || fileType?.includes("pdf");
+      const isDOCX = filePath.endsWith(".docx") || fileType?.includes("wordprocessingml");
+      const isTXT = filePath.endsWith(".txt") || fileType?.includes("text/plain");
+      
+      // Extract text based on file type
       let contentText: string;
       
-      if (file.type === "text/plain" || file.name.endsWith(".txt")) {
-        contentText = await file.text();
-      } else if (file.type === "application/pdf" || file.name.endsWith(".pdf")) {
-        // Extrair texto do PDF usando Gemini (compatível com Deno)
+      if (isTXT) {
+        contentText = await fileData.text();
+        console.log(`[documents] TXT extracted: ${contentText.length} characters`);
+      } else if (isPDF) {
+        // Extract text from PDF using Gemini (compatible with Deno)
         try {
-          const arrayBuffer = await file.arrayBuffer();
+          const arrayBuffer = await fileData.arrayBuffer();
           const base64Data = btoa(
             new Uint8Array(arrayBuffer).reduce((data, byte) => data + String.fromCharCode(byte), '')
           );
           
-          console.log(`PDF recebido: ${file.name}, ${Math.round(arrayBuffer.byteLength / 1024)}KB`);
+          console.log(`[documents] PDF size: ${Math.round(arrayBuffer.byteLength / 1024)}KB, extracting with Gemini...`);
           
-          // Usar Gemini para extrair texto do PDF
           const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
           const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
           
@@ -222,7 +229,7 @@ Responda APENAS com o texto extraído do documento.`
           ]);
           
           contentText = result.response.text();
-          console.log(`PDF extraído via Gemini: ${contentText.length} caracteres`);
+          console.log(`[documents] PDF extracted via Gemini: ${contentText.length} characters`);
           
           if (!contentText || contentText.trim().length < 50) {
             throw new Error("Texto extraído muito curto - PDF pode estar escaneado ou corrompido");
@@ -237,13 +244,13 @@ Responda APENAS com o texto extraído do documento.`
             { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
           );
         }
-      } else if (file.type === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" || file.name.endsWith(".docx")) {
-        // Extrair texto do DOCX
+      } else if (isDOCX) {
+        // Extract text from DOCX
         try {
-          const arrayBuffer = await file.arrayBuffer();
+          const arrayBuffer = await fileData.arrayBuffer();
           const result = await mammoth.extractRawText({ arrayBuffer });
           contentText = result.value;
-          console.log(`DOCX extraído: ${contentText.length} caracteres`);
+          console.log(`[documents] DOCX extracted: ${contentText.length} characters`);
         } catch (docxError) {
           console.error("Erro ao extrair DOCX:", docxError);
           return new Response(
@@ -265,30 +272,13 @@ Responda APENAS com o texto extraído do documento.`
         );
       }
       
-      // Upload do arquivo para o Storage
-      const fileExt = file.name.split(".").pop();
-      const fileName = `${crypto.randomUUID()}.${fileExt}`;
-      const filePath = `documents/${fileName}`;
-      
-      const { error: uploadError } = await supabase.storage
-        .from("knowledge-base")
-        .upload(filePath, file, {
-          contentType: file.type,
-          upsert: false
-        });
-      
-      if (uploadError) {
-        console.error("Erro no upload:", uploadError);
-        // Continuar mesmo sem upload do arquivo original
-      }
-      
-      // Criar documento no banco
+      // Create document in database
       const { data: document, error: docError } = await supabase
         .from("documents")
         .insert({
-          title,
-          category,
-          file_path: uploadError ? null : filePath,
+          title: title || originalName || "Documento sem título",
+          category: category || "manual",
+          file_path: filePath,
           content_text: contentText
         })
         .select()
@@ -296,11 +286,13 @@ Responda APENAS com o texto extraído do documento.`
       
       if (docError) throw docError;
       
-      // Dividir em chunks
-      const chunks = splitIntoChunks(contentText);
-      console.log(`Documento dividido em ${chunks.length} chunks`);
+      console.log(`[documents] Document created: ${document.id}`);
       
-      // Gerar embeddings
+      // Split into chunks
+      const chunks = splitIntoChunks(contentText);
+      console.log(`[documents] Document split into ${chunks.length} chunks`);
+      
+      // Generate embeddings
       const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
       const embeddingModel = genAI.getGenerativeModel({ model: "text-embedding-004" });
       
@@ -310,7 +302,7 @@ Responda APENAS com o texto extraído do documento.`
         const chunk = chunks[i];
         const metadata = extractMetadata(chunk, i);
         
-        // Gerar embedding
+        // Generate embedding
         const embeddingResult = await embeddingModel.embedContent(chunk);
         const embedding = embeddingResult.embedding.values;
         
@@ -322,13 +314,13 @@ Responda APENAS com o texto extraído do documento.`
           metadata
         });
         
-        // Pequena pausa para não sobrecarregar a API
+        // Small pause to not overload the API
         if (i % 5 === 0 && i > 0) {
           await new Promise(resolve => setTimeout(resolve, 100));
         }
       }
       
-      // Inserir chunks em lotes
+      // Insert chunks in batches
       const batchSize = 50;
       for (let i = 0; i < chunkRecords.length; i += batchSize) {
         const batch = chunkRecords.slice(i, i + batchSize);
@@ -341,6 +333,8 @@ Responda APENAS com o texto extraído do documento.`
           throw chunksError;
         }
       }
+      
+      console.log(`[documents] All ${chunks.length} chunks inserted successfully`);
       
       return new Response(
         JSON.stringify({
