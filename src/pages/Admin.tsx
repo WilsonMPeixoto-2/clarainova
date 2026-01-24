@@ -227,14 +227,23 @@ const Admin = () => {
 
         // STEP 2: Upload file directly using signed URL
         console.log(`[Admin] Uploading ${file.name} using signed URL...`);
+        console.log(`[Admin] SignedUrl: ${signedUrlData.signedUrl.substring(0, 100)}...`);
+        console.log(`[Admin] File size: ${file.size} bytes, type: ${file.type}`);
         
-        const uploadResponse = await fetch(signedUrlData.signedUrl, {
-          method: 'PUT',
-          headers: {
-            'Content-Type': file.type || 'application/octet-stream',
-          },
-          body: file,
-        });
+        let uploadResponse: Response;
+        try {
+          uploadResponse = await fetch(signedUrlData.signedUrl, {
+            method: 'PUT',
+            headers: {
+              'Content-Type': file.type || 'application/octet-stream',
+            },
+            body: file,
+          });
+          console.log(`[Admin] Upload response status: ${uploadResponse.status}`);
+        } catch (fetchError: any) {
+          console.error('[Admin] Upload fetch error:', fetchError);
+          throw new Error(`Erro de rede no upload: ${fetchError.message}`);
+        }
 
         if (!uploadResponse.ok) {
           const uploadErrorText = await uploadResponse.text();
