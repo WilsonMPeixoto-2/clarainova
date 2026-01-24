@@ -103,6 +103,15 @@ serve(async (req) => {
     // GET /documents - Listar todos os documentos
     // =============================================
     if (req.method === "GET" && (!documentId || documentId === "documents")) {
+      // Validate admin key for listing documents
+      const adminKey = req.headers.get("x-admin-key");
+      if (!adminKey || adminKey !== ADMIN_KEY) {
+        return new Response(
+          JSON.stringify({ error: "Não autorizado" }),
+          { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      
       const { data: documents, error } = await supabase
         .from("documents")
         .select(`
@@ -353,7 +362,7 @@ Responda APENAS com o texto extraído do documento.`
     // =============================================
     // DELETE /documents/:id - Remover documento
     // =============================================
-    if (req.method === "DELETE" && documentId && documentId !== "documents") {
+    if (req.method === "DELETE") {
       // Verificar admin key
       const adminKey = req.headers.get("x-admin-key");
       if (!adminKey || adminKey !== ADMIN_KEY) {
@@ -363,11 +372,30 @@ Responda APENAS com o texto extraído do documento.`
         );
       }
       
+      // Accept ID from URL path or from request body
+      let docId = documentId && documentId !== "documents" ? documentId : null;
+      
+      if (!docId) {
+        try {
+          const body = await req.json();
+          docId = body.id;
+        } catch {
+          // Body parsing failed, docId remains null
+        }
+      }
+      
+      if (!docId) {
+        return new Response(
+          JSON.stringify({ error: "ID do documento obrigatório" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      
       // Buscar documento
       const { data: document, error: fetchError } = await supabase
         .from("documents")
         .select("id, file_path")
-        .eq("id", documentId)
+        .eq("id", docId)
         .single();
       
       if (fetchError || !document) {
@@ -381,7 +409,7 @@ Responda APENAS com o texto extraído do documento.`
       const { error: chunksError } = await supabase
         .from("document_chunks")
         .delete()
-        .eq("document_id", documentId);
+        .eq("document_id", docId);
       
       if (chunksError) {
         console.error("Erro ao remover chunks:", chunksError);
@@ -402,12 +430,12 @@ Responda APENAS com o texto extraído do documento.`
       const { error: deleteError } = await supabase
         .from("documents")
         .delete()
-        .eq("id", documentId);
+        .eq("id", docId);
       
       if (deleteError) throw deleteError;
       
       return new Response(
-        JSON.stringify({ success: true, deleted: documentId }),
+        JSON.stringify({ success: true, deleted: docId }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }

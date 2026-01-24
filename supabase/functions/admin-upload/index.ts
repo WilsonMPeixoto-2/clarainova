@@ -1,0 +1,130 @@
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-admin-key",
+};
+
+serve(async (req) => {
+  // Handle CORS preflight
+  if (req.method === "OPTIONS") {
+    return new Response(null, { headers: corsHeaders });
+  }
+
+  try {
+    const ADMIN_KEY = Deno.env.get("ADMIN_KEY");
+    const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
+    const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+
+    if (!ADMIN_KEY || !SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+      console.error("[admin-upload] Missing required environment variables");
+      return new Response(
+        JSON.stringify({ error: "Configuração do servidor incompleta", code: "CONFIG_ERROR" }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Validate admin key
+    const adminKey = req.headers.get("x-admin-key");
+
+    if (!adminKey) {
+      return new Response(
+        JSON.stringify({ error: "Chave de administrador não fornecida", code: "MISSING_KEY" }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    if (adminKey !== ADMIN_KEY) {
+      console.log("[admin-upload] Invalid admin key attempt");
+      return new Response(
+        JSON.stringify({ error: "Chave de administrador inválida", code: "INVALID_KEY" }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Parse multipart form data
+    const formData = await req.formData();
+    const file = formData.get("file") as File | null;
+    const title = formData.get("title") as string | null;
+    const category = formData.get("category") as string | null;
+
+    if (!file) {
+      return new Response(
+        JSON.stringify({ error: "Arquivo obrigatório", code: "MISSING_FILE" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Validate file type
+    const allowedExtensions = [".pdf", ".docx", ".txt"];
+    const fileName = file.name.toLowerCase();
+    const isValidType = allowedExtensions.some(ext => fileName.endsWith(ext));
+
+    if (!isValidType) {
+      return new Response(
+        JSON.stringify({ error: "Tipo de arquivo não suportado. Use PDF, DOCX ou TXT.", code: "INVALID_FILE_TYPE" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Validate file size (50MB max)
+    const MAX_SIZE = 50 * 1024 * 1024;
+    if (file.size > MAX_SIZE) {
+      return new Response(
+        JSON.stringify({ error: `Arquivo muito grande. Limite: 50MB. Seu arquivo: ${Math.round(file.size / 1024 / 1024)}MB`, code: "FILE_TOO_LARGE" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    console.log(`[admin-upload] Processing file: ${file.name}, size: ${Math.round(file.size / 1024)}KB`);
+
+    // Create Supabase client with service role (bypasses RLS)
+    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+
+    // Generate unique file path
+    const fileExt = file.name.split(".").pop()?.toLowerCase() || "bin";
+    const uniqueFileName = `${crypto.randomUUID()}.${fileExt}`;
+    const filePath = `documents/${uniqueFileName}`;
+
+    // Upload file to Storage using service role
+    const arrayBuffer = await file.arrayBuffer();
+    const { error: uploadError } = await supabase.storage
+      .from("knowledge-base")
+      .upload(filePath, arrayBuffer, {
+        contentType: file.type || `application/${fileExt}`,
+        upsert: false,
+      });
+
+    if (uploadError) {
+      console.error("[admin-upload] Storage upload error:", uploadError);
+      return new Response(
+        JSON.stringify({ error: `Erro ao fazer upload: ${uploadError.message}`, code: "UPLOAD_FAILED" }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    console.log(`[admin-upload] File uploaded successfully: ${filePath}`);
+
+    return new Response(
+      JSON.stringify({
+        success: true,
+        filePath,
+        originalName: file.name,
+        fileSize: file.size,
+        fileType: file.type,
+        title: title || file.name.replace(/\.[^/.]+$/, ""),
+        category: category || "manual",
+      }),
+      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+
+  } catch (error) {
+    console.error("[admin-upload] Error:", error);
+    const errorMessage = error instanceof Error ? error.message : "Erro interno";
+    return new Response(
+      JSON.stringify({ error: errorMessage, code: "INTERNAL_ERROR" }),
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+  }
+});

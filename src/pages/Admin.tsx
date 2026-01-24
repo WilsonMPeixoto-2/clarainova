@@ -73,29 +73,35 @@ const Admin = () => {
     setIsAuthenticating(true);
     
     try {
-      // Test the key by making a request to the documents endpoint
-      const { data, error } = await supabase.functions.invoke('documents', {
-        method: 'GET',
+      // Validate admin key using dedicated auth endpoint
+      const { data, error } = await supabase.functions.invoke('admin-auth', {
         headers: {
           'x-admin-key': adminKey,
         },
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error('[Admin] Auth error:', error);
+        throw new Error('Erro de conexão');
+      }
+
+      if (!data?.valid) {
+        throw new Error(data?.error || 'Chave inválida');
+      }
 
       // Store in session storage
       sessionStorage.setItem('clara_admin_key', adminKey);
       setIsAuthenticated(true);
-      setDocuments(data.documents || []);
       
       toast({
         title: 'Autenticado',
         description: 'Acesso concedido à área administrativa.',
       });
     } catch (error: any) {
+      console.error('[Admin] Authentication failed:', error);
       toast({
         title: 'Acesso negado',
-        description: 'Chave de administrador inválida.',
+        description: error.message || 'Chave de administrador inválida.',
         variant: 'destructive',
       });
     } finally {
@@ -140,7 +146,7 @@ const Admin = () => {
       'text/plain',
     ];
 
-    const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB limit (Storage supports larger files)
+    const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB limit
     
     const validFiles = Array.from(files).filter(file => {
       console.log(`[Admin] Checking file: ${file.name}, type: ${file.type}, size: ${Math.round(file.size / 1024 / 1024)}MB`);
@@ -189,31 +195,40 @@ const Admin = () => {
 
     for (const file of validFiles) {
       try {
-        // STEP 1: Upload file to Storage first (bypasses 6MB Edge Function limit)
-        const fileExt = file.name.split('.').pop();
-        const fileName = `${crypto.randomUUID()}.${fileExt}`;
-        const filePath = `documents/${fileName}`;
-        
-        console.log(`[Admin] Uploading ${file.name} to Storage as ${filePath}`);
+        // STEP 1: Upload file securely via admin-upload Edge Function
+        console.log(`[Admin] Uploading ${file.name} via admin-upload...`);
         setUploadProgress(Math.round(((completedFiles + 0.2) / totalFiles) * 100));
 
-        const { error: uploadError } = await supabase.storage
-          .from('knowledge-base')
-          .upload(filePath, file, {
-            contentType: file.type,
-            upsert: false
-          });
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('title', file.name.replace(/\.[^/.]+$/, ''));
+        formData.append('category', 'manual');
 
-        if (uploadError) {
-          console.error('[Admin] Storage upload error:', uploadError);
-          throw new Error(`Erro ao fazer upload para Storage: ${uploadError.message}`);
+        const uploadResponse = await fetch(
+          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/admin-upload`,
+          {
+            method: 'POST',
+            headers: {
+              'x-admin-key': adminKey,
+              'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+            },
+            body: formData,
+          }
+        );
+
+        if (!uploadResponse.ok) {
+          const errorData = await uploadResponse.json();
+          console.error('[Admin] Upload error:', errorData);
+          throw new Error(errorData.error || 'Erro ao fazer upload');
         }
 
-        console.log(`[Admin] Storage upload complete: ${filePath}`);
+        const uploadResult = await uploadResponse.json();
+        console.log(`[Admin] Upload complete: ${uploadResult.filePath}`);
         setUploadProgress(Math.round(((completedFiles + 0.5) / totalFiles) * 100));
 
-        // STEP 2: Call Edge Function with just the file path (not the binary)
-        const response = await fetch(
+        // STEP 2: Process document via documents Edge Function
+        console.log(`[Admin] Processing document...`);
+        const processResponse = await fetch(
           `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/documents`,
           {
             method: 'POST',
@@ -223,23 +238,31 @@ const Admin = () => {
               'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-              filePath,
-              title: file.name.replace(/\.[^/.]+$/, ''),
-              category: 'manual',
-              fileType: file.type || `application/${fileExt}`,
-              originalName: file.name,
+              filePath: uploadResult.filePath,
+              title: uploadResult.title,
+              category: uploadResult.category,
+              fileType: uploadResult.fileType,
+              originalName: uploadResult.originalName,
             }),
           }
         );
 
         setUploadProgress(Math.round(((completedFiles + 0.8) / totalFiles) * 100));
 
-        if (!response.ok) {
-          const error = await response.json();
+        if (!processResponse.ok) {
+          const errorData = await processResponse.json();
+          console.error('[Admin] Processing error:', errorData);
           // Clean up the uploaded file if processing failed
-          await supabase.storage.from('knowledge-base').remove([filePath]);
-          throw new Error(error.error || 'Erro ao processar documento');
+          try {
+            await supabase.storage.from('knowledge-base').remove([uploadResult.filePath]);
+          } catch (cleanupError) {
+            console.error('[Admin] Cleanup error:', cleanupError);
+          }
+          throw new Error(errorData.error || 'Erro ao processar documento');
         }
+
+        const processResult = await processResponse.json();
+        console.log(`[Admin] Processing complete:`, processResult);
 
         completedFiles++;
         setUploadProgress(Math.round((completedFiles / totalFiles) * 100));
@@ -254,7 +277,7 @@ const Admin = () => {
         console.error('[Admin] Upload error:', error);
         toast({
           title: `Erro: ${file.name}`,
-          description: error.message,
+          description: error.message || 'Erro desconhecido',
           variant: 'destructive',
         });
       }
