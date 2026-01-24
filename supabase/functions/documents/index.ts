@@ -3,8 +3,6 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { GoogleGenerativeAI } from "https://esm.sh/@google/generative-ai@0.21.0";
 // @ts-ignore - mammoth for DOCX parsing
 import mammoth from "https://esm.sh/mammoth@1.6.0";
-// @ts-ignore - pdf-parse for PDF parsing  
-import * as pdfParse from "https://esm.sh/pdf-parse@1.1.1";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -189,17 +187,53 @@ serve(async (req) => {
       if (file.type === "text/plain" || file.name.endsWith(".txt")) {
         contentText = await file.text();
       } else if (file.type === "application/pdf" || file.name.endsWith(".pdf")) {
-        // Extrair texto do PDF
+        // Extrair texto do PDF usando Gemini (compatível com Deno)
         try {
           const arrayBuffer = await file.arrayBuffer();
-          const uint8Array = new Uint8Array(arrayBuffer);
-          const pdfData = await pdfParse.default(uint8Array);
-          contentText = pdfData.text;
-          console.log(`PDF extraído: ${contentText.length} caracteres`);
+          const base64Data = btoa(
+            new Uint8Array(arrayBuffer).reduce((data, byte) => data + String.fromCharCode(byte), '')
+          );
+          
+          console.log(`PDF recebido: ${file.name}, ${Math.round(arrayBuffer.byteLength / 1024)}KB`);
+          
+          // Usar Gemini para extrair texto do PDF
+          const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
+          const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+          
+          const result = await model.generateContent([
+            {
+              inlineData: {
+                mimeType: "application/pdf",
+                data: base64Data
+              }
+            },
+            {
+              text: `Extraia TODO o texto deste documento PDF de forma literal e completa. 
+
+Instruções:
+- Preserve a estrutura original (títulos, parágrafos, listas)
+- Mantenha numerações e marcadores
+- Inclua todo o conteúdo textual, sem resumir ou omitir
+- Use quebras de linha para separar seções
+- Não adicione comentários ou explicações, apenas o texto extraído
+
+Responda APENAS com o texto extraído do documento.`
+            }
+          ]);
+          
+          contentText = result.response.text();
+          console.log(`PDF extraído via Gemini: ${contentText.length} caracteres`);
+          
+          if (!contentText || contentText.trim().length < 50) {
+            throw new Error("Texto extraído muito curto - PDF pode estar escaneado ou corrompido");
+          }
         } catch (pdfError) {
           console.error("Erro ao extrair PDF:", pdfError);
           return new Response(
-            JSON.stringify({ error: "Erro ao processar PDF. Verifique se o arquivo não está corrompido." }),
+            JSON.stringify({ 
+              error: "Erro ao processar PDF. Verifique se o arquivo não está corrompido ou protegido.",
+              details: pdfError instanceof Error ? pdfError.message : "Erro desconhecido"
+            }),
             { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
           );
         }
