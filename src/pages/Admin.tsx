@@ -127,7 +127,12 @@ const Admin = () => {
   };
 
   const handleFileUpload = async (files: FileList | null) => {
-    if (!files || files.length === 0) return;
+    console.log('[Admin] handleFileUpload called with files:', files?.length);
+    
+    if (!files || files.length === 0) {
+      console.log('[Admin] No files provided');
+      return;
+    }
 
     const allowedTypes = [
       'application/pdf',
@@ -138,10 +143,15 @@ const Admin = () => {
     const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20MB limit
     
     const validFiles = Array.from(files).filter(file => {
-      const isValidType = allowedTypes.includes(file.type) || file.name.endsWith('.txt');
+      console.log(`[Admin] Checking file: ${file.name}, type: ${file.type}, size: ${Math.round(file.size / 1024 / 1024)}MB`);
+      
+      const isValidType = allowedTypes.includes(file.type) || file.name.endsWith('.txt') || file.name.endsWith('.pdf');
       const isValidSize = file.size <= MAX_FILE_SIZE;
       
+      console.log(`[Admin] File ${file.name}: validType=${isValidType}, validSize=${isValidSize}`);
+      
       if (!isValidType) {
+        console.log(`[Admin] Invalid type for ${file.name}`);
         toast({
           title: `Arquivo ignorado: ${file.name}`,
           description: 'Use apenas PDF, DOCX ou TXT.',
@@ -151,6 +161,7 @@ const Admin = () => {
       }
       
       if (!isValidSize) {
+        console.log(`[Admin] File too large: ${file.name} (${Math.round(file.size / 1024 / 1024)}MB)`);
         toast({
           title: `Arquivo muito grande: ${file.name}`,
           description: `Limite: 20MB. Seu arquivo: ${Math.round(file.size / 1024 / 1024)}MB. Tente dividir o documento em partes menores.`,
@@ -162,7 +173,12 @@ const Admin = () => {
       return true;
     });
 
-    if (validFiles.length === 0) return;
+    console.log('[Admin] Valid files count:', validFiles.length);
+
+    if (validFiles.length === 0) {
+      console.log('[Admin] No valid files to upload');
+      return;
+    }
 
     setIsUploading(true);
     setUploadProgress(5);
