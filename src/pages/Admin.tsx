@@ -195,39 +195,58 @@ const Admin = () => {
 
     for (const file of validFiles) {
       try {
-        // STEP 1: Upload file securely via admin-upload Edge Function
-        console.log(`[Admin] Uploading ${file.name} via admin-upload...`);
-        setUploadProgress(Math.round(((completedFiles + 0.2) / totalFiles) * 100));
+        // STEP 1: Get signed upload URL from Edge Function
+        console.log(`[Admin] Getting signed upload URL for ${file.name}...`);
+        setUploadProgress(Math.round(((completedFiles + 0.1) / totalFiles) * 100));
 
-        const formData = new FormData();
-        formData.append('file', file);
-        formData.append('title', file.name.replace(/\.[^/.]+$/, ''));
-        formData.append('category', 'manual');
-
-        const uploadResponse = await fetch(
-          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/admin-upload`,
+        const signedUrlResponse = await fetch(
+          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/admin_get_upload_url`,
           {
             method: 'POST',
             headers: {
+              'Content-Type': 'application/json',
               'x-admin-key': adminKey,
               'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
             },
-            body: formData,
+            body: JSON.stringify({ 
+              filename: file.name, 
+              contentType: file.type || 'application/octet-stream' 
+            }),
           }
         );
 
-        if (!uploadResponse.ok) {
-          const errorData = await uploadResponse.json();
-          console.error('[Admin] Upload error:', errorData);
-          throw new Error(errorData.error || 'Erro ao fazer upload');
+        if (!signedUrlResponse.ok) {
+          const errorData = await signedUrlResponse.json();
+          console.error('[Admin] Signed URL error:', signedUrlResponse.status, errorData);
+          throw new Error(`[${signedUrlResponse.status}] ${errorData.error || 'Falha ao obter URL de upload'}`);
         }
 
-        const uploadResult = await uploadResponse.json();
-        console.log(`[Admin] Upload complete: ${uploadResult.filePath}`);
-        setUploadProgress(Math.round(((completedFiles + 0.5) / totalFiles) * 100));
+        const signedUrlData = await signedUrlResponse.json();
+        console.log(`[Admin] Got signed URL for path: ${signedUrlData.path}`);
+        setUploadProgress(Math.round(((completedFiles + 0.3) / totalFiles) * 100));
 
-        // STEP 2: Process document via documents Edge Function
-        console.log(`[Admin] Processing document...`);
+        // STEP 2: Upload file directly using signed URL
+        console.log(`[Admin] Uploading ${file.name} using signed URL...`);
+        
+        const uploadResponse = await fetch(signedUrlData.signedUrl, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': file.type || 'application/octet-stream',
+          },
+          body: file,
+        });
+
+        if (!uploadResponse.ok) {
+          const uploadErrorText = await uploadResponse.text();
+          console.error('[Admin] Upload error:', uploadResponse.status, uploadErrorText);
+          throw new Error(`[${uploadResponse.status}] Falha no upload: ${uploadErrorText || 'Erro desconhecido'}`);
+        }
+
+        console.log(`[Admin] Upload complete: ${signedUrlData.path}`);
+        setUploadProgress(Math.round(((completedFiles + 0.6) / totalFiles) * 100));
+
+        // STEP 3: Process document via documents Edge Function
+        console.log(`[Admin] Processing document at path: ${signedUrlData.path}`);
         const processResponse = await fetch(
           `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/documents`,
           {
@@ -238,27 +257,28 @@ const Admin = () => {
               'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-              filePath: uploadResult.filePath,
-              title: uploadResult.title,
-              category: uploadResult.category,
-              fileType: uploadResult.fileType,
-              originalName: uploadResult.originalName,
+              filePath: signedUrlData.path,
+              title: file.name.replace(/\.[^/.]+$/, ''),
+              category: 'manual',
+              fileType: file.type || signedUrlData.contentType,
+              originalName: file.name,
             }),
           }
         );
 
-        setUploadProgress(Math.round(((completedFiles + 0.8) / totalFiles) * 100));
+        setUploadProgress(Math.round(((completedFiles + 0.9) / totalFiles) * 100));
 
         if (!processResponse.ok) {
           const errorData = await processResponse.json();
-          console.error('[Admin] Processing error:', errorData);
+          console.error('[Admin] Processing error:', processResponse.status, errorData);
           // Clean up the uploaded file if processing failed
           try {
-            await supabase.storage.from('knowledge-base').remove([uploadResult.filePath]);
+            console.log('[Admin] Cleaning up uploaded file...');
+            await supabase.storage.from('knowledge-base').remove([signedUrlData.path]);
           } catch (cleanupError) {
             console.error('[Admin] Cleanup error:', cleanupError);
           }
-          throw new Error(errorData.error || 'Erro ao processar documento');
+          throw new Error(`[${processResponse.status}] ${errorData.error || 'Erro ao processar documento'}`);
         }
 
         const processResult = await processResponse.json();
@@ -269,12 +289,12 @@ const Admin = () => {
 
         toast({
           title: 'Upload concluído',
-          description: `"${file.name}" processado (${completedFiles}/${totalFiles}).`,
+          description: `"${file.name}" processado com sucesso (${completedFiles}/${totalFiles}).`,
         });
 
       } catch (error: any) {
         hasErrors = true;
-        console.error('[Admin] Upload error:', error);
+        console.error('[Admin] Upload/processing error:', error);
         toast({
           title: `Erro: ${file.name}`,
           description: error.message || 'Erro desconhecido',
