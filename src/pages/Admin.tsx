@@ -140,12 +140,12 @@ const Admin = () => {
       'text/plain',
     ];
 
-    const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20MB limit
+    const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB limit (Storage supports larger files)
     
     const validFiles = Array.from(files).filter(file => {
       console.log(`[Admin] Checking file: ${file.name}, type: ${file.type}, size: ${Math.round(file.size / 1024 / 1024)}MB`);
       
-      const isValidType = allowedTypes.includes(file.type) || file.name.endsWith('.txt') || file.name.endsWith('.pdf');
+      const isValidType = allowedTypes.includes(file.type) || file.name.endsWith('.txt') || file.name.endsWith('.pdf') || file.name.endsWith('.docx');
       const isValidSize = file.size <= MAX_FILE_SIZE;
       
       console.log(`[Admin] File ${file.name}: validType=${isValidType}, validSize=${isValidSize}`);
@@ -164,7 +164,7 @@ const Admin = () => {
         console.log(`[Admin] File too large: ${file.name} (${Math.round(file.size / 1024 / 1024)}MB)`);
         toast({
           title: `Arquivo muito grande: ${file.name}`,
-          description: `Limite: 20MB. Seu arquivo: ${Math.round(file.size / 1024 / 1024)}MB. Tente dividir o documento em partes menores.`,
+          description: `Limite: 50MB. Seu arquivo: ${Math.round(file.size / 1024 / 1024)}MB.`,
           variant: 'destructive',
         });
         return false;
@@ -189,13 +189,30 @@ const Admin = () => {
 
     for (const file of validFiles) {
       try {
-        const formData = new FormData();
-        formData.append('file', file);
-        formData.append('title', file.name.replace(/\.[^/.]+$/, ''));
-        formData.append('category', 'manual');
+        // STEP 1: Upload file to Storage first (bypasses 6MB Edge Function limit)
+        const fileExt = file.name.split('.').pop();
+        const fileName = `${crypto.randomUUID()}.${fileExt}`;
+        const filePath = `documents/${fileName}`;
+        
+        console.log(`[Admin] Uploading ${file.name} to Storage as ${filePath}`);
+        setUploadProgress(Math.round(((completedFiles + 0.2) / totalFiles) * 100));
 
-        setUploadProgress(Math.round(((completedFiles + 0.3) / totalFiles) * 100));
+        const { error: uploadError } = await supabase.storage
+          .from('knowledge-base')
+          .upload(filePath, file, {
+            contentType: file.type,
+            upsert: false
+          });
 
+        if (uploadError) {
+          console.error('[Admin] Storage upload error:', uploadError);
+          throw new Error(`Erro ao fazer upload para Storage: ${uploadError.message}`);
+        }
+
+        console.log(`[Admin] Storage upload complete: ${filePath}`);
+        setUploadProgress(Math.round(((completedFiles + 0.5) / totalFiles) * 100));
+
+        // STEP 2: Call Edge Function with just the file path (not the binary)
         const response = await fetch(
           `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/documents`,
           {
@@ -203,16 +220,25 @@ const Admin = () => {
             headers: {
               'x-admin-key': adminKey,
               'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+              'Content-Type': 'application/json',
             },
-            body: formData,
+            body: JSON.stringify({
+              filePath,
+              title: file.name.replace(/\.[^/.]+$/, ''),
+              category: 'manual',
+              fileType: file.type || `application/${fileExt}`,
+              originalName: file.name,
+            }),
           }
         );
 
-        setUploadProgress(Math.round(((completedFiles + 0.7) / totalFiles) * 100));
+        setUploadProgress(Math.round(((completedFiles + 0.8) / totalFiles) * 100));
 
         if (!response.ok) {
           const error = await response.json();
-          throw new Error(error.error || 'Erro ao fazer upload');
+          // Clean up the uploaded file if processing failed
+          await supabase.storage.from('knowledge-base').remove([filePath]);
+          throw new Error(error.error || 'Erro ao processar documento');
         }
 
         completedFiles++;
@@ -225,6 +251,7 @@ const Admin = () => {
 
       } catch (error: any) {
         hasErrors = true;
+        console.error('[Admin] Upload error:', error);
         toast({
           title: `Erro: ${file.name}`,
           description: error.message,
@@ -448,7 +475,7 @@ const Admin = () => {
                       {isDragOver ? 'Solte os arquivos aqui' : 'Arraste arquivos ou clique para selecionar'}
                     </p>
                     <p className="text-sm text-muted-foreground mt-1">
-                      PDF, DOCX ou TXT até 20MB cada • Múltiplos arquivos permitidos
+                      PDF, DOCX ou TXT até 50MB cada • Múltiplos arquivos permitidos
                     </p>
                   </div>
                 </div>
