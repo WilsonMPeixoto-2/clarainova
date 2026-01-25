@@ -168,29 +168,46 @@ serve(async (req) => {
       const body = await req.json();
       const { filePath, title, category, fileType, originalName } = body;
       
+      console.log(`[documents] ========== PROCESSING REQUEST ==========`);
+      console.log(`[documents] filePath: ${filePath}`);
+      console.log(`[documents] title: ${title}`);
+      console.log(`[documents] category: ${category}`);
+      console.log(`[documents] fileType: ${fileType}`);
+      console.log(`[documents] originalName: ${originalName}`);
+      
       if (!filePath) {
+        console.error(`[documents] ERROR: filePath is missing`);
         return new Response(
           JSON.stringify({ error: "filePath é obrigatório" }),
           { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
       
-      console.log(`[documents] Processing file from Storage: ${filePath}`);
-      
       // Download file from Storage
+      console.log(`[documents] ========== DOWNLOADING FROM STORAGE ==========`);
+      console.log(`[documents] Bucket: knowledge-base`);
+      console.log(`[documents] Path: ${filePath}`);
+      
       const { data: fileData, error: downloadError } = await supabase.storage
         .from("knowledge-base")
         .download(filePath);
       
       if (downloadError || !fileData) {
-        console.error("Erro ao baixar arquivo do Storage:", downloadError);
+        console.error(`[documents] DOWNLOAD FAILED`);
+        console.error(`[documents] Error:`, downloadError);
+        console.error(`[documents] Error message:`, downloadError?.message);
         return new Response(
-          JSON.stringify({ error: "Arquivo não encontrado no Storage" }),
+          JSON.stringify({ 
+            error: "Arquivo não encontrado no Storage",
+            details: downloadError?.message,
+            path: filePath
+          }),
           { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
       
-      console.log(`[documents] Downloaded file: ${filePath}, size: ${Math.round(fileData.size / 1024)}KB`);
+      console.log(`[documents] DOWNLOAD SUCCESS`);
+      console.log(`[documents] File size: ${Math.round(fileData.size / 1024)}KB`);
       
       // Determine file type from path or provided type
       const isPDF = filePath.endsWith(".pdf") || fileType?.includes("pdf");
