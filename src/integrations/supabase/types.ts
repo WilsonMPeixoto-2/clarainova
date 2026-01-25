@@ -82,11 +82,52 @@ export type Database = {
         }
         Relationships: []
       }
+      rate_limits: {
+        Row: {
+          client_key: string
+          created_at: string
+          endpoint: string
+          id: string
+          request_count: number
+          window_start: string
+        }
+        Insert: {
+          client_key: string
+          created_at?: string
+          endpoint: string
+          id?: string
+          request_count?: number
+          window_start?: string
+        }
+        Update: {
+          client_key?: string
+          created_at?: string
+          endpoint?: string
+          id?: string
+          request_count?: number
+          window_start?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
+      check_rate_limit: {
+        Args: {
+          p_client_key: string
+          p_endpoint: string
+          p_max_requests: number
+          p_window_seconds: number
+        }
+        Returns: {
+          allowed: boolean
+          current_count: number
+          reset_in: number
+        }[]
+      }
+      cleanup_rate_limits: { Args: never; Returns: number }
       search_document_chunks: {
         Args: {
           match_count?: number
