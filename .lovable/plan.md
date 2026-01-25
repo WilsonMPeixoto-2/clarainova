@@ -1,34 +1,67 @@
 
+# Plano: Melhorar Visibilidade da Política de Privacidade
 
-# Plano: Adicionar Arquivo de Verificação do Google
+## Problema Identificado
 
-## Objetivo
+O Google OAuth requer que o link para a Política de Privacidade esteja **claramente visível** na página inicial, sem necessidade de scroll ou login. Atualmente:
 
-Criar o arquivo de verificação do Google Search Console para comprovar propriedade do domínio `clarainova.lovable.app`.
+| Local | Status |
+|-------|--------|
+| Página `/login` | Link visível antes do botão Google |
+| Página `/` (homepage) | Link apenas no Footer (abaixo da dobra) |
+| Header | Sem link para privacidade |
 
-## Ação Única
+## Solução Proposta
 
-| Arquivo | Ação |
-|---------|------|
-| `public/google5e6d36403c46e03a.html` | Criar com o conteúdo de verificação |
+Adicionar o link de Política de Privacidade em **dois locais estratégicos**:
 
-## Conteúdo do Arquivo
+### 1. Header do Site
+Adicionar "Política de Privacidade" nos links de navegação do Header, garantindo visibilidade imediata.
 
-O arquivo terá exatamente este conteúdo:
+```text
+Antes:
+CLARA | Base de Conhecimento | Dúvidas Frequentes | Termos de Uso
 
+Depois:
+CLARA | Base de Conhecimento | Dúvidas Frequentes | Política de Privacidade | Termos de Uso
 ```
-google-site-verification: google5e6d36403c46e03a.html
+
+### 2. Seção Hero (Opcional mas Recomendado)
+Adicionar um pequeno texto com link abaixo do botão "Experimentar CLARA" na HeroSection, similar ao que já existe na página de login.
+
+## Arquivos a Modificar
+
+| Arquivo | Alteração |
+|---------|-----------|
+| `src/components/Header.tsx` | Adicionar link `/privacidade` no array `navLinks` |
+| `src/components/HeroSection.tsx` | (Opcional) Adicionar texto com link de privacidade |
+
+## Detalhes Técnicos
+
+### Header.tsx
+Modificar o array `navLinks` (linha 9-13):
+
+```tsx
+const navLinks = [
+  { label: 'Base de Conhecimento', href: '#conhecimento' },
+  { label: 'Dúvidas Frequentes', href: '#faq' },
+  { label: 'Política de Privacidade', href: '/privacidade' },
+  { label: 'Termos de Uso', href: '/termos' },
+];
 ```
+
+Nota: Mudar `#termos` para `/termos` também, já que existe uma página dedicada.
 
 ## Resultado Esperado
 
-Após publicar o app, o arquivo estará acessível em:
-`https://clarainova.lovable.app/google5e6d36403c46e03a.html`
+Após implementação e publicação:
+- Link de privacidade visível no topo de TODAS as páginas
+- Google conseguirá identificar o link na homepage sem scroll
+- Conformidade total com requisitos OAuth
 
-## Próximos Passos (após implementação)
+## Checklist para Verificação Google
 
-1. Publicar o app
-2. Voltar ao Google Search Console
-3. Clicar em "Verificar"
-4. Google confirmará a propriedade do domínio
-
+Após publicar, confirmar que:
+1. URL `https://clarainova.lovable.app/privacidade` carrega corretamente
+2. Link está visível sem scroll na homepage
+3. URL no Google Cloud Console é exatamente `/privacidade` ou URL completa
