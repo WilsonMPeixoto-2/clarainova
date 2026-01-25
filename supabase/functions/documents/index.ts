@@ -63,8 +63,8 @@ function extractMetadata(chunk: string, index: number): Record<string, any> {
   const keywords: string[] = [];
   const keywordPatterns = [
     /SEI/gi, /processo/gi, /documento/gi, /assinatura/gi,
-    /bloco/gi, /tramit/gi, /SDP/gi, /prestação/gi,
-    /4ª\s*CRE/gi, /unidade/gi, /usuário/gi
+    /bloco/gi, /tramit/gi, /legislação/gi, /normativa/gi,
+    /unidade/gi, /usuário/gi, /administrativ/gi
   ];
   
   for (const pattern of keywordPatterns) {

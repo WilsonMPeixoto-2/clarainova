@@ -3,7 +3,7 @@
 ## 🎯 Visão Geral
 
 **CLARA** - Consultora de Legislação e Apoio a Rotinas Administrativas  
-Assistente de IA especializada em sistemas eletrônicos de informação (SEI, SDP) e procedimentos administrativos da 4ª CRE.
+Assistente de IA especializada em sistemas eletrônicos de informação (SEI) e procedimentos administrativos.
 
 ---
 

@@ -150,7 +150,7 @@ export function ChatPanel({ open, onOpenChange, initialQuery }: ChatPanelProps) 
                 </div>
                 <div>
                   <SheetTitle className="text-lg font-semibold text-foreground">CLARA</SheetTitle>
-                  <p className="text-xs text-muted-foreground">Assistente SEI & SDP</p>
+                  <p className="text-xs text-muted-foreground">Inteligência Administrativa</p>
                 </div>
               </div>
 
@@ -217,7 +217,7 @@ export function ChatPanel({ open, onOpenChange, initialQuery }: ChatPanelProps) 
                     variants={itemVariants}
                     className="text-sm text-muted-foreground max-w-sm mb-6"
                   >
-                    Sua assistente especializada em SEI, SDP e procedimentos da 4ª CRE.
+                    Sua assistente especializada em legislação e procedimentos administrativos.
                   </motion.p>
                   
                   {/* Suggestions */}

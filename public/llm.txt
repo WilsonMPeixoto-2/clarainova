@@ -6,11 +6,11 @@
 
 ## Descrição
 CLARA é uma assistente virtual de IA especializada em orientações sobre:
-- SEI (Sistema Eletrônico de Informações)
-- SDP (Sistema de Diárias e Passagens)
-- Procedimentos administrativos da 4ª CRE (Coordenadoria Regional de Educação)
+- SEI (Sistema Eletrônico de Informações) - versões SEI!Rio e SEI 4.0
+- Legislação administrativa e normas aplicáveis
+- Procedimentos e rotinas administrativas
 
-Público-alvo: Servidores públicos da 4ª CRE de Porto Alegre/RS
+Público-alvo: Servidores públicos e profissionais da administração pública
 Diferencial: Cita fontes documentais oficiais nas respostas
 
 ## Funcionalidades
