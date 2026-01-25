@@ -158,7 +158,7 @@ const HeroSection = () => {
             >
               Ao usar nossos serviços, você concorda com nossa{' '}
               <a 
-                href="/privacidade" 
+                href="/privacidade.html" 
                 className="text-primary hover:underline font-medium"
               >
                 Política de Privacidade
