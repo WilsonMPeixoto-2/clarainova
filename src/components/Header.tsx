@@ -11,26 +11,29 @@ const Header = () => {
   ];
 
   return (
-    <header className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-lg border-b border-border/40">
+    <header 
+      className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-lg border-b border-border/40"
+      role="banner"
+    >
       <div className="container mx-auto px-6">
         <div className="flex items-center justify-between h-16 md:h-20">
           {/* Logo */}
-          <div className="flex items-center gap-3">
+          <a href="/" className="flex items-center gap-3 focus:outline-none focus:ring-2 focus:ring-primary/50 rounded-lg">
             <span className="text-xl md:text-2xl font-bold tracking-tight text-foreground">
               CLARA
             </span>
-            <span className="test-badge hidden sm:inline-block">
+            <span className="test-badge hidden sm:inline-block" aria-label="Versão de testes">
               Versão de testes
             </span>
-          </div>
+          </a>
 
           {/* Desktop Navigation */}
-          <nav className="hidden md:flex items-center gap-8">
+          <nav className="hidden md:flex items-center gap-8" role="navigation" aria-label="Navegação principal">
             {navLinks.map((link) => (
               <a
                 key={link.label}
                 href={link.href}
-                className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors duration-200 focus-amber"
+                className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-primary/50 rounded-lg px-2 py-1"
               >
                 {link.label}
               </a>
@@ -40,23 +43,30 @@ const Header = () => {
           {/* Mobile Menu Button */}
           <button
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            className="md:hidden p-2 text-muted-foreground hover:text-foreground transition-colors focus-amber rounded-lg"
-            aria-label="Menu"
+            className="md:hidden p-2 text-muted-foreground hover:text-foreground transition-colors focus:outline-none focus:ring-2 focus:ring-primary/50 rounded-lg"
+            aria-label={mobileMenuOpen ? "Fechar menu" : "Abrir menu"}
+            aria-expanded={mobileMenuOpen}
+            aria-controls="mobile-menu"
           >
-            {mobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
+            {mobileMenuOpen ? <X size={24} aria-hidden="true" /> : <Menu size={24} aria-hidden="true" />}
           </button>
         </div>
 
         {/* Mobile Navigation */}
         {mobileMenuOpen && (
-          <nav className="md:hidden py-4 border-t border-border/40 animate-fade-in">
+          <nav 
+            id="mobile-menu"
+            className="md:hidden py-4 border-t border-border/40 animate-fade-in"
+            role="navigation"
+            aria-label="Menu mobile"
+          >
             <div className="flex flex-col gap-4">
               {navLinks.map((link) => (
                 <a
                   key={link.label}
                   href={link.href}
                   onClick={() => setMobileMenuOpen(false)}
-                  className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors duration-200 py-2"
+                  className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors duration-200 py-2 focus:outline-none focus:ring-2 focus:ring-primary/50 rounded-lg px-2"
                 >
                   {link.label}
                 </a>

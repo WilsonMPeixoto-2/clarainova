@@ -170,6 +170,30 @@
 }
 
 @layer utilities {
+  /* Screen reader only */
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  .sr-only:focus {
+    position: static;
+    width: auto;
+    height: auto;
+    padding: inherit;
+    margin: inherit;
+    overflow: visible;
+    clip: auto;
+    white-space: normal;
+  }
+
   /* Fade in animation */
   .animate-fade-in {
     animation: fadeIn 0.6s ease-out forwards;
@@ -194,6 +218,24 @@
     opacity: 0;
   }
 
+  /* Smooth scale on hover */
+  .hover-scale {
+    @apply transition-transform duration-200;
+  }
+  .hover-scale:hover {
+    transform: scale(1.02);
+  }
+
+  /* Pulse animation for loading states */
+  .animate-pulse-subtle {
+    animation: pulseSoft 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+
+  /* Typing cursor animation */
+  .animate-typing-cursor {
+    animation: blink 1s step-end infinite;
+  }
+
   @keyframes fadeIn {
     from {
       opacity: 0;
@@ -213,6 +255,43 @@
     to {
       opacity: 1;
       transform: translateY(0);
+    }
+  }
+
+  @keyframes pulseSoft {
+    0%, 100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.7;
+    }
+  }
+
+  @keyframes blink {
+    from, to {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0;
+    }
+  }
+
+  /* Reduced motion preferences */
+  @media (prefers-reduced-motion: reduce) {
+    .animate-fade-in,
+    .animate-fade-in-delay,
+    .animate-fade-in-delay-2,
+    .animate-slide-up,
+    .animate-slide-up-delay,
+    .animate-pulse-subtle,
+    .animate-typing-cursor {
+      animation: none;
+      opacity: 1;
+      transform: none;
+    }
+
+    .hover-scale:hover {
+      transform: none;
     }
   }
 }

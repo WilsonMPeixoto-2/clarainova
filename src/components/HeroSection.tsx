@@ -90,17 +90,24 @@ const HeroSection = () => {
                   }
                 }}
                 className="relative max-w-xl"
+                role="search"
               >
+                <label htmlFor="hero-search" className="sr-only">
+                  Pesquisar dúvidas
+                </label>
                 <Search 
                   className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground/60" 
-                  size={20} 
+                  size={20}
+                  aria-hidden="true"
                 />
                 <input
-                  type="text"
+                  id="hero-search"
+                  type="search"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Descreva sua dúvida com suas próprias palavras…"
                   className="search-input-clara pl-12"
+                  autoComplete="off"
                 />
               </form>
             </div>
