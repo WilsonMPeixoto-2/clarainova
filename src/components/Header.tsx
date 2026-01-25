@@ -95,6 +95,21 @@ const Header = ({ onOpenChat }: HeaderProps) => {
                   {link.label}
                 </a>
               ))}
+              
+              {/* Mobile Chat Button */}
+              {onOpenChat && (
+                <Button
+                  onClick={() => {
+                    setMobileMenuOpen(false);
+                    onOpenChat();
+                  }}
+                  size="sm"
+                  className="gap-2 mt-2"
+                >
+                  <MessageCircle size={16} aria-hidden="true" />
+                  Chat com CLARA
+                </Button>
+              )}
             </div>
           </nav>
         )}
