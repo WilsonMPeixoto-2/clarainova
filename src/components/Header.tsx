@@ -1,8 +1,13 @@
 import { useState } from 'react';
-import { Menu, X } from 'lucide-react';
+import { Menu, X, MessageCircle } from 'lucide-react';
 import { useScrollPosition } from '@/hooks/useScrollPosition';
+import { Button } from '@/components/ui/button';
 
-const Header = () => {
+interface HeaderProps {
+  onOpenChat?: () => void;
+}
+
+const Header = ({ onOpenChat }: HeaderProps) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { isScrolled } = useScrollPosition(50);
 
@@ -35,7 +40,7 @@ const Header = () => {
           </a>
 
           {/* Desktop Navigation */}
-          <nav className="hidden md:flex items-center gap-8" role="navigation" aria-label="Navegação principal">
+          <nav className="hidden md:flex items-center gap-6" role="navigation" aria-label="Navegação principal">
             {navLinks.map((link) => (
               <a
                 key={link.label}
@@ -45,6 +50,18 @@ const Header = () => {
                 {link.label}
               </a>
             ))}
+            
+            {/* Chat Button */}
+            {onOpenChat && (
+              <Button
+                onClick={onOpenChat}
+                size="sm"
+                className="gap-2"
+              >
+                <MessageCircle size={16} aria-hidden="true" />
+                Chat
+              </Button>
+            )}
           </nav>
 
           {/* Mobile Menu Button */}

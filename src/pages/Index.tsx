@@ -1,10 +1,20 @@
+import { useState } from 'react';
 import Header from '@/components/Header';
 import HeroSection from '@/components/HeroSection';
 import FeaturesSection from '@/components/FeaturesSection';
 import Footer from '@/components/Footer';
 import { SEOHead, SchemaOrg } from '@/components/SEOHead';
+import { ChatPanel } from '@/components/chat/ChatPanel';
 
 const Index = () => {
+  const [chatOpen, setChatOpen] = useState(false);
+  const [initialQuery, setInitialQuery] = useState('');
+
+  const handleOpenChat = (query?: string) => {
+    setInitialQuery(query || '');
+    setChatOpen(true);
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <SEOHead 
@@ -22,12 +32,19 @@ const Index = () => {
         Pular para o conteúdo principal
       </a>
       
-      <Header />
+      <Header onOpenChat={() => handleOpenChat()} />
       <main id="main-content">
-        <HeroSection />
+        <HeroSection onOpenChat={handleOpenChat} />
         <FeaturesSection />
       </main>
       <Footer />
+
+      {/* Chat Panel */}
+      <ChatPanel 
+        open={chatOpen} 
+        onOpenChange={setChatOpen} 
+        initialQuery={initialQuery}
+      />
     </div>
   );
 };

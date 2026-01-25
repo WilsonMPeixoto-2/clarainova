@@ -11,7 +11,7 @@ import { AuthProvider } from "@/contexts/AuthContext";
 // Lazy load de páginas para otimização de bundle
 const Index = lazy(() => import("./pages/Index"));
 const Login = lazy(() => import("./pages/Login"));
-const Chat = lazy(() => import("./pages/Chat"));
+// Chat is now integrated into Index via ChatPanel
 const Admin = lazy(() => import("./pages/Admin"));
 const Privacidade = lazy(() => import("./pages/Privacidade"));
 const Termos = lazy(() => import("./pages/Termos"));
@@ -39,7 +39,7 @@ const App = () => (
               <Routes>
                 <Route path="/" element={<Index />} />
                 <Route path="/login" element={<Login />} />
-                <Route path="/chat" element={<Chat />} />
+                <Route path="/chat" element={<Index />} /> {/* Redirect to main page */}
                 <Route path="/admin" element={<Admin />} />
                 <Route path="/privacidade" element={<Privacidade />} />
                 <Route path="/termos" element={<Termos />} />
