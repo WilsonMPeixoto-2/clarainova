@@ -1,4 +1,5 @@
 import { FileSearch, MessagesSquare, BookCheck } from 'lucide-react';
+import ScrollReveal from '@/components/animations/ScrollReveal';
 
 const features = [
   {
@@ -46,30 +47,33 @@ const FeaturesSection = () => {
           aria-label="Recursos da CLARA"
         >
           {features.map((feature, index) => (
-            <article 
-              key={feature.title}
-              className="feature-card group"
-              style={{ animationDelay: `${index * 100}ms` }}
-              role="listitem"
+            <ScrollReveal 
+              key={feature.title} 
+              delay={index * 0.1}
             >
-              {/* Icon */}
-              <div 
-                className="w-14 h-14 rounded-xl bg-primary/10 flex items-center justify-center mb-6 group-hover:bg-primary/20 transition-colors duration-300"
-                aria-hidden="true"
+              <article 
+                className="feature-card group h-full"
+                role="listitem"
               >
-                <feature.icon className="w-7 h-7 text-primary" />
-              </div>
+                {/* Icon */}
+                <div 
+                  className="w-14 h-14 rounded-xl bg-primary/10 flex items-center justify-center mb-6 group-hover:bg-primary/20 transition-colors duration-300"
+                  aria-hidden="true"
+                >
+                  <feature.icon className="w-7 h-7 text-primary" />
+                </div>
 
-              {/* Title */}
-              <h3 className="text-xl font-semibold text-foreground mb-3">
-                {feature.title}
-              </h3>
+                {/* Title */}
+                <h3 className="text-xl font-semibold text-foreground mb-3">
+                  {feature.title}
+                </h3>
 
-              {/* Description */}
-              <p className="text-muted-foreground leading-relaxed">
-                {feature.description}
-              </p>
-            </article>
+                {/* Description */}
+                <p className="text-muted-foreground leading-relaxed">
+                  {feature.description}
+                </p>
+              </article>
+            </ScrollReveal>
           ))}
         </div>
       </div>

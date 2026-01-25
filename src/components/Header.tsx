@@ -1,8 +1,10 @@
 import { useState } from 'react';
 import { Menu, X } from 'lucide-react';
+import { useScrollPosition } from '@/hooks/useScrollPosition';
 
 const Header = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const { isScrolled } = useScrollPosition(50);
 
   const navLinks = [
     { label: 'Base de Conhecimento', href: '#conhecimento' },
@@ -12,7 +14,11 @@ const Header = () => {
 
   return (
     <header 
-      className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-lg border-b border-border/40"
+      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
+        isScrolled 
+          ? 'bg-background/80 backdrop-blur-lg border-b border-border/40' 
+          : 'bg-transparent border-b border-transparent'
+      }`}
       role="banner"
     >
       <div className="container mx-auto px-6">
