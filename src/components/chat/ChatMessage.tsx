@@ -1,6 +1,9 @@
-import { memo } from "react";
-import { Bot, User, FileText, ExternalLink } from "lucide-react";
+import { memo, useMemo, useState } from "react";
+import { motion } from "framer-motion";
+import { Bot, User, FileText, ExternalLink, ChevronDown, ChevronUp } from "lucide-react";
 import type { ChatMessage as ChatMessageType } from "@/hooks/useChat";
+import { CopyButton } from "./CopyButton";
+import { Button } from "@/components/ui/button";
 
 interface ChatMessageProps {
   message: ChatMessageType;
@@ -220,19 +223,112 @@ function renderInline(text: string): (string | JSX.Element)[] {
   return parts;
 }
 
+// Componente de fontes colapsável
+function SourcesSection({ sources }: { sources: ChatMessageType["sources"] }) {
+  const [isExpanded, setIsExpanded] = useState(false);
+  
+  if (!sources) return null;
+  
+  const totalSources = (sources.local?.length || 0) + (sources.web?.length || 0);
+  if (totalSources === 0) return null;
+  
+  return (
+    <motion.div 
+      className="mt-3"
+      initial={{ opacity: 0, y: 5 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: 0.2 }}
+    >
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={() => setIsExpanded(!isExpanded)}
+        className="text-xs text-muted-foreground hover:text-foreground gap-1 h-7 px-2"
+      >
+        <FileText className="w-3 h-3" aria-hidden="true" />
+        {totalSources} {totalSources === 1 ? "fonte" : "fontes"}
+        {isExpanded ? (
+          <ChevronUp className="w-3 h-3" aria-hidden="true" />
+        ) : (
+          <ChevronDown className="w-3 h-3" aria-hidden="true" />
+        )}
+      </Button>
+      
+      <motion.div
+        initial={false}
+        animate={{ 
+          height: isExpanded ? "auto" : 0,
+          opacity: isExpanded ? 1 : 0
+        }}
+        transition={{ duration: 0.2 }}
+        className="overflow-hidden"
+      >
+        <div className="flex flex-wrap gap-2 mt-2">
+          {sources.local?.map((source, i) => (
+            <motion.span 
+              key={`local-${i}`}
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ delay: i * 0.05 }}
+              className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full bg-muted/50 text-muted-foreground"
+            >
+              <FileText className="w-3 h-3" aria-hidden="true" />
+              {source}
+            </motion.span>
+          ))}
+          {sources.web?.map((source, i) => (
+            <motion.a 
+              key={`web-${i}`}
+              href={source}
+              target="_blank"
+              rel="noopener noreferrer"
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ delay: (sources.local?.length || 0 + i) * 0.05 }}
+              className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
+            >
+              <ExternalLink className="w-3 h-3" aria-hidden="true" />
+              Fonte web
+            </motion.a>
+          ))}
+        </div>
+      </motion.div>
+    </motion.div>
+  );
+}
+
 export const ChatMessage = memo(function ChatMessage({ message }: ChatMessageProps) {
   const isUser = message.role === "user";
 
+  const formattedTime = useMemo(() => {
+    return message.timestamp.toLocaleTimeString("pt-BR", { 
+      hour: "2-digit", 
+      minute: "2-digit" 
+    });
+  }, [message.timestamp]);
+
   return (
-    <div className={`flex gap-4 ${isUser ? "flex-row-reverse" : ""} animate-fade-in`}>
+    <motion.div 
+      className={`flex gap-4 ${isUser ? "flex-row-reverse" : ""}`}
+      initial={{ opacity: 0, y: 20, scale: 0.98 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      transition={{ duration: 0.3, ease: "easeOut" }}
+      role="article"
+      aria-label={`Mensagem de ${isUser ? "você" : "CLARA"}`}
+    >
       {/* Avatar */}
-      <div className={`flex-shrink-0 w-9 h-9 rounded-full flex items-center justify-center ${
-        isUser 
-          ? "bg-secondary text-foreground" 
-          : "bg-primary/20 text-primary"
-      }`}>
-        {isUser ? <User className="w-5 h-5" /> : <Bot className="w-5 h-5" />}
-      </div>
+      <motion.div 
+        className={`flex-shrink-0 w-9 h-9 rounded-full flex items-center justify-center ${
+          isUser 
+            ? "bg-secondary text-foreground" 
+            : "bg-primary/20 text-primary"
+        }`}
+        initial={{ scale: 0 }}
+        animate={{ scale: 1 }}
+        transition={{ delay: 0.1, type: "spring", stiffness: 300 }}
+      >
+        {isUser ? <User className="w-5 h-5" aria-hidden="true" /> : <Bot className="w-5 h-5" aria-hidden="true" />}
+      </motion.div>
 
       {/* Content */}
       <div className={`flex-1 max-w-[85%] ${isUser ? "text-right" : ""}`}>
@@ -247,15 +343,31 @@ export const ChatMessage = memo(function ChatMessage({ message }: ChatMessagePro
             <div className="text-sm prose-sm max-w-none">
               {message.isStreaming && !message.content ? (
                 <span className="inline-flex items-center gap-1">
-                  <span className="w-2 h-2 bg-primary rounded-full animate-pulse" />
-                  <span className="w-2 h-2 bg-primary rounded-full animate-pulse delay-100" />
-                  <span className="w-2 h-2 bg-primary rounded-full animate-pulse delay-200" />
+                  <motion.span 
+                    animate={{ opacity: [0.4, 1, 0.4] }}
+                    transition={{ duration: 1, repeat: Infinity }}
+                    className="w-2 h-2 bg-primary rounded-full" 
+                  />
+                  <motion.span 
+                    animate={{ opacity: [0.4, 1, 0.4] }}
+                    transition={{ duration: 1, repeat: Infinity, delay: 0.2 }}
+                    className="w-2 h-2 bg-primary rounded-full" 
+                  />
+                  <motion.span 
+                    animate={{ opacity: [0.4, 1, 0.4] }}
+                    transition={{ duration: 1, repeat: Infinity, delay: 0.4 }}
+                    className="w-2 h-2 bg-primary rounded-full" 
+                  />
                 </span>
               ) : (
                 <>
                   {renderMarkdown(message.content)}
                   {message.isStreaming && (
-                    <span className="inline-block w-0.5 h-4 bg-primary animate-pulse ml-0.5" />
+                    <motion.span 
+                      className="inline-block w-0.5 h-4 bg-primary ml-0.5"
+                      animate={{ opacity: [1, 0] }}
+                      transition={{ duration: 0.5, repeat: Infinity }}
+                    />
                   )}
                 </>
               )}
@@ -263,38 +375,26 @@ export const ChatMessage = memo(function ChatMessage({ message }: ChatMessagePro
           )}
         </div>
 
-        {/* Sources */}
-        {!isUser && message.sources && (
-          <div className="mt-2 flex flex-wrap gap-2">
-            {message.sources.local?.map((source, i) => (
-              <span 
-                key={`local-${i}`}
-                className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full bg-muted/50 text-muted-foreground"
-              >
-                <FileText className="w-3 h-3" />
-                {source}
-              </span>
-            ))}
-            {message.sources.web?.map((source, i) => (
-              <a 
-                key={`web-${i}`}
-                href={source}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
-              >
-                <ExternalLink className="w-3 h-3" />
-                Fonte web
-              </a>
-            ))}
-          </div>
+        {/* Actions for assistant messages */}
+        {!isUser && !message.isStreaming && message.content && (
+          <motion.div 
+            className="flex items-center gap-2 mt-1"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.3 }}
+          >
+            <CopyButton text={message.content} />
+          </motion.div>
         )}
+
+        {/* Sources */}
+        {!isUser && <SourcesSection sources={message.sources} />}
 
         {/* Timestamp */}
         <p className={`text-xs text-muted-foreground/60 mt-1 ${isUser ? "text-right" : ""}`}>
-          {message.timestamp.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
+          {formattedTime}
         </p>
       </div>
-    </div>
+    </motion.div>
   );
 });
