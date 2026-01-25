@@ -50,9 +50,14 @@ export function DownloadPdfButton({
       };
       
       // Header
-      doc.setFontSize(18);
+      doc.setFontSize(16);
       doc.setFont("helvetica", "bold");
-      doc.text("CLARA - Assistente SEI & SDP", margin, currentY);
+      doc.text("CLARA", margin, currentY);
+      currentY += 6;
+      doc.setFontSize(9);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(80);
+      doc.text("Consultora de Legislação e Apoio a Rotinas Administrativas", margin, currentY);
       currentY += 8;
       
       // Date
@@ -127,7 +132,7 @@ export function DownloadPdfButton({
         doc.setFontSize(8);
         doc.setTextColor(150);
         doc.text(
-          "Gerado automaticamente pela CLARA - 4ª CRE", 
+          "Documento gerado pela CLARA - Inteligência Administrativa", 
           margin, 
           pageHeight - 10
         );
