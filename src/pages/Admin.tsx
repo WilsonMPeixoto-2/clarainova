@@ -336,7 +336,6 @@ const Admin = () => {
           console.error('[Admin] Error name:', fetchError?.name);
           console.error('[Admin] Error message:', fetchError?.message);
           throw new Error(`Erro de rede no upload: ${fetchError.message || 'Erro desconhecido'}`);
-          throw new Error(`Erro de rede no upload: ${fetchError.message || 'Erro desconhecido'}`);
         }
         
         // Verify file exists in storage
