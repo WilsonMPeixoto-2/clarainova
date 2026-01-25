@@ -62,7 +62,12 @@ serve(async (req) => {
     const safeName = filename.replace(/[^\w.\-]+/g, "_");
     const path = `documents/${Date.now()}_${safeName}`;
 
-    console.log(`[admin_get_upload_url] Creating signed URL for: ${path}`);
+    console.log(`[admin_get_upload_url] ========== GENERATING SIGNED URL ==========`);
+    console.log(`[admin_get_upload_url] Original filename: ${filename}`);
+    console.log(`[admin_get_upload_url] Sanitized name: ${safeName}`);
+    console.log(`[admin_get_upload_url] Full path: ${path}`);
+    console.log(`[admin_get_upload_url] Bucket: ${bucket}`);
+    console.log(`[admin_get_upload_url] Content-Type: ${contentType || 'application/octet-stream'}`);
 
     // Create signed upload URL using service role
     const { data, error } = await supabase.storage
@@ -70,11 +75,14 @@ serve(async (req) => {
       .createSignedUploadUrl(path);
 
     if (error) {
-      console.error("[admin_get_upload_url] Error creating signed URL:", error);
+      console.error("[admin_get_upload_url] ERROR creating signed URL:", error);
+      console.error("[admin_get_upload_url] Error details:", JSON.stringify(error, null, 2));
       throw error;
     }
 
-    console.log(`[admin_get_upload_url] Signed URL created successfully for: ${path}`);
+    console.log(`[admin_get_upload_url] SUCCESS - Signed URL created`);
+    console.log(`[admin_get_upload_url] Token (first 20 chars): ${data.token?.substring(0, 20)}...`);
+    console.log(`[admin_get_upload_url] URL (first 80 chars): ${data.signedUrl?.substring(0, 80)}...`);
 
     return new Response(
       JSON.stringify({ 
