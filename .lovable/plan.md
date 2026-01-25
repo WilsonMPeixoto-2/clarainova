@@ -1,95 +1,66 @@
 
-# Plano: Páginas de Política de Privacidade e Termos de Serviço
 
-## Objetivo
+# Plano: Resolver Problemas de Verificação do Google OAuth
 
-Criar duas páginas legais profissionais para atender aos requisitos do Google OAuth:
-- `/privacidade` - Política de Privacidade
-- `/termos` - Termos de Serviço
+## Problemas Identificados
 
-Essas páginas são necessárias para que o Google valide a marca CLARA no processo de verificação OAuth.
+O Google encontrou 3 problemas na verificação de branding:
 
----
-
-## Design das Páginas
-
-Ambas as páginas seguirão o padrão visual do projeto:
-- Header e Footer consistentes com a landing page
-- Design limpo e profissional (estilo LegalTech)
-- Navegação clara entre seções
-- SEO otimizado para cada página
-- Responsivo para mobile e desktop
-
-### Layout Proposto
-
-```text
-┌─────────────────────────────────────────────────────────────────┐
-│                         HEADER                                  │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                 │
-│                    Política de Privacidade                      │
-│                    Última atualização: [data]                   │
-│                                                                 │
-│  ┌───────────────────────────────────────────────────────────┐  │
-│  │                                                           │  │
-│  │  1. Introdução                                            │  │
-│  │  2. Dados Coletados                                       │  │
-│  │  3. Uso dos Dados                                         │  │
-│  │  4. Proteção dos Dados                                    │  │
-│  │  5. Seus Direitos                                         │  │
-│  │  6. Contato                                               │  │
-│  │                                                           │  │
-│  └───────────────────────────────────────────────────────────┘  │
-│                                                                 │
-│                         FOOTER                                  │
-└─────────────────────────────────────────────────────────────────┘
-```
+| Problema | Descrição | Tipo de Solução |
+|----------|-----------|-----------------|
+| 1. Domínio não verificado | Google precisa confirmar propriedade do domínio | Configuração no Google Search Console |
+| 2. Link de Privacidade ausente | Página inicial precisa ter link visível para Política de Privacidade | Modificação de código |
+| 3. Nome inconsistente | Nome do app no OAuth diferente do nome na página | Modificação de código + configuração Google |
 
 ---
 
-## Conteúdo das Páginas
+## Solução para Cada Problema
 
-### Política de Privacidade (`/privacidade`)
+### Problema 1: Verificar Propriedade do Domínio
 
-Abordará os seguintes tópicos:
+Isso precisa ser feito no **Google Search Console**:
 
-| Seção | Conteúdo |
-|-------|----------|
-| Introdução | Apresentação da CLARA e compromisso com privacidade |
-| Dados Coletados | Email, nome e foto do perfil Google (via OAuth) |
-| Uso dos Dados | Autenticação, personalização, histórico de conversas |
-| Armazenamento | Servidores seguros, criptografia |
-| Compartilhamento | Declaração de não compartilhamento com terceiros |
-| Seus Direitos | Acesso, correção, exclusão de dados (LGPD) |
-| Cookies | Uso de cookies essenciais |
-| Alterações | Política de atualização |
-| Contato | Email para questões de privacidade |
+1. Acesse [Google Search Console](https://search.google.com/search-console)
+2. Adicione a propriedade `https://clarainova.lovable.app`
+3. Escolha verificação por **meta tag HTML** (mais simples)
+4. Adicione a meta tag fornecida pelo Google ao componente SEOHead
 
-### Termos de Serviço (`/termos`)
-
-Abordará os seguintes tópicos:
-
-| Seção | Conteúdo |
-|-------|----------|
-| Aceitação | Concordância com os termos ao usar o serviço |
-| Descrição do Serviço | CLARA como assistente de legislação |
-| Uso Permitido | Uso pessoal e profissional, não comercial |
-| Responsabilidades | Limitações do serviço, disclaimer legal |
-| Conta do Usuário | Responsabilidade sobre credenciais |
-| Propriedade Intelectual | Direitos da CLARA sobre conteúdo |
-| Limitação de Responsabilidade | Orientações não substituem assessoria jurídica |
-| Modificações | Direito de alterar termos |
-| Lei Aplicável | Legislação brasileira |
-| Contato | Email para questões legais |
+Eu posso preparar o código para adicionar a meta tag de verificação, mas você precisará me informar o código que o Google fornecer.
 
 ---
 
-## Arquivos a Criar
+### Problema 2: Adicionar Link de Privacidade na Página Inicial
 
-| Arquivo | Descrição |
-|---------|-----------|
-| `src/pages/Privacidade.tsx` | Página de Política de Privacidade |
-| `src/pages/Termos.tsx` | Página de Termos de Serviço |
+O Footer já tem o link `/privacidade`, mas o Google pode não estar detectando corretamente. Vamos torná-lo mais explícito:
+
+**Modificações propostas:**
+
+| Arquivo | Modificação |
+|---------|-------------|
+| `src/components/Footer.tsx` | Tornar o link de privacidade mais destacado com texto "Política de Privacidade" e schema markup |
+| `src/pages/Index.tsx` | Adicionar link direto para privacidade no SEOHead |
+| `src/components/SEOHead.tsx` | Adicionar meta tags para indicar página de privacidade |
+
+---
+
+### Problema 3: Alinhar Nome do App
+
+O nome no Google OAuth é "CLARA INTELIGÊNCIA ADMINISTRATIVA", mas na página:
+- Título SEO: "CLARA - Assistente de Legislação e Apoio Administrativo"
+- H1: "CLARA"
+- Badge: "Inteligência Administrativa"
+
+**Opções:**
+
+**Opção A**: Alterar o título SEO para corresponder ao OAuth
+- Mudar de "CLARA - Assistente de Legislação e Apoio Administrativo"
+- Para "CLARA Inteligência Administrativa"
+
+**Opção B**: Alterar o nome no Google OAuth Console
+- Mudar de "CLARA INTELIGÊNCIA ADMINISTRATIVA"
+- Para "CLARA - Assistente de Legislação e Apoio Administrativo"
+
+**Recomendação**: Opção A - Alinhar o código ao OAuth é mais simples e mantém consistência.
 
 ---
 
@@ -97,39 +68,41 @@ Abordará os seguintes tópicos:
 
 | Arquivo | Modificação |
 |---------|-------------|
-| `src/App.tsx` | Adicionar lazy imports e rotas `/privacidade` e `/termos` |
-| `src/components/Footer.tsx` | Atualizar links de âncora (`#privacidade`) para rotas reais (`/privacidade`) |
+| `src/pages/Index.tsx` | Alterar título SEO para "CLARA Inteligência Administrativa" |
+| `src/components/SEOHead.tsx` | Adicionar suporte para meta tag de verificação do Google |
+| `src/components/Footer.tsx` | Reforçar link de privacidade com schema markup |
 
 ---
 
-## Links para o Google OAuth
+## Ação Manual Necessária
 
-Após a implementação, você poderá usar estes links no Google Cloud Console:
+Você precisará verificar a propriedade do domínio no **Google Search Console**:
 
-- **Página inicial**: `https://clarainova.lovable.app`
-- **Política de Privacidade**: `https://clarainova.lovable.app/privacidade`
-- **Termos de Serviço**: `https://clarainova.lovable.app/termos`
+1. Acesse: https://search.google.com/search-console
+2. Clique em "Adicionar propriedade"
+3. Escolha "Prefixo do URL"
+4. Digite: `https://clarainova.lovable.app`
+5. Selecione verificação por **meta tag HTML**
+6. Copie o código `content` da meta tag (ex: `content="abc123xyz"`)
+7. Me informe esse código para eu adicionar ao código
 
 ---
 
 ## Seção Técnica
 
-### Estrutura dos Componentes
+### Mudanças no SEOHead
 
-Cada página seguirá esta estrutura:
-- SEOHead para metadados e indexação
-- Header (reutilizado)
-- Conteúdo com seções e ancoras internas
-- Footer (reutilizado)
+Adicionaremos suporte para:
+- Meta tag de verificação do Google (`google-site-verification`)
+- Link rel="privacy-policy" apontando para `/privacidade`
 
-### Padrões Aplicados
+### Alinhamento de Título
 
-- Lazy loading das páginas (consistente com outras rotas)
-- Animações suaves com Framer Motion
-- Scroll suave para navegação entre seções
-- Links de retorno ao topo
-- Data de última atualização automática
+O título será padronizado em todos os lugares:
+- SEO title: "CLARA Inteligência Administrativa"
+- Isso corresponde exatamente ao nome configurado no Google OAuth
 
-### Dependências
+### Schema Markup
 
-Nenhuma nova dependência necessária.
+Garantir que o JSON-LD schema inclua referência explícita à política de privacidade.
+
