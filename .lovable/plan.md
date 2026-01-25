@@ -1,161 +1,171 @@
 
 
-# Plano: Reorganização do Mapa do Site com Chat em Painel Lateral
+# 📋 Relatório Consolidado: Alterações nas Últimas 48 Horas
 
-## Resumo Executivo
+**Projeto:** CLARA - Consultora de Legislação e Apoio a Rotinas Administrativas  
+**Período:** 23/01/2026 - 25/01/2026  
+**Status:** ✅ Operacional
 
-Vamos simplificar a navegação do site integrando o chat como um **painel lateral deslizante** na página principal, eliminando a confusão entre páginas. O usuário sempre verá a CLARA enquanto conversa.
+---
 
-## Nova Estrutura de Navegação
+## 1. Reorganização da Arquitetura de Navegação
 
+### Alteração Principal
+Integração do chat como **painel lateral deslizante** na página principal, eliminando a página `/chat` separada.
+
+### Arquivos Criados
+| Arquivo | Descrição |
+|---------|-----------|
+| `src/components/chat/ChatPanel.tsx` | Novo componente de chat em painel lateral usando Sheet (Radix UI) |
+
+### Arquivos Modificados
+| Arquivo | Alterações |
+|---------|------------|
+| `src/pages/Index.tsx` | Integração do ChatPanel com estados `chatOpen` e `initialQuery` |
+| `src/components/HeroSection.tsx` | CTAs redirecionam para painel lateral via prop `onOpenChat` |
+| `src/components/Header.tsx` | Adicionado botão "Chat" na navegação desktop e mobile |
+| `src/App.tsx` | Rota `/chat` agora redireciona para Index |
+| `public/sitemap.xml` | Removida entrada `/chat` |
+
+### Comportamento
+- Desktop: Painel de 450px desliza da direita
+- Mobile: Painel ocupa tela inteira
+- Atalhos de teclado: `Ctrl+N` (nova conversa), `Ctrl+Shift+L` (limpar), `/` (focar input)
+
+---
+
+## 2. Correção Crítica: Migração do Modelo de IA
+
+### Problema
+Modelo `gemini-2.5-pro-preview-05-06` **deprecado** pelo Google, causando erro 404 na Edge Function.
+
+### Solução Implementada
+Migração para **Lovable AI Gateway** com modelo `google/gemini-2.5-flash`.
+
+### Arquivo Modificado
+`supabase/functions/clara-chat/index.ts`
+
+### Mudanças Técnicas
+- Endpoint: `https://ai.gateway.lovable.dev/v1/chat/completions`
+- Autenticação: `LOVABLE_API_KEY` (pré-configurado)
+- Formato: API compatível com OpenAI
+- Streaming SSE mantido
+- RAG (embeddings) continua usando `text-embedding-004` via `GEMINI_API_KEY`
+- Tratamento de erros 429 (rate limit) e 402 (créditos)
+
+---
+
+## 3. Hardening de Segurança (RLS Policies)
+
+### Migração Aplicada
+`20260125204012_d4d692dd-1bce-4862-a190-43fd24633975.sql`
+
+### Tabelas Protegidas
+
+| Tabela | Políticas Aplicadas |
+|--------|---------------------|
+| `profiles` | SELECT/INSERT/UPDATE restritos a `authenticated` + owner; DENY ALL para `anon` |
+| `chat_sessions` | CRUD completo restrito a `authenticated` + owner |
+| `rate_limits` | DENY ALL para `anon` e `authenticated` (apenas service role) |
+| `user_roles` | SELECT próprio role; DENY INSERT/UPDATE/DELETE para usuários |
+
+### Total de Policies Criadas
+**15+ novas políticas RLS** substituindo políticas permissivas anteriores.
+
+---
+
+## 4. Atualização de Infraestrutura
+
+### Deno Standard Library
+Todas as Edge Functions atualizadas de `0.168.0` para `0.224.0`:
+
+| Função | Versão Anterior | Versão Atual |
+|--------|-----------------|--------------|
+| `clara-chat` | 0.168.0 | 0.224.0 |
+| `documents` | 0.168.0 | 0.224.0 |
+| `search` | 0.168.0 | 0.224.0 |
+| `admin-auth` | 0.168.0 | 0.224.0 |
+
+---
+
+## 5. Migrações de Banco de Dados Aplicadas (48h)
+
+| Data | ID | Descrição |
+|------|-----|-----------|
+| 25/01 20:40 | d4d692dd | Hardening RLS (profiles, chat_sessions, rate_limits, user_roles) |
+| 25/01 18:44 | 70da657e | Políticas explícitas para profiles (authenticated only) |
+| 25/01 15:14 | 25d27efd | Criação de profiles, chat_sessions, user_roles, enum app_role, triggers |
+| 25/01 14:46 | f0867457 | Tabela rate_limits com função check_rate_limit |
+
+---
+
+## 6. Schema de Banco Criado
+
+### Novas Tabelas
 ```text
-ANTES (confusa):
-/login → / (página principal) → /chat (página separada)
-
-DEPOIS (simplificada):
-/login → / (página principal com chat integrado)
+profiles (id, email, display_name, avatar_url, created_at, last_seen_at)
+chat_sessions (id, user_id, title, messages JSONB, created_at, updated_at)
+user_roles (id, user_id, role app_role)
+rate_limits (id, client_key, endpoint, request_count, window_start)
 ```
 
-## Componentes Afetados
+### Funções Criadas
+- `has_role(uuid, app_role)` - Verifica role do usuário (SECURITY DEFINER)
+- `check_rate_limit(...)` - Rate limiting por IP/endpoint
+- `handle_new_user()` - Trigger para criar profile + role no signup
+- `cleanup_rate_limits()` - Limpeza de registros antigos
 
-### 1. Criar: `ChatPanel.tsx`
-Um novo componente que encapsula toda a interface do chat em um painel lateral usando o componente Sheet existente.
+### Índices Criados
+- `idx_chat_sessions_user_id`
+- `idx_chat_sessions_updated_at`
+- `idx_user_roles_user_id`
+- `idx_rate_limits_lookup`
 
-**Características:**
-- Painel deslizante do lado direito
-- Largura: 450px em desktop, full-screen em mobile
-- Contém: header com título, área de mensagens, input de chat
-- Animações suaves de entrada/saída
-- Mantém todo o estado e funcionalidades do chat atual
+---
 
-### 2. Modificar: `Index.tsx` (Página Principal)
-Integrar o ChatPanel na página principal.
+## 7. Testes e Validações Realizados
 
-**Mudanças:**
-- Adicionar estado `isChatOpen` para controlar o painel
-- O botão "Iniciar conversa" agora abre o painel (não navega)
-- O campo de busca também abre o painel com a query
-- Importar e renderizar o ChatPanel
+| Teste | Resultado |
+|-------|-----------|
+| Chat desktop (450px panel) | ✅ Funcional |
+| Chat mobile (full-screen) | ✅ Funcional |
+| Streaming de respostas | ✅ Funcional |
+| Citação de fontes RAG | ✅ Funcional |
+| Botão Chat no header mobile | ✅ Adicionado |
+| Rate limiting | ✅ Configurado (15 req/min) |
 
-### 3. Modificar: `HeroSection.tsx`
-Adaptar os CTAs para abrir o painel em vez de navegar.
+---
 
-**Mudanças:**
-- Receber prop `onOpenChat: (query?: string) => void`
-- Botão "Iniciar conversa" → chama `onOpenChat()`
-- Campo de busca submit → chama `onOpenChat(searchQuery)`
-- Remover `useNavigate` e navegação para `/chat`
+## 8. Secrets Configurados
 
-### 4. Modificar: `Header.tsx`
-Adicionar botão de chat no header para acesso rápido.
+| Secret | Status | Uso |
+|--------|--------|-----|
+| `GEMINI_API_KEY` | ✅ Ativo | Embeddings (text-embedding-004) |
+| `LOVABLE_API_KEY` | ✅ Ativo | Chat (Lovable AI Gateway) |
+| `ADMIN_KEY` | ✅ Ativo | Autenticação /admin |
+| `SUPABASE_SERVICE_ROLE_KEY` | ✅ Ativo | Operações administrativas |
 
-**Mudanças:**
-- Receber prop `onOpenChat: () => void`
-- Adicionar ícone de chat ao lado da navegação
-- Útil quando o usuário scrollou para baixo
+---
 
-### 5. Remover/Deprecar: `Chat.tsx`
-A página separada não será mais necessária.
+## 9. Resumo de Impacto
 
-**Opções:**
-- **Opção A**: Remover completamente
-- **Opção B**: Manter como redirect para `/` (compatibilidade com links antigos)
+| Categoria | Antes | Depois |
+|-----------|-------|--------|
+| Navegação | Confusa (3 páginas) | Simplificada (1 página + painel) |
+| Modelo IA | Deprecado (erro 404) | Operacional (Lovable Gateway) |
+| Segurança RLS | Parcial | Completa (15+ policies) |
+| Deno Std | 0.168.0 | 0.224.0 |
+| Mobile UX | Sem botão chat | Botão no menu hamburger |
 
-### 6. Atualizar: `App.tsx`
-Ajustar as rotas.
+---
 
-**Mudanças:**
-- Remover ou redirecionar a rota `/chat`
-- Manter todas as outras rotas iguais
+## 10. Próximos Passos Pendentes
 
-### 7. Atualizar: `sitemap.xml`
-Refletir a nova estrutura.
+1. **Upload de documentos** - Problema na base de conhecimento administrativa a resolver
+2. **Autenticação Google** - Configuração OAuth pendente
+3. **Persistência de chat** - Salvar conversas no banco para usuários autenticados
 
-**Mudanças:**
-- Remover ou marcar como redirect a URL `/chat`
-- A página principal (`/`) ganha mais importância
+---
 
-## Fluxo de Usuário Atualizado
-
-```text
-1. Usuário acessa / (página principal)
-2. Vê a Hero Section com a imagem da CLARA
-3. Clica em "Iniciar conversa" ou digita no campo de busca
-4. Painel lateral desliza da direita
-5. Conversa acontece com a página principal visível ao fundo
-6. Usuário pode fechar o painel e voltar a ver a página completa
-7. Estado da conversa é preservado (localStorage)
-```
-
-## Comportamento Responsivo
-
-| Viewport | Comportamento |
-|----------|---------------|
-| Desktop (>768px) | Painel lateral com 450px de largura, página visível ao fundo |
-| Tablet (768px) | Painel com 400px, overlay semi-transparente |
-| Mobile (<640px) | Painel full-screen para melhor usabilidade |
-
-## Detalhes Técnicos
-
-### Estrutura do ChatPanel
-
-```text
-ChatPanel
-├── Sheet (container)
-│   ├── SheetContent (side="right")
-│   │   ├── Header (título + botões)
-│   │   ├── Messages Area (scroll)
-│   │   │   ├── Empty State (sugestões)
-│   │   │   └── Message List
-│   │   └── Footer (input + disclaimer)
-```
-
-### Props do ChatPanel
-
-```typescript
-interface ChatPanelProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  initialQuery?: string;
-}
-```
-
-### Integração na Index
-
-```typescript
-const [chatOpen, setChatOpen] = useState(false);
-const [initialQuery, setInitialQuery] = useState('');
-
-const handleOpenChat = (query?: string) => {
-  setInitialQuery(query || '');
-  setChatOpen(true);
-};
-```
-
-## Arquivos a Modificar
-
-| Arquivo | Ação | Complexidade |
-|---------|------|--------------|
-| `src/components/chat/ChatPanel.tsx` | Criar | Alta |
-| `src/pages/Index.tsx` | Modificar | Média |
-| `src/components/HeroSection.tsx` | Modificar | Média |
-| `src/components/Header.tsx` | Modificar | Baixa |
-| `src/App.tsx` | Modificar | Baixa |
-| `public/sitemap.xml` | Modificar | Baixa |
-| `src/pages/Chat.tsx` | Avaliar remoção | Baixa |
-
-## Benefícios
-
-1. **Elimina confusão** - Tudo em um lugar só
-2. **Experiência fluida** - Sem navegação entre páginas
-3. **Contexto visual** - CLARA sempre visível
-4. **Performance** - Menos carregamento de páginas
-5. **Manutenção** - Menos código duplicado
-
-## Considerações
-
-- O histórico de chat continuará sendo salvo no localStorage
-- Links diretos para `/chat` podem ser redirecionados
-- A busca no Hero passa a query diretamente para o painel
-- Atalhos de teclado serão adaptados (Esc fecha o painel)
+*Relatório gerado em 25/01/2026*
 
