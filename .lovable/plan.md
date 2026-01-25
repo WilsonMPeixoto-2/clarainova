@@ -1,182 +1,261 @@
 
 
-# Plano: Criar Página Estática `/sobre.html` para Acessibilidade de IAs
+# Plano: Sistema de Feedback e Analytics Anônimo para CLARA
 
-## Objetivo
-Criar uma página HTML estática completa que permita que outras ferramentas de IA (ChatGPT, Gemini, Manus, Claude, etc.) possam "ver" e entender o projeto CLARA sem depender de execução JavaScript.
-
----
-
-## Arquivos a Criar
-
-### 1. `public/sobre.html`
-Página estática completa com toda a documentação do projeto.
-
-**Estrutura:**
-- **Header**: Nome, tagline, data de atualização
-- **Seção 1 - Resumo Executivo**: O que é, público-alvo, propósito
-- **Seção 2 - Funcionalidades**: Chat IA, busca semântica, citação de fontes
-- **Seção 3 - Stack Tecnológica**: Frontend (React, Vite, Tailwind) + Backend (Lovable Cloud, PostgreSQL, pgvector)
-- **Seção 4 - Arquitetura de IA**: Modelo de chat (Gemini 2.5 Flash via Lovable Gateway), embeddings, RAG
-- **Seção 5 - Segurança**: RLS policies, OAuth 2.0, conformidade LGPD
-- **Seção 6 - URLs e Recursos**: Links para todas as páginas do projeto
-- **Footer**: Links de navegação
-
-**Design:** Mesmo estilo visual de `privacidade.html` e `termos.html` (navy #0f172a, amber #f59e0b)
-
-### 2. `public/llm.txt` (Bônus)
-Arquivo de texto puro otimizado para parsing por LLMs - formato simplificado tipo robots.txt.
-
-```text
-# CLARA - Consultora de Legislação e Apoio a Rotinas Administrativas
-# Versão: 1.0
-# Atualizado: 25/01/2026
-
-## Descrição
-Assistente virtual de IA especializada em orientações sobre SEI (Sistema Eletrônico de Informações), SDP (Sistema de Diárias e Passagens) e procedimentos administrativos da 4ª CRE (Coordenadoria Regional de Educação).
-
-## Stack
-- Frontend: React 18, TypeScript, Vite, Tailwind CSS, shadcn/ui
-- Backend: Lovable Cloud (PostgreSQL + pgvector)
-- IA: google/gemini-2.5-flash via Lovable AI Gateway
-- Embeddings: text-embedding-004 (768 dimensões)
-
-## Páginas
-- /                 : Landing page com acesso ao chat
-- /login            : Autenticação Google OAuth 2.0
-- /admin            : Gestão de documentos (requer autenticação)
-- /sobre.html       : Documentação completa do projeto
-- /privacidade.html : Política de Privacidade
-- /termos.html      : Termos de Serviço
-
-## Contato
-Email: wilsonmp2@gmail.com
-```
+## Objetivo Principal
+Coletar dados **100% anônimos** para entender:
+1. **Quais tópicos são mais pesquisados** (insights valiosos!)
+2. **Por que algumas respostas recebem avaliação negativa** (para melhorar a base)
+3. **Taxa geral de satisfação** (métrica de qualidade)
 
 ---
 
-## Arquivos a Modificar
+## 1. Banco de Dados
 
-### 1. `index.html`
-Adicionar link para a página sobre:
-```html
-<link rel="about" href="/sobre.html" />
-```
+### Nova Tabela: `query_analytics`
+Armazena **todas as consultas** feitas à CLARA (para análise de tópicos).
 
-### 2. `public/sitemap.xml`
-Adicionar nova entrada:
-```xml
-<url>
-  <loc>https://clarainova.lovable.app/sobre.html</loc>
-  <priority>0.9</priority>
-</url>
-```
+| Coluna | Tipo | Descrição |
+|--------|------|-----------|
+| `id` | uuid | Chave primária |
+| `user_query` | text | Pergunta do usuário |
+| `assistant_response` | text | Resposta da CLARA |
+| `sources_cited` | text[] | Fontes citadas (se houver) |
+| `created_at` | timestamptz | Data/hora da consulta |
 
-### 3. `src/components/Footer.tsx`
-Adicionar link "Sobre" na seção de links do footer.
+### Nova Tabela: `response_feedback`
+Armazena **apenas feedbacks** (positivos ou negativos).
+
+| Coluna | Tipo | Descrição |
+|--------|------|-----------|
+| `id` | uuid | Chave primária |
+| `query_id` | uuid | FK para query_analytics |
+| `rating` | boolean | true = positivo, false = negativo |
+| `feedback_category` | text | Categoria do problema (só negativos) |
+| `feedback_text` | text | Comentário livre (só negativos) |
+| `created_at` | timestamptz | Data/hora do feedback |
+
+### Políticas RLS
+- **Qualquer pessoa pode inserir** (anônimos e logados)
+- **Apenas admins podem ler** (via função `has_role` já existente)
+- **Ninguém pode atualizar ou deletar** (integridade dos dados)
 
 ---
 
-## Conteúdo Detalhado do `/sobre.html`
+## 2. Frontend - Botões de Feedback
 
-### Seção 1: O que é CLARA
-- Nome completo: Consultora de Legislação e Apoio a Rotinas Administrativas
-- Desenvolvido para: Servidores da 4ª CRE (Porto Alegre/RS)
-- Propósito: Orientações passo a passo sobre SEI, SDP e procedimentos administrativos
-- Diferencial: Cita fontes documentais oficiais
-
-### Seção 2: Funcionalidades Principais
-- Chat com IA (streaming em tempo real)
-- Busca semântica na base de conhecimento
-- Citação de fontes documentais
-- Login opcional via Google
-- Interface responsiva (desktop e mobile)
-
-### Seção 3: Tecnologias Utilizadas
+### Novo Componente: `FeedbackButtons.tsx`
+Aparece após cada resposta da CLARA (quando não está em streaming).
 
 ```text
-Frontend:
-├── React 18.3.1
-├── TypeScript
-├── Vite (build tool)
-├── Tailwind CSS
-├── shadcn/ui (componentes)
-├── Framer Motion (animações)
-└── TanStack Query (estado)
-
-Backend (Lovable Cloud):
-├── PostgreSQL + pgvector
-├── Edge Functions (Deno)
-├── Storage (base de conhecimento)
-└── Auth (Google OAuth 2.0)
-
-Inteligência Artificial:
-├── google/gemini-2.5-flash (chat)
-├── text-embedding-004 (embeddings)
-└── RAG (Retrieval Augmented Generation)
+┌─────────────────────────────────────────────────┐
+│  [Resposta da CLARA aqui...]                    │
+│                                                 │
+│  📋 2 fontes  [Copiar]  [👍] [👎]               │
+└─────────────────────────────────────────────────┘
 ```
 
-### Seção 4: Arquitetura
+**Comportamento:**
+- **Clique em 👍**: Salva feedback positivo + Toast "Obrigado!"
+- **Clique em 👎**: Abre modal com categorias
+
+### Modal de Feedback Negativo
 
 ```text
-┌─────────────────────────────────────────┐
-│           FRONTEND (React SPA)          │
-│  • Landing Page com Chat Panel          │
-│  • Login Google OAuth                   │
-│  • Painel Admin                         │
-└──────────────────┬──────────────────────┘
+┌──────────────────────────────────────────┐
+│  O que estava errado?                    │
+│                                          │
+│  ○ Informação incorreta                  │
+│  ○ Desatualizado                         │
+│  ○ Incompleto                            │
+│  ○ Confuso/difícil de entender           │
+│  ○ Não respondeu à pergunta              │
+│  ○ Outro                                 │
+│                                          │
+│  [Comentário opcional...]                │
+│  ________________________________________│
+│                                          │
+│         [Pular]      [Enviar]            │
+└──────────────────────────────────────────┘
+```
+
+**Categorias:**
+- `incorrect` - Informação incorreta
+- `outdated` - Desatualizado
+- `incomplete` - Incompleto
+- `confusing` - Confuso/difícil de entender
+- `off_topic` - Não respondeu à pergunta
+- `other` - Outro
+
+---
+
+## 3. Modificação do Hook useChat
+
+Para rastrear consultas, o `useChat.ts` será modificado para:
+1. Salvar cada par pergunta/resposta em `query_analytics` após streaming completo
+2. Retornar o `query_id` junto com cada mensagem para uso no feedback
+
+---
+
+## 4. Dashboard Analytics (Aba no Admin)
+
+O `Admin.tsx` receberá um sistema de **Tabs** com duas abas:
+- **Documentos** (atual)
+- **Analytics** (nova)
+
+### Aba Analytics - Seções
+
+#### A) Métricas Rápidas (Cards)
+```text
+┌──────────────────┬──────────────────┬──────────────────┐
+│  Total Consultas │  Taxa Satisfação │  Negativos       │
+│     1.234        │      87%         │     42           │
+└──────────────────┴──────────────────┴──────────────────┘
+```
+
+#### B) Top 10 Tópicos Mais Pesquisados
+Baseado em análise simples de palavras-chave das queries.
+
+```text
+┌─────┬────────────────────────┬─────────┐
+│ #   │ Tópico                 │ Qtd     │
+├─────┼────────────────────────┼─────────┤
+│ 1   │ diárias                │ 156     │
+│ 2   │ SEI                    │ 134     │
+│ 3   │ processo               │ 98      │
+│ 4   │ SDP                    │ 87      │
+│ 5   │ passagens              │ 76      │
+└─────┴────────────────────────┴─────────┘
+```
+
+#### C) Feedbacks Negativos Recentes
+Tabela para auditoria com contexto completo.
+
+```text
+┌───────────────────────────┬─────────────┬───────────────────┬────────┐
+│ Pergunta                  │ Categoria   │ Comentário        │ Data   │
+├───────────────────────────┼─────────────┼───────────────────┼────────┤
+│ Como criar diária no SDP? │ Incompleto  │ Faltou explicar.. │ 25/01  │
+│ Qual prazo do processo?   │ Desatualizado│ O prazo mudou...  │ 24/01  │
+└───────────────────────────┴─────────────┴───────────────────┴────────┘
+                                                    [Ver detalhes]
+```
+
+#### D) Modal "Ver Detalhes"
+Ao clicar, mostra:
+- Pergunta completa do usuário
+- Resposta completa da CLARA
+- Fontes que foram citadas
+- Categoria do problema
+- Comentário do usuário
+
+#### E) Exportar Dados (CSV)
+Botão para baixar todos os dados em CSV para análise em Excel/Sheets.
+
+---
+
+## 5. Arquivos a Criar
+
+| Arquivo | Descrição |
+|---------|-----------|
+| `src/components/chat/FeedbackButtons.tsx` | Botões 👍👎 discretos |
+| `src/components/chat/FeedbackModal.tsx` | Modal para feedback negativo |
+| `src/hooks/useFeedback.ts` | Hook para salvar feedback |
+| `src/hooks/useQueryTracking.ts` | Hook para rastrear consultas |
+| `src/components/admin/AnalyticsTab.tsx` | Dashboard com métricas |
+| `src/components/admin/FeedbackDetailModal.tsx` | Modal de detalhes |
+
+## 6. Arquivos a Modificar
+
+| Arquivo | Alteração |
+|---------|-----------|
+| `src/components/chat/ChatMessage.tsx` | Adicionar FeedbackButtons |
+| `src/hooks/useChat.ts` | Integrar rastreamento de queries |
+| `src/pages/Admin.tsx` | Adicionar Tabs com aba Analytics |
+
+---
+
+## 7. Fluxo de Dados
+
+```text
+Usuário faz pergunta
+        │
+        ▼
+┌─────────────────────────────────────┐
+│  CLARA responde via clara-chat      │
+└──────────────────┬──────────────────┘
                    │
                    ▼
-┌─────────────────────────────────────────┐
-│      LOVABLE CLOUD (Backend)            │
-│  • PostgreSQL + pgvector                │
-│  • Edge Functions (clara-chat, etc)     │
-│  • Storage (documentos PDF)             │
-│  • Auth (OAuth 2.0)                     │
-└──────────────────┬──────────────────────┘
+┌─────────────────────────────────────┐
+│  Salva em query_analytics           │
+│  (pergunta, resposta, fontes)       │
+└──────────────────┬──────────────────┘
                    │
                    ▼
-┌─────────────────────────────────────────┐
-│      LOVABLE AI GATEWAY                 │
-│  • google/gemini-2.5-flash              │
-│  • Streaming SSE                        │
-│  • Rate limiting                        │
-└─────────────────────────────────────────┘
+        Exibe botões 👍 👎
+                   │
+        ┌──────────┴──────────┐
+        │                     │
+       👍                    👎
+        │                     │
+        ▼                     ▼
+   Salva em              Modal abre
+   response_feedback        │
+   (rating=true)            ▼
+        │             Usuário escolhe
+        │             categoria + texto
+        │                     │
+        ▼                     ▼
+                        Salva em
+                        response_feedback
+                        (rating=false)
 ```
 
-### Seção 5: Segurança Implementada
-- 15+ políticas RLS (Row Level Security)
-- Autenticação OAuth 2.0 via Google
-- Rate limiting (15 req/min)
-- Conformidade LGPD
-- Dados criptografados em trânsito e repouso
+---
 
-### Seção 6: Links do Projeto
-- URL principal: https://clarainova.lovable.app
-- Política de Privacidade: /privacidade.html
-- Termos de Serviço: /termos.html
-- Sitemap: /sitemap.xml
-- Contato: wilsonmp2@gmail.com
+## 8. Insights que Você Terá
+
+### A) Tópicos Mais Pesquisados
+- Quais são as maiores dúvidas dos usuários?
+- Onde investir em melhorar a documentação?
+- Quais procedimentos precisam de mais material?
+
+### B) Problemas nas Respostas
+- Quais tipos de pergunta geram mais feedback negativo?
+- A CLARA está desatualizada em algum tema?
+- Quais respostas estão incompletas?
+
+### C) Satisfação Geral
+- Tendência ao longo do tempo
+- Comparativo por período
+- Impacto de melhorias na base
+
+### D) Dados Exportáveis
+- CSV com todas as queries
+- CSV com todos os feedbacks
+- Análise externa em Excel/Sheets/BI
 
 ---
 
-## Resultado Esperado
+## 9. Segurança e Privacidade
 
-Após implementação, outras IAs poderão acessar:
-- `https://clarainova.lovable.app/sobre.html` - Documentação completa renderizada
-- `https://clarainova.lovable.app/llm.txt` - Resumo estruturado para parsing
-
-Isso permitirá que ChatGPT, Gemini, Claude, Manus e outras ferramentas entendam completamente o projeto sem precisar executar JavaScript.
+- **Zero identificação de usuários** - nenhum user_id, email ou IP
+- **Dados agregados** - foco em padrões, não indivíduos
+- **Conformidade LGPD** - dados anônimos por design
+- **RLS restritivo** - apenas admins acessam dados
 
 ---
 
-## Resumo de Alterações
+## 10. Resumo de Alterações
 
-| Tipo | Arquivo | Ação |
-|------|---------|------|
-| Criar | `public/sobre.html` | Página de documentação completa |
-| Criar | `public/llm.txt` | Resumo estruturado para LLMs |
-| Modificar | `index.html` | Adicionar `<link rel="about">` |
-| Modificar | `public/sitemap.xml` | Adicionar URL /sobre.html |
-| Modificar | `src/components/Footer.tsx` | Adicionar link "Sobre" |
+| Camada | Tipo | Descrição |
+|--------|------|-----------|
+| Database | Nova tabela | `query_analytics` |
+| Database | Nova tabela | `response_feedback` |
+| Database | RLS | Políticas de acesso anônimo/admin |
+| Frontend | Componente | FeedbackButtons + Modal |
+| Frontend | Hook | useFeedback + useQueryTracking |
+| Frontend | Modificação | ChatMessage com botões |
+| Admin | Nova aba | Analytics com métricas |
+| Admin | Componente | Gráficos + tabelas + export |
 
