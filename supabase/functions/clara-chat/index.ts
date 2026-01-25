@@ -1,4 +1,4 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { GoogleGenerativeAI } from "https://esm.sh/@google/generative-ai@0.21.0";
 
@@ -289,9 +289,16 @@ serve(async (req) => {
       );
     }
 
+    // Get API keys
     const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
+    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    
     if (!GEMINI_API_KEY) {
       throw new Error("GEMINI_API_KEY não configurada");
+    }
+    
+    if (!LOVABLE_API_KEY) {
+      throw new Error("LOVABLE_API_KEY não configurada");
     }
 
     // Classificar intenção
@@ -300,7 +307,7 @@ serve(async (req) => {
     // Expandir query com sinônimos
     const expandedTerms = expandQueryWithSynonyms(message);
     
-    // Buscar chunks relevantes
+    // Buscar chunks relevantes usando embeddings (still use Gemini for embeddings)
     const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
     const embeddingModel = genAI.getGenerativeModel({ model: "text-embedding-004" });
     
@@ -382,10 +389,10 @@ serve(async (req) => {
     
     const context = contextParts.join("\n\n---\n\n");
     
-    // Preparar histórico de mensagens
+    // Preparar histórico de mensagens para Lovable AI Gateway (OpenAI format)
     const chatHistory = history.map((msg: { role: string; content: string }) => ({
-      role: msg.role === "user" ? "user" : "model",
-      parts: [{ text: msg.content }]
+      role: msg.role === "user" ? "user" : "assistant",
+      content: msg.content
     }));
     
     // Prompt do usuário com contexto
@@ -407,54 +414,113 @@ Responda à pergunta do usuário com base no contexto fornecido. Se o contexto n
 
 Sempre cite as fontes quando usar informação do contexto [Nome do Documento].`;
 
-    // Configurar modelo Gemini com Search Grounding
-    const chatModel = genAI.getGenerativeModel({
-      model: "gemini-2.5-pro-preview-05-06",
-      generationConfig: {
-        temperature: 0.5,
-        maxOutputTokens: 8192,
+    // Use Lovable AI Gateway for chat completion (OpenAI-compatible API)
+    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${LOVABLE_API_KEY}`,
+        "Content-Type": "application/json",
       },
-      // @ts-ignore - Search Grounding
-      tools: [{ googleSearch: {} }]
+      body: JSON.stringify({
+        model: "google/gemini-2.5-flash",
+        messages: [
+          { role: "system", content: CLARA_SYSTEM_PROMPT },
+          ...chatHistory,
+          { role: "user", content: userPrompt }
+        ],
+        stream: true,
+        temperature: 0.5,
+        max_tokens: 8192,
+      }),
     });
+
+    if (!response.ok) {
+      if (response.status === 429) {
+        return new Response(
+          JSON.stringify({ error: "Limite de requisições da IA excedido. Tente novamente em alguns segundos." }),
+          { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      if (response.status === 402) {
+        return new Response(
+          JSON.stringify({ error: "Créditos de IA esgotados. Entre em contato com o administrador." }),
+          { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      const errorText = await response.text();
+      console.error("Lovable AI Gateway error:", response.status, errorText);
+      throw new Error(`AI gateway error: ${response.status}`);
+    }
+
+    // Coletar fontes locais
+    const localSources = documents?.map(d => d.title) || [];
     
-    // Iniciar chat com histórico
-    const chat = chatModel.startChat({
-      history: [
-        { role: "user", parts: [{ text: "Olá, preciso de ajuda." }] },
-        { role: "model", parts: [{ text: CLARA_SYSTEM_PROMPT }] },
-        ...chatHistory
-      ]
-    });
-    
-    // Gerar resposta com streaming
-    const result = await chat.sendMessageStream(userPrompt);
-    
-    // Criar stream de resposta SSE
+    // Create SSE stream that transforms OpenAI format to our format
     const encoder = new TextEncoder();
+    const reader = response.body?.getReader();
+    
+    if (!reader) {
+      throw new Error("No response body from AI gateway");
+    }
+
     const stream = new ReadableStream({
       async start(controller) {
         try {
           // Enviar evento de início
           controller.enqueue(encoder.encode(`event: thinking\ndata: ${JSON.stringify({ status: "searching", step: "Buscando na base de conhecimento..." })}\n\n`));
           
-          // Coletar fontes locais
-          const localSources = documents?.map(d => d.title) || [];
+          const decoder = new TextDecoder();
+          let buffer = "";
           
-          // Stream dos tokens
-          for await (const chunk of result.stream) {
-            const text = chunk.text();
-            if (text) {
-              controller.enqueue(encoder.encode(`event: delta\ndata: ${JSON.stringify({ content: text })}\n\n`));
-            }
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
             
-            // Verificar se há groundingMetadata (fontes web)
-            const candidate = chunk.candidates?.[0];
-            if (candidate?.groundingMetadata) {
-              const webSources = candidate.groundingMetadata.webSearchQueries || [];
-              if (webSources.length > 0) {
-                controller.enqueue(encoder.encode(`event: grounding\ndata: ${JSON.stringify({ queries: webSources })}\n\n`));
+            buffer += decoder.decode(value, { stream: true });
+            
+            // Process line by line
+            let newlineIndex: number;
+            while ((newlineIndex = buffer.indexOf("\n")) !== -1) {
+              let line = buffer.slice(0, newlineIndex);
+              buffer = buffer.slice(newlineIndex + 1);
+              
+              if (line.endsWith("\r")) line = line.slice(0, -1);
+              if (line.startsWith(":") || line.trim() === "") continue;
+              if (!line.startsWith("data: ")) continue;
+              
+              const jsonStr = line.slice(6).trim();
+              if (jsonStr === "[DONE]") continue;
+              
+              try {
+                const parsed = JSON.parse(jsonStr);
+                const content = parsed.choices?.[0]?.delta?.content as string | undefined;
+                if (content) {
+                  controller.enqueue(encoder.encode(`event: delta\ndata: ${JSON.stringify({ content })}\n\n`));
+                }
+              } catch {
+                // Incomplete JSON, put it back and wait for more data
+                buffer = line + "\n" + buffer;
+                break;
               }
+            }
+          }
+          
+          // Final flush
+          if (buffer.trim()) {
+            for (let raw of buffer.split("\n")) {
+              if (!raw) continue;
+              if (raw.endsWith("\r")) raw = raw.slice(0, -1);
+              if (raw.startsWith(":") || raw.trim() === "") continue;
+              if (!raw.startsWith("data: ")) continue;
+              const jsonStr = raw.slice(6).trim();
+              if (jsonStr === "[DONE]") continue;
+              try {
+                const parsed = JSON.parse(jsonStr);
+                const content = parsed.choices?.[0]?.delta?.content as string | undefined;
+                if (content) {
+                  controller.enqueue(encoder.encode(`event: delta\ndata: ${JSON.stringify({ content })}\n\n`));
+                }
+              } catch { /* ignore partial leftovers */ }
             }
           }
           
