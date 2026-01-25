@@ -7,6 +7,7 @@ import mammoth from "https://esm.sh/mammoth@1.6.0";
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-admin-key",
+  "Access-Control-Allow-Methods": "GET, POST, DELETE, OPTIONS",
 };
 
 // Tamanho do chunk: 4000 caracteres (preservado do original)

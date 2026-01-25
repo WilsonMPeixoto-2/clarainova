@@ -306,37 +306,63 @@ const Admin = () => {
         console.log(`[Admin] Signed URL (first 100 chars): ${signedUrlData.signedUrl?.substring(0, 100)}...`);
         
         let uploadResponse: Response;
-        try {
-          console.log(`[Admin] Initiating PUT request to signed URL...`);
-          uploadResponse = await fetch(signedUrlData.signedUrl, {
-            method: 'PUT',
-            headers: {
-              'Content-Type': file.type || 'application/pdf',
-            },
-            body: file,
-          });
-          
-          console.log(`[Admin] PUT response status: ${uploadResponse.status} ${uploadResponse.statusText}`);
-          console.log(`[Admin] PUT response headers:`, Object.fromEntries(uploadResponse.headers.entries()));
-          
-          if (!uploadResponse.ok) {
-            const errorText = await uploadResponse.text().catch(() => 'Could not read response body');
-            console.error(`[Admin] PUT FAILED - Status: ${uploadResponse.status}`);
-            console.error(`[Admin] PUT FAILED - Body: ${errorText}`);
-            console.error(`[Admin] PUT FAILED - Diagnóstico: ${getUploadErrorMessage(uploadResponse.status, errorText)}`);
-            throw new Error(`PUT falhou: ${uploadResponse.status} ${uploadResponse.statusText} | ${errorText}`);
+        const maxRetries = 3;
+        let lastError: Error | null = null;
+        
+        for (let attempt = 1; attempt <= maxRetries; attempt++) {
+          try {
+            console.log(`[Admin] PUT attempt ${attempt}/${maxRetries}...`);
+            uploadResponse = await fetch(signedUrlData.signedUrl, {
+              method: 'PUT',
+              mode: 'cors', // Explicit CORS mode for mobile browsers
+              credentials: 'omit', // Don't send cookies to storage
+              headers: {
+                'Content-Type': file.type || 'application/pdf',
+                'Cache-Control': 'no-cache', // Prevent mobile caching issues
+              },
+              body: file,
+            });
+            
+            // If we got a response, break out of retry loop
+            if (uploadResponse) {
+              lastError = null;
+              break;
+            }
+          } catch (retryError: any) {
+            lastError = retryError;
+            console.warn(`[Admin] PUT attempt ${attempt} failed:`, retryError.message);
+            
+            if (attempt < maxRetries) {
+              // Exponential backoff: 1s, 2s, 4s
+              const delay = Math.pow(2, attempt - 1) * 1000;
+              console.log(`[Admin] Retrying in ${delay}ms...`);
+              await new Promise(resolve => setTimeout(resolve, delay));
+            }
           }
-          
-          const responseBody = await uploadResponse.text().catch(() => '');
-          console.log(`[Admin] [UPLOAD OK]`, { status: uploadResponse.status, path: signedUrlData.path });
-          console.log(`[Admin] PUT SUCCESS - Response body: ${responseBody || '(empty)'}`);
-          
-        } catch (fetchError: any) {
-          console.error('[Admin] PUT request exception:', fetchError);
-          console.error('[Admin] Error name:', fetchError?.name);
-          console.error('[Admin] Error message:', fetchError?.message);
-          throw new Error(`Erro de rede no upload: ${fetchError.message || 'Erro desconhecido'}`);
         }
+        
+        if (lastError) {
+          console.error('[Admin] PUT request failed after retries:', lastError);
+          console.error('[Admin] Error name:', lastError?.name);
+          console.error('[Admin] Error message:', lastError?.message);
+          throw new Error(`Erro de rede no upload: ${lastError.message || 'Erro desconhecido'}`);
+        }
+          
+        console.log(`[Admin] PUT response status: ${uploadResponse!.status} ${uploadResponse!.statusText}`);
+        console.log(`[Admin] PUT response headers:`, Object.fromEntries(uploadResponse!.headers.entries()));
+        
+        if (!uploadResponse!.ok) {
+          const errorText = await uploadResponse!.text().catch(() => 'Could not read response body');
+          console.error(`[Admin] PUT FAILED - Status: ${uploadResponse!.status}`);
+          console.error(`[Admin] PUT FAILED - Body: ${errorText}`);
+          console.error(`[Admin] PUT FAILED - Diagnóstico: ${getUploadErrorMessage(uploadResponse!.status, errorText)}`);
+          throw new Error(`PUT falhou: ${uploadResponse!.status} ${uploadResponse!.statusText} | ${errorText}`);
+        }
+        
+        const responseBody = await uploadResponse!.text().catch(() => '');
+        console.log(`[Admin] [UPLOAD OK]`, { status: uploadResponse!.status, path: signedUrlData.path });
+        console.log(`[Admin] PUT SUCCESS - Response body: ${responseBody || '(empty)'}`);
+        
         
         // Verify file exists in storage
         console.log(`[Admin] ========== VERIFY UPLOAD ==========`);
