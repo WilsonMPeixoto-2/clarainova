@@ -265,33 +265,28 @@ const Admin = () => {
         console.log(`[Admin] Got signed URL for path: ${signedUrlData.path}`);
         setUploadProgress(Math.round(((completedFiles + 0.3) / totalFiles) * 100));
 
-        // STEP 2: Upload file directly using signed URL
-        console.log(`[Admin] Uploading ${file.name} using signed URL...`);
-        console.log(`[Admin] SignedUrl: ${signedUrlData.signedUrl.substring(0, 100)}...`);
+        // STEP 2: Upload file using Supabase SDK helper (more reliable than raw fetch)
+        console.log(`[Admin] Uploading ${file.name} to path: ${signedUrlData.path}`);
         console.log(`[Admin] File size: ${file.size} bytes, type: ${file.type}`);
         
-        let uploadResponse: Response;
         try {
-          uploadResponse = await fetch(signedUrlData.signedUrl, {
-            method: 'PUT',
-            headers: {
-              'Content-Type': file.type || 'application/octet-stream',
-            },
-            body: file,
-          });
-          console.log(`[Admin] Upload response status: ${uploadResponse.status}`);
-        } catch (fetchError: any) {
-          console.error('[Admin] Upload fetch error:', fetchError);
-          throw new Error(`Erro de rede no upload: ${fetchError.message}`);
+          const { data: uploadData, error: uploadError } = await supabase.storage
+            .from(signedUrlData.bucket)
+            .uploadToSignedUrl(signedUrlData.path, signedUrlData.token, file, {
+              contentType: file.type || 'application/octet-stream',
+            });
+          
+          if (uploadError) {
+            console.error('[Admin] Upload error:', uploadError);
+            throw new Error(`Falha no upload: ${uploadError.message}`);
+          }
+          
+          console.log(`[Admin] Upload complete:`, uploadData);
+        } catch (uploadErr: any) {
+          console.error('[Admin] Upload exception:', uploadErr);
+          throw new Error(`Erro no upload: ${uploadErr.message || 'Erro desconhecido'}`);
         }
 
-        if (!uploadResponse.ok) {
-          const uploadErrorText = await uploadResponse.text();
-          console.error('[Admin] Upload error:', uploadResponse.status, uploadErrorText);
-          throw new Error(`[${uploadResponse.status}] Falha no upload: ${uploadErrorText || 'Erro desconhecido'}`);
-        }
-
-        console.log(`[Admin] Upload complete: ${signedUrlData.path}`);
         setUploadProgress(Math.round(((completedFiles + 0.6) / totalFiles) * 100));
 
         // STEP 3: Process document via documents Edge Function
