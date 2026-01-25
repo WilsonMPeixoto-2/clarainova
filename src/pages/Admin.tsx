@@ -305,62 +305,73 @@ const Admin = () => {
         console.log(`[Admin] Bucket: ${signedUrlData.bucket}`);
         console.log(`[Admin] Signed URL (first 100 chars): ${signedUrlData.signedUrl?.substring(0, 100)}...`);
         
-        let uploadResponse: Response;
-        const maxRetries = 3;
-        let lastError: Error | null = null;
-        
-        for (let attempt = 1; attempt <= maxRetries; attempt++) {
-          try {
-            console.log(`[Admin] PUT attempt ${attempt}/${maxRetries}...`);
-            uploadResponse = await fetch(signedUrlData.signedUrl, {
-              method: 'PUT',
-              mode: 'cors', // Explicit CORS mode for mobile browsers
-              credentials: 'omit', // Don't send cookies to storage
-              headers: {
-                'Content-Type': file.type || 'application/pdf',
-                'Cache-Control': 'no-cache', // Prevent mobile caching issues
-              },
-              body: file,
-            });
-            
-            // If we got a response, break out of retry loop
-            if (uploadResponse) {
-              lastError = null;
-              break;
-            }
-          } catch (retryError: any) {
-            lastError = retryError;
-            console.warn(`[Admin] PUT attempt ${attempt} failed:`, retryError.message);
-            
-            if (attempt < maxRetries) {
-              // Exponential backoff: 1s, 2s, 4s
-              const delay = Math.pow(2, attempt - 1) * 1000;
-              console.log(`[Admin] Retrying in ${delay}ms...`);
-              await new Promise(resolve => setTimeout(resolve, delay));
-            }
+        // Mobile-optimized upload function
+        const uploadFile = async (fileToUpload: File, signedUrl: string): Promise<Response> => {
+          const isMobile = /mobile|android|iphone|ipad|ipod/i.test(navigator.userAgent);
+          console.log(`[Admin] Device type: ${isMobile ? 'Mobile' : 'Desktop'}`);
+
+          // 1) Conservative limit on mobile
+          const maxMb = isMobile ? 10 : 50;
+          if (fileToUpload.size > maxMb * 1024 * 1024) {
+            throw new Error(`Arquivo muito grande para este dispositivo (máx ${maxMb}MB).`);
           }
-        }
+
+          // 2) Longer timeout on mobile
+          const timeoutMs = isMobile ? 120000 : 30000;
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+          console.log(`[Admin] Upload timeout set to ${timeoutMs / 1000}s`);
+
+          // 3) Content-Type with fallback (mobile sometimes comes empty)
+          const isPdf = (fileToUpload.type?.includes("pdf") || fileToUpload.name?.toLowerCase().endsWith(".pdf"));
+          const contentType = fileToUpload.type || (isPdf ? "application/pdf" : "application/octet-stream");
+          console.log(`[Admin] Using Content-Type: ${contentType}`);
+
+          try {
+            // 4) More compatible body on iOS (arrayBuffer for PDF)
+            const body = isPdf ? await fileToUpload.arrayBuffer() : fileToUpload;
+            console.log(`[Admin] Body type: ${isPdf ? 'ArrayBuffer' : 'File'}`);
+
+            console.log(`[Admin] PUT request starting...`);
+            const uploadRes = await fetch(signedUrl, {
+              method: "PUT",
+              headers: {
+                "Content-Type": contentType,
+              },
+              body,
+              signal: controller.signal,
+            });
+
+            clearTimeout(timeoutId);
+            console.log(`[Admin] PUT response status: ${uploadRes.status} ${uploadRes.statusText}`);
+
+            if (!uploadRes.ok) {
+              const msg = `Upload falhou: HTTP ${uploadRes.status}`;
+              if (uploadRes.status === 409) {
+                throw new Error(`${msg} (conflito: arquivo já existe — verifique o path ou use upsert)`);
+              }
+              if (uploadRes.status === 403) {
+                throw new Error(`${msg} (permissão/policy do bucket ou URL expirada)`);
+              }
+              throw new Error(msg);
+            }
+
+            return uploadRes;
+          } catch (err: any) {
+            clearTimeout(timeoutId);
+            if (err?.name === "AbortError") {
+              throw new Error("Upload excedeu o tempo limite. Tente em Wi-Fi ou envie arquivo menor.");
+            }
+            throw err;
+          }
+        };
+
+        // Execute the mobile-optimized upload
+        const uploadResponse = await uploadFile(file, signedUrlData.signedUrl);
+        console.log(`[Admin] PUT response headers:`, Object.fromEntries(uploadResponse.headers.entries()));
         
-        if (lastError) {
-          console.error('[Admin] PUT request failed after retries:', lastError);
-          console.error('[Admin] Error name:', lastError?.name);
-          console.error('[Admin] Error message:', lastError?.message);
-          throw new Error(`Erro de rede no upload: ${lastError.message || 'Erro desconhecido'}`);
-        }
-          
-        console.log(`[Admin] PUT response status: ${uploadResponse!.status} ${uploadResponse!.statusText}`);
-        console.log(`[Admin] PUT response headers:`, Object.fromEntries(uploadResponse!.headers.entries()));
-        
-        if (!uploadResponse!.ok) {
-          const errorText = await uploadResponse!.text().catch(() => 'Could not read response body');
-          console.error(`[Admin] PUT FAILED - Status: ${uploadResponse!.status}`);
-          console.error(`[Admin] PUT FAILED - Body: ${errorText}`);
-          console.error(`[Admin] PUT FAILED - Diagnóstico: ${getUploadErrorMessage(uploadResponse!.status, errorText)}`);
-          throw new Error(`PUT falhou: ${uploadResponse!.status} ${uploadResponse!.statusText} | ${errorText}`);
-        }
-        
-        const responseBody = await uploadResponse!.text().catch(() => '');
-        console.log(`[Admin] [UPLOAD OK]`, { status: uploadResponse!.status, path: signedUrlData.path });
+        const responseBody = await uploadResponse.text().catch(() => '');
+        console.log(`[Admin] [UPLOAD OK]`, { status: uploadResponse.status, path: signedUrlData.path });
         console.log(`[Admin] PUT SUCCESS - Response body: ${responseBody || '(empty)'}`);
         
         
