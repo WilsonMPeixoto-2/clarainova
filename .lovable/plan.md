@@ -1,286 +1,135 @@
 
-# Plano: Sistema de Login com Página de Entrada Minimalista
+# Plano: Páginas de Política de Privacidade e Termos de Serviço
 
-## Resumo
+## Objetivo
 
-Implementar sistema completo de autenticação Google OAuth com uma página de login dedicada, inspirada no design sóbrio que você compartilhou. A página será a nova "porta de entrada" da CLARA.
+Criar duas páginas legais profissionais para atender aos requisitos do Google OAuth:
+- `/privacidade` - Política de Privacidade
+- `/termos` - Termos de Serviço
+
+Essas páginas são necessárias para que o Google valide a marca CLARA no processo de verificação OAuth.
 
 ---
 
-## Design da Página de Login
+## Design das Páginas
 
-### Inspiração Visual (da sua referência)
-
-A página seguirá exatamente o estilo mostrado:
-- Fundo navy profundo (#0A1628)
-- Conteúdo centralizado verticalmente
-- Título em duas linhas: "Inteligência" (peso leve) + "Administrativa" (peso bold)
-- Subtítulo com acrônimo C-L-A-R-A destacado em âmbar
-- Botões centralizados abaixo
+Ambas as páginas seguirão o padrão visual do projeto:
+- Header e Footer consistentes com a landing page
+- Design limpo e profissional (estilo LegalTech)
+- Navegação clara entre seções
+- SEO otimizado para cada página
+- Responsivo para mobile e desktop
 
 ### Layout Proposto
 
 ```text
 ┌─────────────────────────────────────────────────────────────────┐
+│                         HEADER                                  │
+├─────────────────────────────────────────────────────────────────┤
 │                                                                 │
+│                    Política de Privacidade                      │
+│                    Última atualização: [data]                   │
 │                                                                 │
+│  ┌───────────────────────────────────────────────────────────┐  │
+│  │                                                           │  │
+│  │  1. Introdução                                            │  │
+│  │  2. Dados Coletados                                       │  │
+│  │  3. Uso dos Dados                                         │  │
+│  │  4. Proteção dos Dados                                    │  │
+│  │  5. Seus Direitos                                         │  │
+│  │  6. Contato                                               │  │
+│  │                                                           │  │
+│  └───────────────────────────────────────────────────────────┘  │
 │                                                                 │
-│                                                                 │
-│                       Inteligência                              │
-│                     Administrativa                              │
-│                                                                 │
-│         Consultora de Legislação e Apoio a Rotinas              │
-│                      Administrativas                            │
-│              (C, L, A, R, A em âmbar)                           │
-│                                                                 │
-│                 ┌────────────────────────┐                      │
-│                 │   G  Entrar com Google │                      │
-│                 └────────────────────────┘                      │
-│                                                                 │
-│                      ─────── ou ───────                         │
-│                                                                 │
-│                   Continuar sem login →                         │
-│                                                                 │
-│          "Faça login para salvar seu histórico"                 │
-│                                                                 │
-│                                                                 │
+│                         FOOTER                                  │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## Fluxo de Navegação
+## Conteúdo das Páginas
 
-```text
-                    ┌─────────────┐
-                    │  Página     │
-                    │  Inicial /  │
-                    └──────┬──────┘
-                           │
-               "Iniciar conversa"
-                           │
-                           ▼
-                    ┌─────────────┐
-                    │   Página    │
-                    │  Login      │
-                    │  /login     │
-                    └──────┬──────┘
-                           │
-            ┌──────────────┼──────────────┐
-            │              │              │
-    [Google Login]  [Continuar sem]  [Já logado?]
-            │           login             │
-            ▼              │              │
-     ┌──────────┐          │              │
-     │ Perfil   │          │              │
-     │ criado   │          │              │
-     └────┬─────┘          │              │
-          │                │              │
-          └────────────────┼──────────────┘
-                           │
-                           ▼
-                    ┌─────────────┐
-                    │    Chat     │
-                    │   /chat     │
-                    └─────────────┘
-```
+### Política de Privacidade (`/privacidade`)
 
----
+Abordará os seguintes tópicos:
 
-## Estrutura de Banco de Dados
+| Seção | Conteúdo |
+|-------|----------|
+| Introdução | Apresentação da CLARA e compromisso com privacidade |
+| Dados Coletados | Email, nome e foto do perfil Google (via OAuth) |
+| Uso dos Dados | Autenticação, personalização, histórico de conversas |
+| Armazenamento | Servidores seguros, criptografia |
+| Compartilhamento | Declaração de não compartilhamento com terceiros |
+| Seus Direitos | Acesso, correção, exclusão de dados (LGPD) |
+| Cookies | Uso de cookies essenciais |
+| Alterações | Política de atualização |
+| Contato | Email para questões de privacidade |
 
-### Tabela: profiles
+### Termos de Serviço (`/termos`)
 
-Armazena dados básicos do usuário autenticado.
+Abordará os seguintes tópicos:
 
-| Coluna | Tipo | Descrição |
-|--------|------|-----------|
-| id | UUID | Mesmo ID do auth.users |
-| email | TEXT | Email do Google |
-| display_name | TEXT | Nome para exibição |
-| avatar_url | TEXT | URL da foto do perfil |
-| created_at | TIMESTAMP | Data de criação |
-| last_seen_at | TIMESTAMP | Última atividade |
-
-### Tabela: chat_sessions
-
-Histórico de conversas para usuários autenticados.
-
-| Coluna | Tipo | Descrição |
-|--------|------|-----------|
-| id | UUID | Identificador da sessão |
-| user_id | UUID | Referência ao profiles |
-| title | TEXT | Título gerado automaticamente |
-| messages | JSONB | Array de mensagens |
-| created_at | TIMESTAMP | Início da conversa |
-| updated_at | TIMESTAMP | Última atualização |
-
-### Tabela: user_roles
-
-Controle de permissões (preparação para futuro).
-
-| Coluna | Tipo | Descrição |
-|--------|------|-----------|
-| id | UUID | Identificador |
-| user_id | UUID | Referência ao auth.users |
-| role | app_role | ENUM: 'admin', 'user' |
+| Seção | Conteúdo |
+|-------|----------|
+| Aceitação | Concordância com os termos ao usar o serviço |
+| Descrição do Serviço | CLARA como assistente de legislação |
+| Uso Permitido | Uso pessoal e profissional, não comercial |
+| Responsabilidades | Limitações do serviço, disclaimer legal |
+| Conta do Usuário | Responsabilidade sobre credenciais |
+| Propriedade Intelectual | Direitos da CLARA sobre conteúdo |
+| Limitação de Responsabilidade | Orientações não substituem assessoria jurídica |
+| Modificações | Direito de alterar termos |
+| Lei Aplicável | Legislação brasileira |
+| Contato | Email para questões legais |
 
 ---
 
-## Políticas de Segurança (RLS)
-
-### profiles
-- SELECT: Usuário só vê seu próprio perfil
-- UPDATE: Usuário só edita seu próprio perfil
-- INSERT: Via trigger automático no signup
-
-### chat_sessions
-- ALL: Usuário só acessa suas próprias sessões
-
-### user_roles
-- SELECT: Usuário só vê suas próprias roles
-
----
-
-## Componentes a Criar
-
-### 1. Login.tsx (Página Principal)
-- Design minimalista inspirado na referência
-- Título "Inteligência Administrativa" centralizado
-- Subtítulo com acrônimo CLARA destacado
-- Botão "Entrar com Google"
-- Link "Continuar sem login"
-- Animações suaves com Framer Motion
-- Redirecionamento automático se já logado
-
-### 2. AuthContext.tsx
-- Estado global de autenticação
-- Listener para mudanças de sessão (onAuthStateChange)
-- Métodos: signInWithGoogle, signOut
-- Exposição de dados do usuário atual
-
-### 3. GoogleLoginButton.tsx
-- Botão estilizado para login Google
-- Ícone do Google + texto
-- Estados de loading
-
-### 4. UserMenu.tsx
-- Avatar do usuário + dropdown
-- Opção de sair
-- Exibido no header do Chat quando logado
-
----
-
-## Modificações em Arquivos Existentes
-
-### App.tsx
-- Adicionar AuthProvider envolvendo toda a aplicação
-- Adicionar rota /login
-
-### HeroSection.tsx
-- Botão "Iniciar conversa" redireciona para /login (em vez de /chat)
-
-### Chat.tsx
-- Adicionar UserMenu ou LoginButton no header
-- Integrar com AuthContext para exibir estado do usuário
-
----
-
-## Fases de Implementação
-
-### Fase 1: Infraestrutura
-1. Criar tabelas no banco (profiles, chat_sessions, user_roles)
-2. Configurar triggers e funções de segurança
-3. Habilitar RLS em todas as tabelas
-4. Criar AuthContext.tsx
-
-### Fase 2: Página de Login
-5. Criar componente Login.tsx
-6. Criar GoogleLoginButton.tsx
-7. Adicionar rota /login no App.tsx
-8. Atualizar HeroSection para redirecionar para /login
-
-### Fase 3: Integração no Chat
-9. Criar UserMenu.tsx
-10. Atualizar header do Chat.tsx
-11. Adaptar lógica de persistência (futuro: salvar no banco)
-
----
-
-## Configuração Google OAuth (Sua Parte)
-
-Você precisará configurar o Google Cloud Console. Vou guiar passo a passo:
-
-### Passo 1: Acessar Google Cloud Console
-1. Acesse: https://console.cloud.google.com/
-2. Faça login com sua conta Google
-3. Crie um novo projeto (ou use existente)
-
-### Passo 2: Configurar Tela de Consentimento OAuth
-1. Menu: "APIs & Services" → "OAuth consent screen"
-2. Escolha "External"
-3. Preencha:
-   - App name: CLARA - Inteligência Administrativa
-   - User support email: seu email
-   - Developer contact: seu email
-4. Em Scopes, adicione: email, profile, openid
-5. Salve
-
-### Passo 3: Criar Credenciais OAuth
-1. Menu: "APIs & Services" → "Credentials"
-2. Clique "+ CREATE CREDENTIALS" → "OAuth client ID"
-3. Tipo: Web application
-4. Nome: CLARA Web Client
-5. Authorized JavaScript origins:
-   - https://clarainova.lovable.app
-   - https://id-preview--c2cb3c6c-0685-4c69-9d34-431f47c427eb.lovable.app
-6. Authorized redirect URIs: (aguarde eu fornecer após configurar backend)
-7. Copie o Client ID e Client Secret gerados
-
-### Passo 4: Configurar no Lovable Cloud
-Após criar as credenciais, você irá ao painel do Lovable Cloud para inserir o Client ID e Secret. Eu abrirei o painel para você quando chegarmos nessa etapa.
-
----
-
-## Custos
-
-| Item | Custo |
-|------|-------|
-| Google OAuth | Gratuito |
-| Lovable Cloud Auth | Incluído |
-| Armazenamento de dados | Incluído |
-| **Total** | **R$ 0,00** |
-
----
-
-## Seção Tecnica
-
-### Arquivos a Criar
+## Arquivos a Criar
 
 | Arquivo | Descrição |
 |---------|-----------|
-| src/pages/Login.tsx | Pagina de login minimalista |
-| src/contexts/AuthContext.tsx | Contexto de autenticacao |
-| src/components/auth/GoogleLoginButton.tsx | Botao de login Google |
-| src/components/auth/UserMenu.tsx | Menu do usuario logado |
+| `src/pages/Privacidade.tsx` | Página de Política de Privacidade |
+| `src/pages/Termos.tsx` | Página de Termos de Serviço |
 
-### Arquivos a Modificar
+---
 
-| Arquivo | Mudanca |
-|---------|---------|
-| src/App.tsx | Adicionar AuthProvider e rota /login |
-| src/components/HeroSection.tsx | CTA aponta para /login |
-| src/pages/Chat.tsx | Integrar LoginButton/UserMenu no header |
+## Arquivos a Modificar
 
-### Migracoes de Banco
+| Arquivo | Modificação |
+|---------|-------------|
+| `src/App.tsx` | Adicionar lazy imports e rotas `/privacidade` e `/termos` |
+| `src/components/Footer.tsx` | Atualizar links de âncora (`#privacidade`) para rotas reais (`/privacidade`) |
 
-1. Criar enum app_role ('admin', 'user')
-2. Criar tabela profiles com trigger auto-create
-3. Criar tabela chat_sessions
-4. Criar tabela user_roles
-5. Criar funcao has_role (security definer)
-6. Habilitar RLS com politicas apropriadas
+---
 
-### Dependencias
+## Links para o Google OAuth
 
-Nenhuma nova dependencia necessaria (Supabase Auth ja incluido).
+Após a implementação, você poderá usar estes links no Google Cloud Console:
+
+- **Página inicial**: `https://clarainova.lovable.app`
+- **Política de Privacidade**: `https://clarainova.lovable.app/privacidade`
+- **Termos de Serviço**: `https://clarainova.lovable.app/termos`
+
+---
+
+## Seção Técnica
+
+### Estrutura dos Componentes
+
+Cada página seguirá esta estrutura:
+- SEOHead para metadados e indexação
+- Header (reutilizado)
+- Conteúdo com seções e ancoras internas
+- Footer (reutilizado)
+
+### Padrões Aplicados
+
+- Lazy loading das páginas (consistente com outras rotas)
+- Animações suaves com Framer Motion
+- Scroll suave para navegação entre seções
+- Links de retorno ao topo
+- Data de última atualização automática
+
+### Dependências
+
+Nenhuma nova dependência necessária.
