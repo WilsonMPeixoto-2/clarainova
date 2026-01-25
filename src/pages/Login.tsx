@@ -83,7 +83,7 @@ const Login = () => {
           <span className="text-primary font-medium">A</span>dministrativas
         </motion.p>
 
-        {/* Privacy Policy Link */}
+        {/* Legal Links */}
         <motion.p 
           variants={itemVariants}
           className="text-sm text-muted-foreground mb-4"
@@ -94,6 +94,13 @@ const Login = () => {
             className="text-primary hover:underline font-medium"
           >
             Política de Privacidade
+          </a>
+          {' '}e{' '}
+          <a 
+            href="/termos.html" 
+            className="text-primary hover:underline font-medium"
+          >
+            Termos de Uso
           </a>
         </motion.p>
 
