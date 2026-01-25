@@ -7,6 +7,27 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// Rate limiting configuration
+const RATE_LIMIT_CONFIG = {
+  maxRequests: 30, // 30 requests per window (higher limit for search)
+  windowSeconds: 60, // 1 minute window
+};
+
+// Helper to get client identifier for rate limiting
+function getClientKey(req: Request): string {
+  const forwarded = req.headers.get("x-forwarded-for");
+  const cfIp = req.headers.get("cf-connecting-ip");
+  const realIp = req.headers.get("x-real-ip");
+  
+  if (forwarded) {
+    return forwarded.split(",")[0].trim();
+  }
+  if (cfIp) return cfIp;
+  if (realIp) return realIp;
+  
+  return "unknown";
+}
+
 // =============================================
 // MAPA DE SINÔNIMOS (preservado do original)
 // =============================================
@@ -106,7 +127,44 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  // Initialize Supabase client early for rate limiting
+  const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+  const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+  const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
   try {
+    // Rate limiting check
+    const clientKey = getClientKey(req);
+    const { data: rateLimitResult, error: rateLimitError } = await supabase.rpc(
+      "check_rate_limit",
+      {
+        p_client_key: clientKey,
+        p_endpoint: "search",
+        p_max_requests: RATE_LIMIT_CONFIG.maxRequests,
+        p_window_seconds: RATE_LIMIT_CONFIG.windowSeconds,
+      }
+    );
+
+    if (rateLimitError) {
+      console.error("Rate limit check error:", rateLimitError);
+    } else if (rateLimitResult && rateLimitResult.length > 0 && !rateLimitResult[0].allowed) {
+      const resetIn = rateLimitResult[0].reset_in || RATE_LIMIT_CONFIG.windowSeconds;
+      return new Response(
+        JSON.stringify({
+          error: "Limite de requisições excedido. Por favor, aguarde um momento.",
+          retryAfter: resetIn,
+        }),
+        {
+          status: 429,
+          headers: {
+            ...corsHeaders,
+            "Content-Type": "application/json",
+            "Retry-After": String(resetIn),
+          },
+        }
+      );
+    }
+
     const { query, limit = 12 } = await req.json();
     
     if (!query || typeof query !== "string") {
@@ -120,10 +178,6 @@ serve(async (req) => {
     if (!GEMINI_API_KEY) {
       throw new Error("GEMINI_API_KEY não configurada");
     }
-
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     // Expandir query com sinônimos
     const expandedTerms = expandQueryWithSynonyms(query);
