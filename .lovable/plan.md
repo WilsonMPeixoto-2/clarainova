@@ -1,152 +1,288 @@
 
-# Plano: Atualização Completa de Branding - CLARA Independente
+# Plano de Implementacao: 4 Funcionalidades + Sistema de Monitoramento
 
-## Contexto
+## Visao Geral
 
-A CLARA está evoluindo de uma ferramenta específica da 4ª CRE para uma **plataforma independente** que pode ser usada por todos os servidores da prefeitura. Isso requer remover referências institucionais específicas (4ª CRE, SME) e também a referência exclusiva ao SDP, já que a CLARA abordará diversos assuntos administrativos.
-
----
-
-## Elementos Identificados para Atualização
-
-### 1. Arquivos de Metadados e SEO (Alta Prioridade)
-
-| Arquivo | Referências a Remover |
-|---------|----------------------|
-| `index.html` | "4ª CRE", "SDP" nas meta tags, author |
-| `src/components/SEOHead.tsx` | "4ª CRE", "SDP" na description e keywords |
-| `src/pages/Index.tsx` | "4ª CRE", "SDP" nas keywords |
-| `src/pages/Chat.tsx` | "4ª CRE" na description |
-
-**Novo texto padrão:**
-- Description: "Consultora de Legislação e Apoio a Rotinas Administrativas. Sua assistente especializada em sistemas eletrônicos de informação e procedimentos administrativos."
-- Keywords: ["legislação", "administração pública", "SEI", "assistente virtual", "CLARA", "inteligência administrativa", "procedimentos administrativos"]
-- Author: "CLARA"
+Este plano implementa as 4 funcionalidades gratuitas solicitadas, uma por vez, com foco em seguranca de recursos e sustentabilidade de custos. Todas utilizam tecnologias ja instaladas (recharts, jsPDF) e o tier gratuito do backend.
 
 ---
 
-### 2. Interface do Chat (Alta Prioridade)
+## Fase 1: Grafico Temporal de Analytics
 
-| Arquivo | Linha | Texto Atual | Novo Texto |
-|---------|-------|-------------|------------|
-| `Chat.tsx` | 157 | "Assistente SEI & SDP" | "Inteligência Administrativa" |
-| `ChatPanel.tsx` | 153 | "Assistente SEI & SDP" | "Inteligência Administrativa" |
-| `ChatPanel.tsx` | 220 | "procedimentos da 4ª CRE" | "procedimentos administrativos" |
-| `ChatInput.tsx` | 89 | "procedimentos da 4ª CRE" | "rotinas administrativas" |
+**Objetivo:** Adicionar um grafico de linha mostrando a tendencia de feedbacks positivos vs negativos ao longo do tempo.
 
----
+### Arquivos a Modificar:
+- `src/components/admin/AnalyticsTab.tsx`
 
-### 3. System Prompt da IA (Alta Prioridade)
+### Detalhes Tecnicos:
+1. Importar componentes do recharts (LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend)
+2. Criar funcao `useMemo` para agrupar feedbacks por dia:
+   - Mapear feedbacks por data (formato DD/MM)
+   - Contar positivos e negativos por dia
+   - Gerar array de objetos: `{ date, positive, negative }`
+3. Renderizar grafico entre as metricas e os dois cards existentes
+4. Cores: verde (#22c55e) para positivos, vermelho (#ef4444) para negativos
+5. Tooltip mostrando valores ao passar o mouse
 
-**Arquivo:** `supabase/functions/clara-chat/index.ts`
-
-Este é o **mais crítico** porque define o comportamento da IA. Precisa ser atualizado para:
-- Remover referência à "4ª CRE" como escopo principal
-- Manter SEI como foco, mas expandir para "sistemas eletrônicos de informação"
-- Remover SDP como escopo obrigatório (pode ser uma área de conhecimento, não limitação)
-- Ampliar para "procedimentos administrativos em geral"
-
-**Alterações específicas:**
-- Linha 36-41: Atualizar escopo de especialização
-- Linha 72: Remover "Procedimentos específicos da 4ª CRE"
-- Linha 82: Atualizar tratamento de queries fora do escopo
-- Linha 91: Remover referência específica à 4ª CRE
-
----
-
-### 4. Arquivos Públicos HTML (Média Prioridade)
-
-| Arquivo | Seções a Atualizar |
-|---------|-------------------|
-| `public/sobre.html` | Múltiplas referências à 4ª CRE e SME |
-| `public/termos.html` | Linha 147: "rotinas administrativas da 4ª CRE" |
-| `public/privacidade.html` | Linha 123: "procedimentos administrativos da 4ª CRE" |
-| `public/llm.txt` | Linhas 11-13: Referências à 4ª CRE |
-
----
-
-### 5. Páginas React Legais (Média Prioridade)
-
-| Arquivo | Linha | Alteração |
-|---------|-------|-----------|
-| `src/pages/Termos.tsx` | 73 | Remover "4ª CRE" |
-| `src/pages/Privacidade.tsx` | 54 | Remover "4ª CRE" |
-
----
-
-### 6. Documentação e Utilitários (Baixa Prioridade)
-
-| Arquivo | Alteração |
-|---------|-----------|
-| `DOCUMENTATION.md` | Linha 6: Remover "4ª CRE" |
-| `supabase/functions/documents/index.ts` | Linha 67: Remover pattern `/4ª\s*CRE/gi` do extrator de keywords |
-
----
-
-## Nova Identidade de Marca
-
-### Taglines Consistentes
-
-| Contexto | Texto |
-|----------|-------|
-| **Header/Subtitle** | "Inteligência Administrativa" |
-| **Description longa** | "Consultora de Legislação e Apoio a Rotinas Administrativas" |
-| **Placeholder input** | "Digite sua pergunta sobre legislação ou rotinas administrativas..." |
-| **Welcome message** | "Sua assistente especializada em legislação e procedimentos administrativos." |
-
-### Escopo Atualizado (System Prompt)
-
+### Interface Visual:
 ```text
-Você é a CLARA (Consultora de Legislação e Apoio a Rotinas Administrativas), 
-uma assistente virtual especializada em:
-
-1. SEI (Sistema Eletrônico de Informações) - versões SEI!Rio e SEI 4.0
-2. Legislação administrativa e normas aplicáveis
-3. Procedimentos e rotinas administrativas
-
-Posso ajudar com:
-- Criação e tramitação de processos no SEI
-- Upload e assinatura de documentos
-- Gestão de blocos de assinatura
-- Legislação e normativas
-- Procedimentos administrativos gerais
-- Sistemas de gestão pública
++------------------------------------------+
+|  [Card Metricas - 4 colunas]             |
++------------------------------------------+
+|  Tendencia de Feedbacks (ultimos 30 dias)|
+|  +--------------------------------------+|
+|  |  [Grafico de Linha]                  ||
+|  |  --- Positivos (verde)               ||
+|  |  --- Negativos (vermelho)            ||
+|  +--------------------------------------+|
++------------------------------------------+
+|  [Top Topics]     [Feedbacks Negativos]  |
++------------------------------------------+
 ```
 
 ---
 
-## Resumo de Alterações por Tipo
+## Fase 2: Incluir Fontes no PDF
 
-| Tipo | Quantidade | Arquivos |
-|------|------------|----------|
-| **Frontend React** | 7 arquivos | SEOHead, Index, Chat, ChatPanel, ChatInput, Termos, Privacidade |
-| **Edge Functions** | 2 arquivos | clara-chat, documents |
-| **HTML Públicos** | 3 arquivos | sobre.html, termos.html, privacidade.html |
-| **Metadados** | 2 arquivos | index.html, llm.txt |
-| **Documentação** | 1 arquivo | DOCUMENTATION.md |
+**Objetivo:** Adicionar uma secao "Fontes Consultadas" no PDF gerado, listando os documentos que a CLARA utilizou para responder.
 
-**Total: 15 arquivos**
+### Arquivos a Modificar:
+- `src/components/chat/DownloadPdfButton.tsx` (adicionar prop `sources`)
+- `src/components/chat/ChatMessage.tsx` (passar `sources` para o botao)
+
+### Detalhes Tecnicos:
+1. Atualizar interface `DownloadPdfButtonProps`:
+   ```typescript
+   sources?: { local: string[]; web?: string[] };
+   ```
+2. Apos a secao "Resposta:", adicionar secao "Fontes Consultadas:" se houver fontes
+3. Listar cada fonte local com icone de documento (simulado com bullet)
+4. Listar fontes web como URLs clicaveis (texto formatado)
+5. Manter paginacao funcionando corretamente
+
+### Layout do PDF:
+```text
++---------------------------------+
+| CLARA - Inteligencia Admin.     |
+| Gerado em: DD/MM/AAAA HH:MM     |
++---------------------------------+
+| Sua pergunta:                   |
+| "Texto da pergunta..."          |
+|                                 |
+| Resposta:                       |
+| Texto da resposta...            |
+|                                 |
+| Fontes Consultadas:             |
+| - Manual_SEI_v2.pdf             |
+| - Decreto_1234.pdf              |
++---------------------------------+
+```
 
 ---
 
-## Ordem de Implementação
+## Fase 3: Historico de Conversas Persistente + Monitoramento
 
-1. **index.html** - Meta tags SEO (crítico para Google)
-2. **SEOHead.tsx** - Defaults de SEO
-3. **clara-chat/index.ts** - System prompt da IA
-4. **Chat.tsx** + **ChatPanel.tsx** + **ChatInput.tsx** - Interface do chat
-5. **Index.tsx** - SEO da homepage
-6. **Termos.tsx** + **Privacidade.tsx** - Páginas legais React
-7. **public/*.html** - Páginas estáticas legais
-8. **llm.txt** - Documentação para LLMs
-9. **documents/index.ts** - Extração de keywords
-10. **DOCUMENTATION.md** - Documentação técnica
+**Objetivo:** Salvar conversas de usuarios autenticados no banco de dados com monitoramento de uso e limpeza automatica a cada 3 meses.
+
+### Parte A: Historico Persistente
+
+#### Arquivos a Criar:
+- `src/hooks/useChatSessions.ts` (gerenciamento de sessoes)
+- `src/components/chat/ChatHistory.tsx` (lista de conversas anteriores)
+
+#### Arquivos a Modificar:
+- `src/hooks/useChat.ts` (integrar com banco de dados quando usuario logado)
+- `src/components/chat/ChatPanel.tsx` (adicionar acesso ao historico)
+
+#### Logica:
+1. Se usuario **nao logado**: manter comportamento atual (localStorage)
+2. Se usuario **logado**:
+   - Criar nova sessao no banco ao iniciar conversa
+   - Atualizar sessao a cada nova mensagem
+   - Carregar sessoes anteriores do banco
+   - Permitir alternar entre sessoes
+
+### Parte B: Monitoramento de Uso (Admin)
+
+#### Arquivos a Criar:
+- `src/components/admin/StorageMonitor.tsx` (widget de uso)
+
+#### Arquivos a Modificar:
+- `src/components/admin/AnalyticsTab.tsx` (adicionar widget)
+
+#### Metricas Monitoradas:
+- Total de sessoes de chat armazenadas
+- Tamanho estimado (contagem de caracteres em JSONB * fator)
+- Percentual do limite (500MB = 100%)
+- Alertas visuais em: 20%, 40%, 60%, 80%, 100%
+
+### Parte C: Limpeza Automatica (Trimestral)
+
+#### Banco de Dados:
+1. Criar funcao SQL `cleanup_old_chat_sessions()`:
+   - Deletar sessoes com `updated_at < NOW() - INTERVAL '90 days'`
+   - Retornar quantidade de registros removidos
+2. Criar cron job via pg_cron (ou funcao chamada manualmente pelo admin)
+
+#### Interface Admin:
+- Botao "Limpar Historicos Antigos" com confirmacao
+- Mostra preview de quantos registros serao deletados
+
+### Interface Visual (ChatPanel):
+```text
++----------------------------------+
+| CLARA                    [H] [X] |  <-- H = Historico
++----------------------------------+
+| [Sheet lateral com lista de      |
+|  conversas anteriores]           |
+|                                  |
+| > "Como criar processo SEI"      |
+|   15/01/2026                     |
+|                                  |
+| > "Diarias de viagem"            |
+|   12/01/2026                     |
++----------------------------------+
+```
+
+### Interface Visual (Admin - Monitoramento):
+```text
++------------------------------------------+
+| USO DE RECURSOS               [Limpar]   |
++------------------------------------------+
+| Chat Sessions: 234 conversas             |
+| Armazenamento: ~2.3 MB (0.46% de 500MB)  |
+|                                          |
+| [========                         ] 20%  |
+| Status: Saudavel                         |
++------------------------------------------+
+```
 
 ---
 
-## Benefícios
+## Fase 4: Session Fingerprint para Analytics
 
-- **Universalidade**: CLARA pode ser usada por qualquer servidor da prefeitura
-- **Flexibilidade**: Não limitada a SEI/SDP - pode expandir para outros sistemas
-- **Identidade própria**: Marca independente com estética e cores personalizadas
-- **Escalabilidade**: Facilita parcerias com outras secretarias
+**Objetivo:** Agrupar consultas da mesma sessao de navegacao para permitir ver o contexto completo ao analisar feedbacks negativos.
+
+### Banco de Dados:
+1. Adicionar coluna `session_fingerprint TEXT` na tabela `query_analytics`
+2. Criar indice para busca rapida
+
+### Arquivos a Modificar:
+- `src/hooks/useChat.ts` (gerar e enviar fingerprint)
+- `src/components/admin/FeedbackDetailModal.tsx` (mostrar historico da sessao)
+- `src/components/admin/AnalyticsTab.tsx` (buscar sessao relacionada)
+
+### Logica do Fingerprint:
+1. Gerar ID unico por sessao de navegacao (sessionStorage)
+2. Enviar fingerprint junto com cada query
+3. No modal de feedback negativo, buscar todas as queries com mesmo fingerprint
+4. Exibir contexto completo da conversa
+
+### Interface Visual (Modal de Feedback):
+```text
++------------------------------------------+
+| Detalhes do Feedback                     |
++------------------------------------------+
+| Pergunta: "Como anexar no SEI?"          |
+| Resposta: "Para anexar..."               |
+| Categoria: Incompleto                    |
+| Comentario: "Faltou explicar X"          |
++------------------------------------------+
+| CONTEXTO DA SESSAO (3 mensagens antes):  |
+| 1. "O que e SEI?" -> "O SEI e..."        |
+| 2. "Como criar processo?" -> "Para..."   |
+| 3. "Como anexar no SEI?" <- ESTA         |
++------------------------------------------+
+```
+
+---
+
+## Sistema de Alertas de Uso
+
+### Niveis de Alerta:
+| % do Limite | Cor     | Mensagem                              |
+|-------------|---------|---------------------------------------|
+| 0-20%       | Verde   | Uso normal                            |
+| 20-40%      | Verde   | Uso moderado                          |
+| 40-60%      | Amarelo | Atencao: considere limpeza            |
+| 60-80%      | Laranja | Alerta: limpeza recomendada           |
+| 80-100%     | Vermelho| Critico: limpeza necessaria           |
+
+### Onde os Alertas Aparecem:
+- Badge no cabecalho da aba Analytics
+- Widget de monitoramento com barra de progresso
+- Toast ao carregar Admin se > 60%
+
+---
+
+## Ordem de Implementacao
+
+| Fase | Funcionalidade              | Complexidade | Tempo Estimado |
+|------|-----------------------------|--------------|----------------|
+| 1    | Grafico Temporal            | Baixa        | 1 iteracao     |
+| 2    | Fontes no PDF               | Baixa        | 1 iteracao     |
+| 3    | Historico + Monitoramento   | Alta         | 2-3 iteracoes  |
+| 4    | Session Fingerprint         | Media        | 1-2 iteracoes  |
+
+---
+
+## Secao Tecnica
+
+### Migracao SQL (Fase 3 - Limpeza):
+```sql
+-- Funcao para limpar sessoes antigas
+CREATE OR REPLACE FUNCTION cleanup_old_chat_sessions(days_old INTEGER DEFAULT 90)
+RETURNS INTEGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO 'public'
+AS $$
+DECLARE
+  deleted_count INTEGER;
+BEGIN
+  DELETE FROM chat_sessions
+  WHERE updated_at < NOW() - (days_old || ' days')::INTERVAL;
+  
+  GET DIAGNOSTICS deleted_count = ROW_COUNT;
+  RETURN deleted_count;
+END;
+$$;
+```
+
+### Migracao SQL (Fase 4 - Fingerprint):
+```sql
+-- Adicionar coluna de fingerprint
+ALTER TABLE query_analytics
+ADD COLUMN session_fingerprint TEXT;
+
+-- Criar indice para busca
+CREATE INDEX idx_query_analytics_session_fingerprint
+ON query_analytics(session_fingerprint);
+```
+
+### Calculo de Armazenamento Estimado:
+```typescript
+// 1 char = 1 byte (simplificado)
+// JSONB overhead ~20%
+const estimateSizeBytes = (sessions: ChatSession[]) => {
+  const totalChars = sessions.reduce((acc, s) => 
+    acc + JSON.stringify(s.messages).length, 0
+  );
+  return Math.round(totalChars * 1.2); // 20% overhead
+};
+
+const percentUsed = (bytes: number) => 
+  ((bytes / (500 * 1024 * 1024)) * 100).toFixed(2);
+```
+
+---
+
+## Resumo de Custos
+
+| Recurso            | Uso Atual | Limite Gratuito | Projecao |
+|--------------------|-----------|-----------------|----------|
+| Database           | ~1 MB     | 500 MB          | <5 MB/ano|
+| Edge Functions     | ~100/dia  | 500.000/mes     | OK       |
+| Storage            | ~10 MB    | 1 GB            | OK       |
+
+**Conclusao:** Todas as funcionalidades operam dentro do tier gratuito com ampla margem de seguranca. A limpeza trimestral garante sustentabilidade a longo prazo.
