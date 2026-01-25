@@ -83,6 +83,20 @@ const Login = () => {
           <span className="text-primary font-medium">A</span>dministrativas
         </motion.p>
 
+        {/* Privacy Policy Link */}
+        <motion.p 
+          variants={itemVariants}
+          className="text-sm text-muted-foreground mb-4"
+        >
+          Ao continuar, você concorda com nossa{' '}
+          <a 
+            href="/privacidade" 
+            className="text-primary hover:underline font-medium"
+          >
+            Política de Privacidade
+          </a>
+        </motion.p>
+
         {/* Google Login Button */}
         <motion.div variants={itemVariants} className="mb-6">
           <GoogleLoginButton />
