@@ -12,6 +12,7 @@ export interface ChatMessage {
   };
   isStreaming?: boolean;
   queryId?: string; // ID from query_analytics for feedback
+  userQuery?: string; // Original user query for PDF export (only on assistant messages)
 }
 
 interface ThinkingState {
@@ -67,11 +68,13 @@ export function useChat(options: UseChatOptions = {}) {
   const sendMessage = useCallback(async (content: string) => {
     if (!content.trim() || isLoading) return;
 
+    const userQueryContent = content.trim();
+
     // Adicionar mensagem do usuário
     const userMessage: ChatMessage = {
       id: crypto.randomUUID(),
       role: "user",
-      content: content.trim(),
+      content: userQueryContent,
       timestamp: new Date()
     };
 
@@ -261,6 +264,7 @@ export function useChat(options: UseChatOptions = {}) {
                 isStreaming: false,
                 sources: finalSources,
                 queryId: savedQueryId || undefined,
+                userQuery: userQueryContent, // Store original query for PDF export
               }
             : msg
         );
