@@ -3,6 +3,7 @@ import { motion } from "framer-motion";
 import { Bot, User, FileText, ExternalLink, ChevronDown, ChevronUp } from "lucide-react";
 import type { ChatMessage as ChatMessageType } from "@/hooks/useChat";
 import { CopyButton } from "./CopyButton";
+import { FeedbackButtons } from "./FeedbackButtons";
 import { Button } from "@/components/ui/button";
 
 interface ChatMessageProps {
@@ -384,6 +385,7 @@ export const ChatMessage = memo(function ChatMessage({ message }: ChatMessagePro
             transition={{ delay: 0.3 }}
           >
             <CopyButton text={message.content} />
+            <FeedbackButtons queryId={message.queryId || null} />
           </motion.div>
         )}
 

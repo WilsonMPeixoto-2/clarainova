@@ -1,12 +1,14 @@
 import { useState, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Upload, FileText, Trash2, RefreshCw, Lock, Check, X, AlertCircle } from 'lucide-react';
+import { ArrowLeft, Upload, FileText, Trash2, RefreshCw, Lock, Check, X, AlertCircle, BarChart3 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import { AnalyticsTab } from '@/components/admin/AnalyticsTab';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -644,135 +646,154 @@ const Admin = () => {
         </div>
       </header>
 
-      <main className="container mx-auto px-4 py-8 space-y-8">
-        {/* Upload Area */}
-        <Card className="glass-card">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Upload className="w-5 h-5 text-primary" />
-              Upload de Documento
-            </CardTitle>
-            <CardDescription>
-              Arraste e solte arquivos ou clique para selecionar. Formatos aceitos: PDF, DOCX, TXT. <strong>Múltiplos arquivos permitidos.</strong>
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div
-              onDragOver={handleDragOver}
-              onDragLeave={handleDragLeave}
-              onDrop={handleDrop}
-              className={`
-                relative border-2 border-dashed rounded-lg p-12 text-center transition-all duration-200
-                ${isDragOver 
-                  ? 'border-primary bg-primary/10' 
-                  : 'border-border hover:border-primary/50 hover:bg-muted/30'
-                }
-                ${isUploading ? 'pointer-events-none opacity-60' : 'cursor-pointer'}
-              `}
-              onClick={() => !isUploading && document.getElementById('file-input')?.click()}
-            >
-              <input
-                id="file-input"
-                type="file"
-                accept=".pdf,.docx,.txt"
-                multiple
-                onChange={(e) => handleFileUpload(e.target.files)}
-                className="hidden"
-              />
-              
-              {isUploading ? (
-                <div className="space-y-4">
-                  <RefreshCw className="w-12 h-12 text-primary mx-auto animate-spin" />
-                  <p className="text-muted-foreground">Processando documento...</p>
-                  <div className="w-full max-w-xs mx-auto bg-muted rounded-full h-2 overflow-hidden">
-                    <div 
-                      className="h-full bg-primary transition-all duration-300"
-                      style={{ width: `${uploadProgress}%` }}
-                    />
-                  </div>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  <Upload className={`w-12 h-12 mx-auto ${isDragOver ? 'text-primary' : 'text-muted-foreground'}`} />
-                  <div>
-                    <p className="text-lg font-medium">
-                      {isDragOver ? 'Solte os arquivos aqui' : 'Arraste arquivos ou clique para selecionar'}
-                    </p>
-                    <p className="text-sm text-muted-foreground mt-1">
-                      PDF, DOCX ou TXT até 50MB cada • Múltiplos arquivos permitidos
-                    </p>
-                  </div>
-                </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
+      <main className="container mx-auto px-4 py-8">
+        <Tabs defaultValue="documents" className="space-y-6">
+          <TabsList className="grid w-full max-w-md grid-cols-2">
+            <TabsTrigger value="documents" className="flex items-center gap-2">
+              <FileText className="w-4 h-4" />
+              Documentos
+            </TabsTrigger>
+            <TabsTrigger value="analytics" className="flex items-center gap-2">
+              <BarChart3 className="w-4 h-4" />
+              Analytics
+            </TabsTrigger>
+          </TabsList>
 
-        {/* Documents List */}
-        <Card className="glass-card">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <FileText className="w-5 h-5 text-primary" />
-              Base de Conhecimento
-            </CardTitle>
-            <CardDescription>
-              {documents.length} documento{documents.length !== 1 ? 's' : ''} na base
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {isLoading ? (
-              <div className="flex items-center justify-center py-12">
-                <RefreshCw className="w-8 h-8 text-primary animate-spin" />
-              </div>
-            ) : documents.length === 0 ? (
-              <div className="text-center py-12">
-                <AlertCircle className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-                <p className="text-muted-foreground">Nenhum documento na base de conhecimento.</p>
-                <p className="text-sm text-muted-foreground mt-1">
-                  Faça upload de documentos para começar.
-                </p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {documents.map((doc) => (
-                  <div
-                    key={doc.id}
-                    className="flex items-center justify-between p-4 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors"
-                  >
-                    <div className="flex items-center gap-4 flex-1 min-w-0">
-                      <div className="w-10 h-10 rounded-lg bg-primary/20 flex items-center justify-center flex-shrink-0">
-                        <FileText className="w-5 h-5 text-primary" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium truncate">{doc.title}</p>
-                        <div className="flex items-center gap-3 text-sm text-muted-foreground mt-1">
-                          <Badge variant="secondary" className={getCategoryColor(doc.category)}>
-                            {doc.category}
-                          </Badge>
-                          <span>{formatDate(doc.created_at)}</span>
-                          {doc.chunk_count !== undefined && (
-                            <span>{doc.chunk_count} chunks</span>
-                          )}
-                        </div>
+          <TabsContent value="documents" className="space-y-8">
+            {/* Upload Area */}
+            <Card className="glass-card">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Upload className="w-5 h-5 text-primary" />
+                  Upload de Documento
+                </CardTitle>
+                <CardDescription>
+                  Arraste e solte arquivos ou clique para selecionar. Formatos aceitos: PDF, DOCX, TXT. <strong>Múltiplos arquivos permitidos.</strong>
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div
+                  onDragOver={handleDragOver}
+                  onDragLeave={handleDragLeave}
+                  onDrop={handleDrop}
+                  className={`
+                    relative border-2 border-dashed rounded-lg p-12 text-center transition-all duration-200
+                    ${isDragOver 
+                      ? 'border-primary bg-primary/10' 
+                      : 'border-border hover:border-primary/50 hover:bg-muted/30'
+                    }
+                    ${isUploading ? 'pointer-events-none opacity-60' : 'cursor-pointer'}
+                  `}
+                  onClick={() => !isUploading && document.getElementById('file-input')?.click()}
+                >
+                  <input
+                    id="file-input"
+                    type="file"
+                    accept=".pdf,.docx,.txt"
+                    multiple
+                    onChange={(e) => handleFileUpload(e.target.files)}
+                    className="hidden"
+                  />
+                  
+                  {isUploading ? (
+                    <div className="space-y-4">
+                      <RefreshCw className="w-12 h-12 text-primary mx-auto animate-spin" />
+                      <p className="text-muted-foreground">Processando documento...</p>
+                      <div className="w-full max-w-xs mx-auto bg-muted rounded-full h-2 overflow-hidden">
+                        <div 
+                          className="h-full bg-primary transition-all duration-300"
+                          style={{ width: `${uploadProgress}%` }}
+                        />
                       </div>
                     </div>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => {
-                        setDocumentToDelete(doc);
-                        setDeleteDialogOpen(true);
-                      }}
-                      className="text-destructive hover:text-destructive hover:bg-destructive/10 flex-shrink-0"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
+                  ) : (
+                    <div className="space-y-4">
+                      <Upload className={`w-12 h-12 mx-auto ${isDragOver ? 'text-primary' : 'text-muted-foreground'}`} />
+                      <div>
+                        <p className="text-lg font-medium">
+                          {isDragOver ? 'Solte os arquivos aqui' : 'Arraste arquivos ou clique para selecionar'}
+                        </p>
+                        <p className="text-sm text-muted-foreground mt-1">
+                          PDF, DOCX ou TXT até 50MB cada • Múltiplos arquivos permitidos
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Documents List */}
+            <Card className="glass-card">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <FileText className="w-5 h-5 text-primary" />
+                  Base de Conhecimento
+                </CardTitle>
+                <CardDescription>
+                  {documents.length} documento{documents.length !== 1 ? 's' : ''} na base
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {isLoading ? (
+                  <div className="flex items-center justify-center py-12">
+                    <RefreshCw className="w-8 h-8 text-primary animate-spin" />
                   </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+                ) : documents.length === 0 ? (
+                  <div className="text-center py-12">
+                    <AlertCircle className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                    <p className="text-muted-foreground">Nenhum documento na base de conhecimento.</p>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      Faça upload de documentos para começar.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {documents.map((doc) => (
+                      <div
+                        key={doc.id}
+                        className="flex items-center justify-between p-4 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors"
+                      >
+                        <div className="flex items-center gap-4 flex-1 min-w-0">
+                          <div className="w-10 h-10 rounded-lg bg-primary/20 flex items-center justify-center flex-shrink-0">
+                            <FileText className="w-5 h-5 text-primary" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium truncate">{doc.title}</p>
+                            <div className="flex items-center gap-3 text-sm text-muted-foreground mt-1">
+                              <Badge variant="secondary" className={getCategoryColor(doc.category)}>
+                                {doc.category}
+                              </Badge>
+                              <span>{formatDate(doc.created_at)}</span>
+                              {doc.chunk_count !== undefined && (
+                                <span>{doc.chunk_count} chunks</span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => {
+                            setDocumentToDelete(doc);
+                            setDeleteDialogOpen(true);
+                          }}
+                          className="text-destructive hover:text-destructive hover:bg-destructive/10 flex-shrink-0"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="analytics">
+            <AnalyticsTab />
+          </TabsContent>
+        </Tabs>
       </main>
 
       {/* Delete Confirmation Dialog */}

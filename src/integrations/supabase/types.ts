@@ -144,6 +144,30 @@ export type Database = {
         }
         Relationships: []
       }
+      query_analytics: {
+        Row: {
+          assistant_response: string
+          created_at: string
+          id: string
+          sources_cited: string[] | null
+          user_query: string
+        }
+        Insert: {
+          assistant_response: string
+          created_at?: string
+          id?: string
+          sources_cited?: string[] | null
+          user_query: string
+        }
+        Update: {
+          assistant_response?: string
+          created_at?: string
+          id?: string
+          sources_cited?: string[] | null
+          user_query?: string
+        }
+        Relationships: []
+      }
       rate_limits: {
         Row: {
           client_key: string
@@ -170,6 +194,41 @@ export type Database = {
           window_start?: string
         }
         Relationships: []
+      }
+      response_feedback: {
+        Row: {
+          created_at: string
+          feedback_category: string | null
+          feedback_text: string | null
+          id: string
+          query_id: string
+          rating: boolean
+        }
+        Insert: {
+          created_at?: string
+          feedback_category?: string | null
+          feedback_text?: string | null
+          id?: string
+          query_id: string
+          rating: boolean
+        }
+        Update: {
+          created_at?: string
+          feedback_category?: string | null
+          feedback_text?: string | null
+          id?: string
+          query_id?: string
+          rating?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "response_feedback_query_id_fkey"
+            columns: ["query_id"]
+            isOneToOne: false
+            referencedRelation: "query_analytics"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_roles: {
         Row: {

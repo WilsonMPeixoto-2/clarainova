@@ -1,4 +1,5 @@
 import { useState, useCallback, useRef } from "react";
+import { supabase } from "@/integrations/supabase/client";
 
 export interface ChatMessage {
   id: string;
@@ -10,6 +11,7 @@ export interface ChatMessage {
     web?: string[];
   };
   isStreaming?: boolean;
+  queryId?: string; // ID from query_analytics for feedback
 }
 
 interface ThinkingState {
@@ -228,15 +230,37 @@ export function useChat(options: UseChatOptions = {}) {
         }
       }
 
-      // Finalizar mensagem do assistente
+      // Finalizar mensagem do assistente e salvar analytics
+      const finalContent = assistantContent || "Desculpe, não consegui gerar uma resposta.";
+      const finalSources = localSources.length > 0 ? { local: localSources } : undefined;
+
+      // Save to query_analytics (fire and forget)
+      let savedQueryId: string | null = null;
+      try {
+        const { data: analyticsData } = await supabase
+          .from("query_analytics")
+          .insert({
+            user_query: content.trim(),
+            assistant_response: finalContent,
+            sources_cited: localSources,
+          })
+          .select("id")
+          .single();
+        
+        savedQueryId = analyticsData?.id || null;
+      } catch (err) {
+        console.warn("[useChat] Failed to save query analytics:", err);
+      }
+
       setMessages(prev => {
         const final = prev.map(msg => 
           msg.id === assistantId 
             ? { 
                 ...msg, 
-                content: assistantContent || "Desculpe, não consegui gerar uma resposta.",
+                content: finalContent,
                 isStreaming: false,
-                sources: localSources.length > 0 ? { local: localSources } : undefined
+                sources: finalSources,
+                queryId: savedQueryId || undefined,
               }
             : msg
         );
