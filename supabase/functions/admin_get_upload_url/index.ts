@@ -57,6 +57,7 @@ serve(async (req) => {
     }
 
     const bucket = "knowledge-base";
+    // Note: createSignedUploadUrl has a default 2-hour expiration (sufficient for uploads)
     
     // Sanitize filename and create unique path
     const safeName = filename.replace(/[^\w.\-]+/g, "_");
@@ -68,21 +69,29 @@ serve(async (req) => {
     console.log(`[admin_get_upload_url] Full path: ${path}`);
     console.log(`[admin_get_upload_url] Bucket: ${bucket}`);
     console.log(`[admin_get_upload_url] Content-Type: ${contentType || 'application/octet-stream'}`);
+    console.log(`[admin_get_upload_url] Default expiration: 2 hours`);
 
     // Create signed upload URL using service role
+    // Note: createSignedUploadUrl uses default expiration (2 hours)
+    // The expiresIn parameter is only for createSignedUrl (download), not upload
     const { data, error } = await supabase.storage
       .from(bucket)
       .createSignedUploadUrl(path);
 
     if (error) {
-      console.error("[admin_get_upload_url] ERROR creating signed URL:", error);
-      console.error("[admin_get_upload_url] Error details:", JSON.stringify(error, null, 2));
+      console.error("[admin_get_upload_url] ERROR creating signed URL");
+      console.error("[admin_get_upload_url] Error code:", error.name);
+      console.error("[admin_get_upload_url] Error message:", error.message);
+      console.error("[admin_get_upload_url] Full error:", JSON.stringify(error, null, 2));
       throw error;
     }
 
-    console.log(`[admin_get_upload_url] SUCCESS - Signed URL created`);
-    console.log(`[admin_get_upload_url] Token (first 20 chars): ${data.token?.substring(0, 20)}...`);
-    console.log(`[admin_get_upload_url] URL (first 80 chars): ${data.signedUrl?.substring(0, 80)}...`);
+    console.log(`[admin_get_upload_url] ========== SUCCESS ==========`);
+    console.log(`[admin_get_upload_url] Signed URL generated successfully`);
+    console.log(`[admin_get_upload_url] Token length: ${data.token?.length || 0} chars`);
+    console.log(`[admin_get_upload_url] Token (first 30 chars): ${data.token?.substring(0, 30)}...`);
+    console.log(`[admin_get_upload_url] URL host: ${new URL(data.signedUrl).host}`);
+    console.log(`[admin_get_upload_url] URL path: ${new URL(data.signedUrl).pathname}`);
 
     return new Response(
       JSON.stringify({ 
