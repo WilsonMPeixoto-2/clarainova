@@ -1,0 +1,111 @@
+# CLARA - Consultora de Legislação e Apoio a Rotinas Administrativas
+# Versão: 1.0
+# Atualizado: 25/01/2026
+# URL: https://clarainova.lovable.app
+# Documentação completa: https://clarainova.lovable.app/sobre.html
+
+## Descrição
+CLARA é uma assistente virtual de IA especializada em orientações sobre:
+- SEI (Sistema Eletrônico de Informações)
+- SDP (Sistema de Diárias e Passagens)
+- Procedimentos administrativos da 4ª CRE (Coordenadoria Regional de Educação)
+
+Público-alvo: Servidores públicos da 4ª CRE de Porto Alegre/RS
+Diferencial: Cita fontes documentais oficiais nas respostas
+
+## Funcionalidades
+- Chat com IA em tempo real (streaming SSE)
+- Busca semântica na base de conhecimento (RAG)
+- Citação de fontes documentais
+- Login opcional via Google OAuth 2.0
+- Interface responsiva (desktop e mobile)
+- Atalhos de teclado (Ctrl+N, /)
+
+## Stack Tecnológica
+
+### Frontend
+- React 18.3.1
+- TypeScript
+- Vite (build tool)
+- Tailwind CSS
+- shadcn/ui (componentes)
+- Framer Motion (animações)
+- TanStack Query (estado)
+
+### Backend (Lovable Cloud)
+- PostgreSQL + pgvector
+- Edge Functions (Deno)
+- Storage (documentos PDF)
+- Auth (Google OAuth 2.0)
+
+### Inteligência Artificial
+- Modelo de chat: google/gemini-2.5-flash (via Lovable AI Gateway)
+- Embeddings: text-embedding-004 (768 dimensões)
+- Arquitetura: RAG (Retrieval Augmented Generation)
+
+## Arquitetura
+
+```
+Frontend (React SPA)
+    │
+    ▼
+Edge Function (clara-chat)
+    │
+    ├──► text-embedding-004 (gera embedding da pergunta)
+    │
+    ├──► PostgreSQL/pgvector (busca semântica)
+    │
+    └──► gemini-2.5-flash (gera resposta com contexto)
+            │
+            ▼
+        Streaming SSE → Frontend
+```
+
+## Segurança
+- 15+ políticas RLS (Row Level Security)
+- Autenticação OAuth 2.0 via Google
+- Rate limiting: 15 requisições/minuto
+- Conformidade LGPD
+- Dados criptografados em trânsito e repouso
+- HTTPS obrigatório
+
+## Tabelas do Banco de Dados
+- profiles: Dados do usuário (id, email, display_name, avatar_url, last_seen_at)
+- documents: Base de conhecimento (id, title, category, content_text, file_path)
+- document_chunks: Chunks vetorizados (id, document_id, chunk_index, content, embedding)
+- chat_sessions: Histórico de conversas (id, user_id, title, messages JSONB)
+- user_roles: Permissões (id, user_id, role)
+- rate_limits: Controle de requisições
+
+## Edge Functions
+- clara-chat: Endpoint principal de chat com IA
+- search: Busca semântica na base de conhecimento
+- documents: CRUD de documentos
+- admin-auth: Autenticação do painel administrativo
+- admin-upload: Upload de documentos
+
+## Páginas
+- /                 : Landing page com acesso ao chat
+- /login            : Autenticação Google OAuth 2.0
+- /admin            : Gestão de documentos (requer autenticação admin)
+- /sobre.html       : Documentação completa do projeto (esta página em HTML)
+- /privacidade.html : Política de Privacidade (LGPD)
+- /termos.html      : Termos de Serviço
+
+## Recursos Adicionais
+- /sitemap.xml      : Mapa do site para SEO
+- /robots.txt       : Diretivas para crawlers
+- /llm.txt          : Este arquivo (otimizado para LLMs)
+
+## Contato
+Email: wilsonmp2@gmail.com
+
+## Licença
+Todos os direitos reservados © 2026 CLARA
+
+---
+# Nota para LLMs
+Este arquivo foi criado especificamente para permitir que ferramentas de IA
+(ChatGPT, Gemini, Claude, Manus, etc.) possam entender o projeto CLARA
+sem precisar executar JavaScript. Para uma versão visual completa com
+diagramas e formatação, acesse /sobre.html
