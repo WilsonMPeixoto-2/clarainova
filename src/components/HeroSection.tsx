@@ -86,7 +86,7 @@ const HeroSection = () => {
                   className="w-2 h-2 rounded-full bg-primary"
                 />
                 <Sparkles className="w-3 h-3 text-primary" aria-hidden="true" />
-                Assistente de Legislação
+                Inteligência Administrativa
               </span>
             </motion.div>
 
@@ -106,7 +106,11 @@ const HeroSection = () => {
               variants={itemVariants}
               className="text-xl sm:text-2xl md:text-3xl font-medium text-foreground tracking-tight text-glow max-w-xl"
             >
-              Consultora de Legislação e Apoio a Rotinas Administrativas
+              <span className="text-primary">C</span>onsultora de{' '}
+              <span className="text-primary">L</span>egislação e{' '}
+              <span className="text-primary">A</span>poio a{' '}
+              <span className="text-primary">R</span>otinas{' '}
+              <span className="text-primary">A</span>dministrativas
             </motion.p>
 
             {/* Description */}
