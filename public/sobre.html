@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sobre - CLARA | Documentação Técnica do Projeto</title>
+  <meta name="description" content="Documentação completa do projeto CLARA - Consultora de Legislação e Apoio a Rotinas Administrativas. Stack tecnológica, arquitetura, funcionalidades e segurança.">
+  <meta name="robots" content="index, follow">
+  <link rel="canonical" href="https://clarainova.lovable.app/sobre.html">
+  
+  <!-- Open Graph -->
+  <meta property="og:title" content="Sobre - CLARA | Documentação Técnica">
+  <meta property="og:description" content="Documentação completa do assistente virtual de IA especializado em SEI, SDP e procedimentos da 4ª CRE.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://clarainova.lovable.app/sobre.html">
+  <meta property="og:locale" content="pt_BR">
+  
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+      background-color: #0f172a;
+      color: #e2e8f0;
+      line-height: 1.7;
+      padding: 40px 20px;
+    }
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+    }
+    header {
+      text-align: center;
+      margin-bottom: 40px;
+      padding-bottom: 20px;
+      border-bottom: 1px solid #334155;
+    }
+    h1 {
+      color: #f8fafc;
+      font-size: 2.5rem;
+      margin-bottom: 10px;
+    }
+    .brand {
+      color: #f59e0b;
+      font-weight: bold;
+      font-size: 1.1rem;
+    }
+    .tagline {
+      color: #94a3b8;
+      font-size: 1rem;
+      margin-top: 8px;
+    }
+    .updated {
+      color: #64748b;
+      font-size: 0.85rem;
+      margin-top: 12px;
+    }
+    section {
+      background: rgba(30, 41, 59, 0.5);
+      border: 1px solid #334155;
+      border-radius: 12px;
+      padding: 24px;
+      margin-bottom: 20px;
+    }
+    h2 {
+      color: #f8fafc;
+      font-size: 1.35rem;
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    h2 .emoji {
+      font-size: 1.5rem;
+    }
+    h3 {
+      color: #f59e0b;
+      font-size: 1.1rem;
+      margin: 16px 0 12px 0;
+    }
+    p {
+      color: #cbd5e1;
+      margin-bottom: 12px;
+    }
+    ul {
+      color: #cbd5e1;
+      margin-left: 20px;
+      margin-bottom: 12px;
+    }
+    li {
+      margin-bottom: 8px;
+    }
+    strong {
+      color: #f8fafc;
+    }
+    a {
+      color: #f59e0b;
+      text-decoration: none;
+    }
+    a:hover {
+      text-decoration: underline;
+    }
+    .highlight-box {
+      background: rgba(245, 158, 11, 0.1);
+      border: 1px solid rgba(245, 158, 11, 0.3);
+      border-radius: 8px;
+      padding: 16px;
+      margin: 16px 0;
+    }
+    .highlight-box p {
+      color: #fbbf24;
+      margin: 0;
+    }
+    .tech-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 16px;
+      margin-top: 16px;
+    }
+    .tech-card {
+      background: rgba(15, 23, 42, 0.5);
+      border: 1px solid #334155;
+      border-radius: 8px;
+      padding: 16px;
+    }
+    .tech-card h4 {
+      color: #f59e0b;
+      font-size: 1rem;
+      margin-bottom: 12px;
+    }
+    .tech-card ul {
+      margin-left: 16px;
+      margin-bottom: 0;
+    }
+    .tech-card li {
+      font-size: 0.9rem;
+      margin-bottom: 6px;
+    }
+    .architecture-box {
+      background: #0f172a;
+      border: 1px solid #334155;
+      border-radius: 8px;
+      padding: 20px;
+      margin: 16px 0;
+      overflow-x: auto;
+    }
+    .architecture-box pre {
+      color: #94a3b8;
+      font-family: 'Consolas', 'Monaco', monospace;
+      font-size: 0.85rem;
+      line-height: 1.5;
+      white-space: pre;
+      margin: 0;
+    }
+    .security-list {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 12px;
+      margin-top: 12px;
+    }
+    .security-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: #10b981;
+      font-size: 0.95rem;
+    }
+    .security-item::before {
+      content: "✓";
+      color: #10b981;
+      font-weight: bold;
+    }
+    .links-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 12px;
+      margin-top: 16px;
+    }
+    .link-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: rgba(15, 23, 42, 0.5);
+      border: 1px solid #334155;
+      border-radius: 8px;
+      padding: 12px 16px;
+    }
+    .link-item span {
+      color: #94a3b8;
+      font-size: 0.9rem;
+    }
+    .link-item a {
+      font-size: 0.9rem;
+    }
+    .footer-links {
+      text-align: center;
+      margin-top: 40px;
+      padding-top: 20px;
+      border-top: 1px solid #334155;
+    }
+    .footer-links a {
+      margin: 0 15px;
+    }
+    nav {
+      text-align: center;
+      margin-bottom: 30px;
+    }
+    nav a {
+      margin: 0 10px;
+      color: #94a3b8;
+    }
+    nav a:hover {
+      color: #f59e0b;
+    }
+    .badge {
+      display: inline-block;
+      background: rgba(245, 158, 11, 0.2);
+      color: #f59e0b;
+      padding: 4px 10px;
+      border-radius: 20px;
+      font-size: 0.8rem;
+      font-weight: 500;
+      margin-left: 8px;
+    }
+    .llm-notice {
+      background: rgba(59, 130, 246, 0.1);
+      border: 1px solid rgba(59, 130, 246, 0.3);
+      border-radius: 8px;
+      padding: 16px;
+      margin-bottom: 24px;
+    }
+    .llm-notice p {
+      color: #60a5fa;
+      margin: 0;
+      font-size: 0.9rem;
+    }
+    .llm-notice code {
+      background: rgba(59, 130, 246, 0.2);
+      padding: 2px 6px;
+      border-radius: 4px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <nav>
+      <a href="https://clarainova.lovable.app">← Voltar para CLARA</a>
+      <a href="/privacidade.html">Privacidade</a>
+      <a href="/termos.html">Termos</a>
+      <a href="/llm.txt">llm.txt</a>
+    </nav>
+
+    <header>
+      <h1>CLARA</h1>
+      <p class="brand">Consultora de Legislação e Apoio a Rotinas Administrativas</p>
+      <p class="tagline">Assistente Virtual de Inteligência Artificial para Administração Pública</p>
+      <p class="updated">Documentação atualizada em 25 de janeiro de 2026</p>
+    </header>
+
+    <div class="llm-notice">
+      <p>🤖 <strong>Para ferramentas de IA:</strong> Esta página foi criada especificamente para permitir que LLMs (ChatGPT, Gemini, Claude, Manus, etc.) possam ler e entender o projeto. Para um formato ainda mais estruturado, acesse <code><a href="/llm.txt">/llm.txt</a></code>.</p>
+    </div>
+
+    <main>
+      <!-- Seção 1: O que é CLARA -->
+      <section>
+        <h2><span class="emoji">📋</span> O que é CLARA?</h2>
+        
+        <div class="highlight-box">
+          <p><strong>CLARA</strong> é uma assistente virtual de IA especializada em orientações sobre procedimentos administrativos da 4ª Coordenadoria Regional de Educação (4ª CRE) de Porto Alegre/RS.</p>
+        </div>
+        
+        <h3>Propósito</h3>
+        <p>Fornecer orientações passo a passo sobre:</p>
+        <ul>
+          <li><strong>SEI</strong> - Sistema Eletrônico de Informações</li>
+          <li><strong>SDP</strong> - Sistema de Diárias e Passagens</li>
+          <li><strong>Procedimentos administrativos</strong> da 4ª CRE</li>
+        </ul>
+        
+        <h3>Público-alvo</h3>
+        <p>Servidores públicos da 4ª CRE e demais profissionais que necessitam de orientações sobre rotinas administrativas na área da educação.</p>
+        
+        <h3>Diferencial</h3>
+        <p>A CLARA cita fontes documentais oficiais em suas respostas, permitindo que o usuário verifique as informações diretamente nos documentos originais.</p>
+      </section>
+
+      <!-- Seção 2: Funcionalidades -->
+      <section>
+        <h2><span class="emoji">⚡</span> Funcionalidades Principais</h2>
+        
+        <ul>
+          <li><strong>Chat com IA em tempo real</strong> - Respostas via streaming SSE (Server-Sent Events)</li>
+          <li><strong>Busca semântica</strong> - Encontra informações relevantes usando embeddings vetoriais</li>
+          <li><strong>Citação de fontes</strong> - Referencia documentos oficiais nas respostas</li>
+          <li><strong>RAG (Retrieval Augmented Generation)</strong> - Combina busca na base de conhecimento com geração de IA</li>
+          <li><strong>Login opcional via Google</strong> - Autenticação OAuth 2.0</li>
+          <li><strong>Interface responsiva</strong> - Funciona em desktop e dispositivos móveis</li>
+          <li><strong>Atalhos de teclado</strong> - Ctrl+N (nova conversa), / (focar busca)</li>
+        </ul>
+      </section>
+
+      <!-- Seção 3: Stack Tecnológica -->
+      <section>
+        <h2><span class="emoji">🛠️</span> Stack Tecnológica</h2>
+        
+        <div class="tech-grid">
+          <div class="tech-card">
+            <h4>Frontend</h4>
+            <ul>
+              <li>React 18.3.1</li>
+              <li>TypeScript</li>
+              <li>Vite (build tool)</li>
+              <li>Tailwind CSS</li>
+              <li>shadcn/ui (componentes)</li>
+              <li>Framer Motion (animações)</li>
+              <li>TanStack Query (estado)</li>
+            </ul>
+          </div>
+          
+          <div class="tech-card">
+            <h4>Backend (Lovable Cloud)</h4>
+            <ul>
+              <li>PostgreSQL</li>
+              <li>pgvector (embeddings)</li>
+              <li>Edge Functions (Deno)</li>
+              <li>Storage (documentos)</li>
+              <li>Auth (OAuth 2.0)</li>
+            </ul>
+          </div>
+          
+          <div class="tech-card">
+            <h4>Inteligência Artificial</h4>
+            <ul>
+              <li>google/gemini-2.5-flash (chat)</li>
+              <li>text-embedding-004 (embeddings)</li>
+              <li>768 dimensões vetoriais</li>
+              <li>Lovable AI Gateway</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <!-- Seção 4: Arquitetura -->
+      <section>
+        <h2><span class="emoji">🏗️</span> Arquitetura do Sistema</h2>
+        
+        <div class="architecture-box">
+<pre>
+┌─────────────────────────────────────────────────────────────┐
+│                    FRONTEND (React SPA)                      │
+│  ┌─────────────────┐  ┌─────────────────┐  ┌──────────────┐ │
+│  │  Landing Page   │  │  Login Google   │  │ Painel Admin │ │
+│  │  + Chat Panel   │  │    OAuth 2.0    │  │  (Restrito)  │ │
+│  └────────┬────────┘  └────────┬────────┘  └──────┬───────┘ │
+└───────────┼────────────────────┼──────────────────┼─────────┘
+            │                    │                  │
+            ▼                    ▼                  ▼
+┌─────────────────────────────────────────────────────────────┐
+│                   LOVABLE CLOUD (Backend)                    │
+│  ┌─────────────────┐  ┌─────────────────┐  ┌──────────────┐ │
+│  │   PostgreSQL    │  │ Edge Functions  │  │   Storage    │ │
+│  │   + pgvector    │  │  (clara-chat)   │  │ (Documentos) │ │
+│  └────────┬────────┘  └────────┬────────┘  └──────────────┘ │
+│           │                    │                             │
+│           └────────────────────┼─────────────────────────────│
+└────────────────────────────────┼─────────────────────────────┘
+                                 │
+                                 ▼
+┌─────────────────────────────────────────────────────────────┐
+│                    LOVABLE AI GATEWAY                        │
+│  ┌─────────────────────────────────────────────────────────┐│
+│  │  google/gemini-2.5-flash  │  Streaming SSE  │  Rate Limit││
+│  └─────────────────────────────────────────────────────────┘│
+└─────────────────────────────────────────────────────────────┘
+</pre>
+        </div>
+        
+        <h3>Fluxo de uma Consulta</h3>
+        <ol style="color: #cbd5e1; margin-left: 20px;">
+          <li>Usuário envia pergunta no chat</li>
+          <li>Frontend envia request para Edge Function <code>clara-chat</code></li>
+          <li>Edge Function gera embedding da pergunta via <code>text-embedding-004</code></li>
+          <li>Busca semântica no PostgreSQL/pgvector encontra chunks relevantes</li>
+          <li>Contexto + pergunta são enviados ao <code>gemini-2.5-flash</code></li>
+          <li>Resposta é transmitida via SSE (streaming) ao frontend</li>
+          <li>Frontend renderiza resposta em tempo real com citações de fontes</li>
+        </ol>
+      </section>
+
+      <!-- Seção 5: Segurança -->
+      <section>
+        <h2><span class="emoji">🔒</span> Segurança Implementada</h2>
+        
+        <div class="security-list">
+          <div class="security-item">15+ políticas RLS</div>
+          <div class="security-item">OAuth 2.0 via Google</div>
+          <div class="security-item">Rate limiting (15 req/min)</div>
+          <div class="security-item">Conformidade LGPD</div>
+          <div class="security-item">Dados criptografados</div>
+          <div class="security-item">HTTPS obrigatório</div>
+        </div>
+        
+        <h3>Tabelas Protegidas por RLS</h3>
+        <ul>
+          <li><strong>profiles</strong> - Dados do usuário (SELECT/INSERT/UPDATE restritos ao owner)</li>
+          <li><strong>chat_sessions</strong> - Histórico de conversas (CRUD restrito ao owner)</li>
+          <li><strong>user_roles</strong> - Permissões (apenas leitura própria)</li>
+          <li><strong>rate_limits</strong> - Controle de requisições (apenas service role)</li>
+          <li><strong>documents</strong> - Base de conhecimento (leitura pública, escrita admin)</li>
+          <li><strong>document_chunks</strong> - Chunks vetorizados (leitura pública)</li>
+        </ul>
+      </section>
+
+      <!-- Seção 6: URLs e Recursos -->
+      <section>
+        <h2><span class="emoji">🔗</span> URLs e Recursos do Projeto</h2>
+        
+        <div class="links-grid">
+          <div class="link-item">
+            <span>Página Principal</span>
+            <a href="https://clarainova.lovable.app">clarainova.lovable.app</a>
+          </div>
+          <div class="link-item">
+            <span>Login</span>
+            <a href="https://clarainova.lovable.app/login">/login</a>
+          </div>
+          <div class="link-item">
+            <span>Painel Admin</span>
+            <a href="https://clarainova.lovable.app/admin">/admin</a>
+          </div>
+          <div class="link-item">
+            <span>Política de Privacidade</span>
+            <a href="/privacidade.html">/privacidade.html</a>
+          </div>
+          <div class="link-item">
+            <span>Termos de Serviço</span>
+            <a href="/termos.html">/termos.html</a>
+          </div>
+          <div class="link-item">
+            <span>Sitemap XML</span>
+            <a href="/sitemap.xml">/sitemap.xml</a>
+          </div>
+          <div class="link-item">
+            <span>Robots.txt</span>
+            <a href="/robots.txt">/robots.txt</a>
+          </div>
+          <div class="link-item">
+            <span>LLM.txt (para IAs)</span>
+            <a href="/llm.txt">/llm.txt</a>
+          </div>
+        </div>
+        
+        <h3 style="margin-top: 24px;">Contato</h3>
+        <p>Email: <a href="mailto:wilsonmp2@gmail.com">wilsonmp2@gmail.com</a></p>
+      </section>
+
+      <!-- Seção 7: Edge Functions -->
+      <section>
+        <h2><span class="emoji">⚙️</span> Edge Functions Disponíveis</h2>
+        
+        <ul>
+          <li><strong>clara-chat</strong> - Endpoint principal de chat com IA (POST)</li>
+          <li><strong>search</strong> - Busca semântica na base de conhecimento (POST)</li>
+          <li><strong>documents</strong> - CRUD de documentos (GET/POST/DELETE)</li>
+          <li><strong>admin-auth</strong> - Autenticação do painel administrativo</li>
+          <li><strong>admin-upload</strong> - Upload de documentos para a base de conhecimento</li>
+        </ul>
+      </section>
+
+      <!-- Seção 8: Banco de Dados -->
+      <section>
+        <h2><span class="emoji">🗄️</span> Schema do Banco de Dados</h2>
+        
+        <div class="tech-grid">
+          <div class="tech-card">
+            <h4>profiles</h4>
+            <ul>
+              <li>id (UUID, PK)</li>
+              <li>email</li>
+              <li>display_name</li>
+              <li>avatar_url</li>
+              <li>created_at</li>
+              <li>last_seen_at</li>
+            </ul>
+          </div>
+          
+          <div class="tech-card">
+            <h4>documents</h4>
+            <ul>
+              <li>id (UUID, PK)</li>
+              <li>title</li>
+              <li>category</li>
+              <li>content_text</li>
+              <li>file_path</li>
+              <li>created_at / updated_at</li>
+            </ul>
+          </div>
+          
+          <div class="tech-card">
+            <h4>document_chunks</h4>
+            <ul>
+              <li>id (UUID, PK)</li>
+              <li>document_id (FK)</li>
+              <li>chunk_index</li>
+              <li>content</li>
+              <li>embedding (vector 768)</li>
+              <li>metadata (JSONB)</li>
+            </ul>
+          </div>
+          
+          <div class="tech-card">
+            <h4>chat_sessions</h4>
+            <ul>
+              <li>id (UUID, PK)</li>
+              <li>user_id (FK profiles)</li>
+              <li>title</li>
+              <li>messages (JSONB)</li>
+              <li>created_at / updated_at</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <div class="footer-links">
+      <a href="https://clarainova.lovable.app">Página Inicial</a>
+      <a href="/privacidade.html">Privacidade</a>
+      <a href="/termos.html">Termos</a>
+      <a href="/llm.txt">llm.txt</a>
+    </div>
+  </div>
+</body>
+</html>

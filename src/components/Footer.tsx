@@ -16,6 +16,13 @@ const Footer = () => {
           {/* Links */}
           <nav className="flex flex-wrap justify-center gap-6 md:gap-8" aria-label="Links do rodapé">
             <a 
+              href="/sobre.html" 
+              rel="about"
+              className="text-sm text-muted-foreground hover:text-foreground transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-primary/50 rounded px-1"
+            >
+              Sobre
+            </a>
+            <a 
               href="/termos.html" 
               className="text-sm text-muted-foreground hover:text-foreground transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-primary/50 rounded px-1"
             >
