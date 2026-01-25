@@ -8,9 +8,9 @@ const Index = () => {
   return (
     <div className="min-h-screen bg-background">
       <SEOHead 
-        title="CLARA - Assistente de Legislação e Apoio Administrativo"
+        title="CLARA Inteligência Administrativa"
         description="Sua assistente virtual especializada em SEI, SDP e procedimentos da 4ª CRE. Orientações passo a passo com indicação de fontes documentais."
-        keywords={["SEI", "SDP", "4ª CRE", "legislação", "administração pública", "assistente virtual", "CLARA"]}
+        keywords={["SEI", "SDP", "4ª CRE", "legislação", "administração pública", "assistente virtual", "CLARA", "inteligência administrativa"]}
       />
       <SchemaOrg type="WebApplication" />
       
