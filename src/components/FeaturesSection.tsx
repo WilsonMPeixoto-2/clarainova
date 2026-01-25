@@ -20,11 +20,18 @@ const features = [
 
 const FeaturesSection = () => {
   return (
-    <section className="py-20 md:py-28 relative">
+    <section 
+      id="features" 
+      className="py-20 md:py-28 relative"
+      aria-labelledby="features-heading"
+    >
       <div className="container mx-auto px-6">
         {/* Section Header */}
         <div className="text-center mb-12 md:mb-16">
-          <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">
+          <h2 
+            id="features-heading"
+            className="text-3xl md:text-4xl font-bold text-foreground mb-4"
+          >
             Como a CLARA pode ajudar
           </h2>
           <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
@@ -33,15 +40,23 @@ const FeaturesSection = () => {
         </div>
 
         {/* Features Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8">
+        <div 
+          className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8"
+          role="list"
+          aria-label="Recursos da CLARA"
+        >
           {features.map((feature, index) => (
-            <div 
+            <article 
               key={feature.title}
               className="feature-card group"
               style={{ animationDelay: `${index * 100}ms` }}
+              role="listitem"
             >
               {/* Icon */}
-              <div className="w-14 h-14 rounded-xl bg-primary/10 flex items-center justify-center mb-6 group-hover:bg-primary/20 transition-colors duration-300">
+              <div 
+                className="w-14 h-14 rounded-xl bg-primary/10 flex items-center justify-center mb-6 group-hover:bg-primary/20 transition-colors duration-300"
+                aria-hidden="true"
+              >
                 <feature.icon className="w-7 h-7 text-primary" />
               </div>
 
@@ -54,7 +69,7 @@ const FeaturesSection = () => {
               <p className="text-muted-foreground leading-relaxed">
                 {feature.description}
               </p>
-            </div>
+            </article>
           ))}
         </div>
       </div>
