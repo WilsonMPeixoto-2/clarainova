@@ -13,6 +13,8 @@ const Index = lazy(() => import("./pages/Index"));
 const Login = lazy(() => import("./pages/Login"));
 const Chat = lazy(() => import("./pages/Chat"));
 const Admin = lazy(() => import("./pages/Admin"));
+const Privacidade = lazy(() => import("./pages/Privacidade"));
+const Termos = lazy(() => import("./pages/Termos"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 const queryClient = new QueryClient({
@@ -39,6 +41,8 @@ const App = () => (
                 <Route path="/login" element={<Login />} />
                 <Route path="/chat" element={<Chat />} />
                 <Route path="/admin" element={<Admin />} />
+                <Route path="/privacidade" element={<Privacidade />} />
+                <Route path="/termos" element={<Termos />} />
                 {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                 <Route path="*" element={<NotFound />} />
               </Routes>

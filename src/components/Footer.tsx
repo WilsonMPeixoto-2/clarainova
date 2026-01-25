@@ -16,19 +16,19 @@ const Footer = () => {
           {/* Links */}
           <nav className="flex flex-wrap justify-center gap-6 md:gap-8" aria-label="Links do rodapé">
             <a 
-              href="#termos" 
+              href="/termos" 
               className="text-sm text-muted-foreground hover:text-foreground transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-primary/50 rounded px-1"
             >
               Termos de Uso
             </a>
             <a 
-              href="#privacidade" 
+              href="/privacidade" 
               className="text-sm text-muted-foreground hover:text-foreground transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-primary/50 rounded px-1"
             >
               Política de Privacidade
             </a>
             <a 
-              href="#contato" 
+              href="mailto:wilsonmp2@gmail.com" 
               className="text-sm text-muted-foreground hover:text-foreground transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-primary/50 rounded px-1"
             >
               Contato
