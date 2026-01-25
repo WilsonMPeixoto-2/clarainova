@@ -14,8 +14,8 @@ serve(async (req) => {
 
   try {
     // Validate admin key
-    const adminKey = req.headers.get("x-admin-key") || "";
-    const expected = Deno.env.get("ADMIN_KEY") || "";
+    const adminKey = (req.headers.get("x-admin-key") || "").trim();
+    const expected = (Deno.env.get("ADMIN_KEY") || "").trim();
     
     if (!expected) {
       console.error("[admin_get_upload_url] ADMIN_KEY not configured");

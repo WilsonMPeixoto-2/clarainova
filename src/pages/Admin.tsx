@@ -44,11 +44,24 @@ const Admin = () => {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [documentToDelete, setDocumentToDelete] = useState<Document | null>(null);
 
+  const getAdminKey = useCallback(() => adminKey.trim(), [adminKey]);
+
+  const handleAuthExpired = useCallback(() => {
+    sessionStorage.removeItem('clara_admin_key');
+    setIsAuthenticated(false);
+    toast({
+      title: 'Sessão expirada',
+      description: 'Faça login novamente com a chave de administrador.',
+      variant: 'destructive',
+    });
+  }, [toast]);
+
   // Check session storage for existing auth
   useEffect(() => {
     const storedKey = sessionStorage.getItem('clara_admin_key');
-    if (storedKey) {
-      setAdminKey(storedKey);
+    const normalized = storedKey?.trim();
+    if (normalized) {
+      setAdminKey(normalized);
       setIsAuthenticated(true);
     }
   }, []);
@@ -61,7 +74,8 @@ const Admin = () => {
   }, [isAuthenticated]);
 
   const handleAuthenticate = async () => {
-    if (!adminKey.trim()) {
+    const key = getAdminKey();
+    if (!key) {
       toast({
         title: 'Chave obrigatória',
         description: 'Digite a chave de administrador.',
@@ -73,24 +87,32 @@ const Admin = () => {
     setIsAuthenticating(true);
     
     try {
-      // Validate admin key using dedicated auth endpoint
-      const { data, error } = await supabase.functions.invoke('admin-auth', {
-        headers: {
-          'x-admin-key': adminKey,
-        },
-      });
+      // Validate admin key using dedicated auth endpoint (fetch to read body even on 401)
+      const authResponse = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/admin-auth`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-admin-key': key,
+            apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          },
+          body: JSON.stringify({}),
+        }
+      );
 
-      if (error) {
-        console.error('[Admin] Auth error:', error);
-        throw new Error('Erro de conexão');
-      }
+      const data = await authResponse
+        .json()
+        .catch(() => ({ valid: false, error: 'Resposta inválida do servidor', code: 'BAD_RESPONSE' }));
 
-      if (!data?.valid) {
-        throw new Error(data?.error || 'Chave inválida');
+      if (!authResponse.ok || !data?.valid) {
+        throw new Error(data?.error || 'Chave de administrador inválida.');
       }
 
       // Store in session storage
-      sessionStorage.setItem('clara_admin_key', adminKey);
+      sessionStorage.setItem('clara_admin_key', key);
+      setAdminKey(key);
       setIsAuthenticated(true);
       
       toast({
@@ -112,14 +134,24 @@ const Admin = () => {
   const fetchDocuments = async () => {
     setIsLoading(true);
     try {
+      const key = getAdminKey();
       const { data, error } = await supabase.functions.invoke('documents', {
         method: 'GET',
         headers: {
-          'x-admin-key': adminKey,
+          'x-admin-key': key,
         },
       });
 
-      if (error) throw error;
+      if (error) {
+        // When the backend returns 401, supabase-js wraps it in an error.
+        // We treat it as expired auth and force re-login.
+        const msg = (error as any)?.message || '';
+        if (msg.includes('401') || msg.toLowerCase().includes('not authorized')) {
+          handleAuthExpired();
+          return;
+        }
+        throw error;
+      }
       setDocuments(data.documents || []);
     } catch (error: any) {
       toast({
@@ -195,6 +227,13 @@ const Admin = () => {
 
     for (const file of validFiles) {
       try {
+        const key = getAdminKey();
+
+        if (!key) {
+          handleAuthExpired();
+          throw new Error('Chave de administrador ausente.');
+        }
+
         // STEP 1: Get signed upload URL from Edge Function
         console.log(`[Admin] Getting signed upload URL for ${file.name}...`);
         setUploadProgress(Math.round(((completedFiles + 0.1) / totalFiles) * 100));
@@ -205,8 +244,9 @@ const Admin = () => {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
-              'x-admin-key': adminKey,
-              'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+              'x-admin-key': key,
+              apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+              Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
             },
             body: JSON.stringify({ 
               filename: file.name, 
@@ -261,8 +301,9 @@ const Admin = () => {
           {
             method: 'POST',
             headers: {
-              'x-admin-key': adminKey,
-              'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+              'x-admin-key': key,
+              apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+              Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
               'Content-Type': 'application/json',
             },
             body: JSON.stringify({
@@ -278,7 +319,13 @@ const Admin = () => {
         setUploadProgress(Math.round(((completedFiles + 0.9) / totalFiles) * 100));
 
         if (!processResponse.ok) {
-          const errorData = await processResponse.json();
+          if (processResponse.status === 401) {
+            handleAuthExpired();
+          }
+
+          const errorData = await processResponse
+            .json()
+            .catch(() => ({ error: 'Falha ao processar documento (resposta inválida).' }));
           console.error('[Admin] Processing error:', processResponse.status, errorData);
           // Clean up the uploaded file if processing failed
           try {
@@ -330,15 +377,23 @@ const Admin = () => {
     if (!documentToDelete) return;
 
     try {
+      const key = getAdminKey();
       const { error } = await supabase.functions.invoke(`documents`, {
         method: 'DELETE',
         headers: {
-          'x-admin-key': adminKey,
+          'x-admin-key': key,
         },
         body: { id: documentToDelete.id },
       });
 
-      if (error) throw error;
+      if (error) {
+        const msg = (error as any)?.message || '';
+        if (msg.includes('401') || msg.toLowerCase().includes('not authorized')) {
+          handleAuthExpired();
+          return;
+        }
+        throw error;
+      }
 
       toast({
         title: 'Documento removido',
@@ -372,7 +427,7 @@ const Admin = () => {
     e.preventDefault();
     setIsDragOver(false);
     handleFileUpload(e.dataTransfer.files);
-  }, [adminKey]);
+  }, [handleFileUpload]);
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('pt-BR', {
