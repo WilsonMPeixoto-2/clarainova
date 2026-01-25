@@ -49,15 +49,31 @@ export function DownloadPdfButton({
         return false;
       };
       
-      // Header
+      // Logo - Minimalist amber circle with "C"
+      const logoSize = 12;
+      const logoX = margin;
+      const logoY = currentY - 8;
+      
+      // Draw amber circle
+      doc.setFillColor(212, 165, 116); // Primary amber #D4A574
+      doc.circle(logoX + logoSize / 2, logoY + logoSize / 2, logoSize / 2, 'F');
+      
+      // Draw "C" letter in white
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "bold");
+      doc.text("C", logoX + 3.5, logoY + 8.5);
+      
+      // Header text next to logo
+      doc.setTextColor(0);
       doc.setFontSize(16);
       doc.setFont("helvetica", "bold");
-      doc.text("CLARA", margin, currentY);
+      doc.text("CLARA", logoX + logoSize + 4, currentY);
       currentY += 6;
       doc.setFontSize(9);
       doc.setFont("helvetica", "normal");
       doc.setTextColor(80);
-      doc.text("Consultora de Legislação e Apoio a Rotinas Administrativas", margin, currentY);
+      doc.text("Consultora de Legislação e Apoio a Rotinas Administrativas", logoX + logoSize + 4, currentY);
       currentY += 8;
       
       // Date
