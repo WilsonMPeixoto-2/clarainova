@@ -1,218 +1,152 @@
 
-# Plano: Botões de "Copiar Resposta" e "Baixar como PDF"
+# Plano: Atualização Completa de Branding - CLARA Independente
 
 ## Contexto
 
-O botão de **Copiar** já existe e funciona bem! Vamos apenas:
-1. Melhorar sua visibilidade
-2. Adicionar o botão **Baixar como PDF** ao lado
+A CLARA está evoluindo de uma ferramenta específica da 4ª CRE para uma **plataforma independente** que pode ser usada por todos os servidores da prefeitura. Isso requer remover referências institucionais específicas (4ª CRE, SME) e também a referência exclusiva ao SDP, já que a CLARA abordará diversos assuntos administrativos.
 
 ---
 
-## 1. Dependência a Instalar
+## Elementos Identificados para Atualização
 
-```bash
-npm install jspdf
-```
+### 1. Arquivos de Metadados e SEO (Alta Prioridade)
 
-`jspdf` é a biblioteca mais popular e leve (~280KB gzipped) para gerar PDFs no browser.
+| Arquivo | Referências a Remover |
+|---------|----------------------|
+| `index.html` | "4ª CRE", "SDP" nas meta tags, author |
+| `src/components/SEOHead.tsx` | "4ª CRE", "SDP" na description e keywords |
+| `src/pages/Index.tsx` | "4ª CRE", "SDP" nas keywords |
+| `src/pages/Chat.tsx` | "4ª CRE" na description |
 
----
-
-## 2. Novo Componente: DownloadPdfButton.tsx
-
-Um botão similar ao CopyButton, mas que gera e baixa um PDF com:
-- Cabeçalho: "CLARA - Assistente SEI & SDP"
-- Data e hora da consulta
-- Pergunta do usuário
-- Resposta da CLARA (formatada)
-- Rodapé: "Gerado automaticamente pela CLARA - 4ª CRE"
-
-### Estrutura do PDF
-
-```text
-┌──────────────────────────────────────────────────────┐
-│  CLARA - Assistente SEI & SDP                        │
-│  Data: 25/01/2026 às 14:32                          │
-├──────────────────────────────────────────────────────┤
-│                                                      │
-│  Sua pergunta:                                       │
-│  "Como criar um despacho de férias no SEI?"         │
-│                                                      │
-│  Resposta:                                           │
-│  Para criar um despacho de férias no SEI, siga      │
-│  os passos:                                          │
-│  1. Acesse o processo de férias                     │
-│  2. Clique em "Incluir Documento"                   │
-│  3. Selecione "Despacho"                            │
-│  ...                                                 │
-│                                                      │
-├──────────────────────────────────────────────────────┤
-│  Gerado automaticamente pela CLARA - 4ª CRE         │
-└──────────────────────────────────────────────────────┘
-```
+**Novo texto padrão:**
+- Description: "Consultora de Legislação e Apoio a Rotinas Administrativas. Sua assistente especializada em sistemas eletrônicos de informação e procedimentos administrativos."
+- Keywords: ["legislação", "administração pública", "SEI", "assistente virtual", "CLARA", "inteligência administrativa", "procedimentos administrativos"]
+- Author: "CLARA"
 
 ---
 
-## 3. Modificações em ChatMessage.tsx
+### 2. Interface do Chat (Alta Prioridade)
 
-Atualizar a seção de ações (linha 380-390) para incluir:
-- CopyButton (já existe)
-- **DownloadPdfButton** (novo)
-- FeedbackButtons (já existe)
-
-Também precisamos passar a `userQuery` (pergunta original) para o componente, para incluir no PDF.
+| Arquivo | Linha | Texto Atual | Novo Texto |
+|---------|-------|-------------|------------|
+| `Chat.tsx` | 157 | "Assistente SEI & SDP" | "Inteligência Administrativa" |
+| `ChatPanel.tsx` | 153 | "Assistente SEI & SDP" | "Inteligência Administrativa" |
+| `ChatPanel.tsx` | 220 | "procedimentos da 4ª CRE" | "procedimentos administrativos" |
+| `ChatInput.tsx` | 89 | "procedimentos da 4ª CRE" | "rotinas administrativas" |
 
 ---
 
-## 4. Arquivos a Criar
+### 3. System Prompt da IA (Alta Prioridade)
 
-| Arquivo | Descrição |
-|---------|-----------|
-| `src/components/chat/DownloadPdfButton.tsx` | Botão para baixar resposta como PDF |
+**Arquivo:** `supabase/functions/clara-chat/index.ts`
 
-## 5. Arquivos a Modificar
+Este é o **mais crítico** porque define o comportamento da IA. Precisa ser atualizado para:
+- Remover referência à "4ª CRE" como escopo principal
+- Manter SEI como foco, mas expandir para "sistemas eletrônicos de informação"
+- Remover SDP como escopo obrigatório (pode ser uma área de conhecimento, não limitação)
+- Ampliar para "procedimentos administrativos em geral"
+
+**Alterações específicas:**
+- Linha 36-41: Atualizar escopo de especialização
+- Linha 72: Remover "Procedimentos específicos da 4ª CRE"
+- Linha 82: Atualizar tratamento de queries fora do escopo
+- Linha 91: Remover referência específica à 4ª CRE
+
+---
+
+### 4. Arquivos Públicos HTML (Média Prioridade)
+
+| Arquivo | Seções a Atualizar |
+|---------|-------------------|
+| `public/sobre.html` | Múltiplas referências à 4ª CRE e SME |
+| `public/termos.html` | Linha 147: "rotinas administrativas da 4ª CRE" |
+| `public/privacidade.html` | Linha 123: "procedimentos administrativos da 4ª CRE" |
+| `public/llm.txt` | Linhas 11-13: Referências à 4ª CRE |
+
+---
+
+### 5. Páginas React Legais (Média Prioridade)
+
+| Arquivo | Linha | Alteração |
+|---------|-------|-----------|
+| `src/pages/Termos.tsx` | 73 | Remover "4ª CRE" |
+| `src/pages/Privacidade.tsx` | 54 | Remover "4ª CRE" |
+
+---
+
+### 6. Documentação e Utilitários (Baixa Prioridade)
 
 | Arquivo | Alteração |
 |---------|-----------|
-| `src/components/chat/ChatMessage.tsx` | Adicionar DownloadPdfButton e passar userQuery |
-| `src/hooks/useChat.ts` | Expor userQuery junto com cada mensagem |
-| `package.json` | Adicionar dependência jspdf |
+| `DOCUMENTATION.md` | Linha 6: Remover "4ª CRE" |
+| `supabase/functions/documents/index.ts` | Linha 67: Remover pattern `/4ª\s*CRE/gi` do extrator de keywords |
 
 ---
 
-## 6. Interface dos Botões
+## Nova Identidade de Marca
+
+### Taglines Consistentes
+
+| Contexto | Texto |
+|----------|-------|
+| **Header/Subtitle** | "Inteligência Administrativa" |
+| **Description longa** | "Consultora de Legislação e Apoio a Rotinas Administrativas" |
+| **Placeholder input** | "Digite sua pergunta sobre legislação ou rotinas administrativas..." |
+| **Welcome message** | "Sua assistente especializada em legislação e procedimentos administrativos." |
+
+### Escopo Atualizado (System Prompt)
 
 ```text
-[Resposta da CLARA...]
+Você é a CLARA (Consultora de Legislação e Apoio a Rotinas Administrativas), 
+uma assistente virtual especializada em:
 
-[📋 Copiar]  [📄 PDF]  [👍] [👎]
-```
+1. SEI (Sistema Eletrônico de Informações) - versões SEI!Rio e SEI 4.0
+2. Legislação administrativa e normas aplicáveis
+3. Procedimentos e rotinas administrativas
 
-### Comportamento do Botão PDF
-
-1. Usuário clica no ícone 📄 (FileDown do Lucide)
-2. Mostra animação de loading breve
-3. Gera PDF com a biblioteca jspdf
-4. Download automático: `clara-resposta-2026-01-25.pdf`
-5. Toast: "PDF baixado com sucesso!"
-
----
-
-## 7. Código do DownloadPdfButton (Resumo)
-
-```typescript
-import { jsPDF } from "jspdf";
-import { FileDown, Check } from "lucide-react";
-
-interface DownloadPdfButtonProps {
-  userQuery: string;
-  assistantResponse: string;
-  timestamp: Date;
-}
-
-export function DownloadPdfButton({ userQuery, assistantResponse, timestamp }: DownloadPdfButtonProps) {
-  const handleDownload = useCallback(() => {
-    const doc = new jsPDF();
-    
-    // Cabeçalho
-    doc.setFontSize(18);
-    doc.text("CLARA - Assistente SEI & SDP", 20, 20);
-    
-    // Data
-    doc.setFontSize(10);
-    doc.text(`Gerado em: ${timestamp.toLocaleString("pt-BR")}`, 20, 28);
-    
-    // Pergunta
-    doc.setFontSize(12);
-    doc.text("Sua pergunta:", 20, 40);
-    doc.setFontSize(11);
-    const queryLines = doc.splitTextToSize(userQuery, 170);
-    doc.text(queryLines, 20, 48);
-    
-    // Resposta
-    const startY = 48 + (queryLines.length * 6) + 10;
-    doc.setFontSize(12);
-    doc.text("Resposta:", 20, startY);
-    doc.setFontSize(11);
-    
-    // Limpar markdown para texto puro
-    const cleanText = assistantResponse
-      .replace(/\*\*/g, "")
-      .replace(/\*/g, "")
-      .replace(/`/g, "")
-      .replace(/#{1,6}\s/g, "");
-    
-    const responseLines = doc.splitTextToSize(cleanText, 170);
-    doc.text(responseLines, 20, startY + 8);
-    
-    // Rodapé
-    doc.setFontSize(8);
-    doc.text("Gerado automaticamente pela CLARA - 4ª CRE", 20, 285);
-    
-    // Download
-    doc.save(`clara-resposta-${timestamp.toISOString().split("T")[0]}.pdf`);
-  }, [userQuery, assistantResponse, timestamp]);
-  
-  return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <Button onClick={handleDownload}>
-          <FileDown className="w-4 h-4" />
-        </Button>
-      </TooltipTrigger>
-      <TooltipContent>Baixar como PDF</TooltipContent>
-    </Tooltip>
-  );
-}
+Posso ajudar com:
+- Criação e tramitação de processos no SEI
+- Upload e assinatura de documentos
+- Gestão de blocos de assinatura
+- Legislação e normativas
+- Procedimentos administrativos gerais
+- Sistemas de gestão pública
 ```
 
 ---
 
-## 8. Passando userQuery para ChatMessage
+## Resumo de Alterações por Tipo
 
-Atualmente, cada mensagem não sabe qual foi a pergunta original. Precisamos:
+| Tipo | Quantidade | Arquivos |
+|------|------------|----------|
+| **Frontend React** | 7 arquivos | SEOHead, Index, Chat, ChatPanel, ChatInput, Termos, Privacidade |
+| **Edge Functions** | 2 arquivos | clara-chat, documents |
+| **HTML Públicos** | 3 arquivos | sobre.html, termos.html, privacidade.html |
+| **Metadados** | 2 arquivos | index.html, llm.txt |
+| **Documentação** | 1 arquivo | DOCUMENTATION.md |
 
-1. No `useChat.ts`, ao adicionar uma resposta do assistant, guardar também a `userQuery` da mensagem anterior
-2. No tipo `ChatMessage`, adicionar campo opcional `userQuery?: string`
-3. No `ChatMessage.tsx`, passar para o `DownloadPdfButton`
-
----
-
-## 9. Cenário de Uso
-
-```text
-Usuário: "Como redigir um despacho de férias?"
-
-CLARA: "Para redigir um despacho de férias no SEI, siga os passos:
-1. Acesse o processo de férias do servidor
-2. Clique em 'Incluir Documento'
-3. Selecione o tipo 'Despacho'
-..."
-
-[📋 Copiar]  [📄 PDF]  [👍] [👎]
-
-→ Clica em 📋: Copia o texto para colar no SEI
-→ Clica em 📄: Baixa PDF formatado para arquivar
-```
+**Total: 15 arquivos**
 
 ---
 
-## 10. Resumo de Alterações
+## Ordem de Implementação
 
-| Camada | Tipo | Descrição |
-|--------|------|-----------|
-| Dependência | Instalar | `jspdf` para geração de PDF |
-| Frontend | Criar | `DownloadPdfButton.tsx` |
-| Frontend | Modificar | `ChatMessage.tsx` - adicionar botão PDF |
-| Frontend | Modificar | `useChat.ts` - incluir userQuery nas mensagens |
-| Tipos | Modificar | `ChatMessage` type - adicionar campo userQuery |
+1. **index.html** - Meta tags SEO (crítico para Google)
+2. **SEOHead.tsx** - Defaults de SEO
+3. **clara-chat/index.ts** - System prompt da IA
+4. **Chat.tsx** + **ChatPanel.tsx** + **ChatInput.tsx** - Interface do chat
+5. **Index.tsx** - SEO da homepage
+6. **Termos.tsx** + **Privacidade.tsx** - Páginas legais React
+7. **public/*.html** - Páginas estáticas legais
+8. **llm.txt** - Documentação para LLMs
+9. **documents/index.ts** - Extração de keywords
+10. **DOCUMENTATION.md** - Documentação técnica
 
 ---
 
-## 11. Benefícios para os Servidores
+## Benefícios
 
-- **Copiar**: Cola direto no SEI para redigir documentos
-- **PDF**: Arquiva a orientação para referência futura
-- **Formalização**: Documento com data e hora para comprovar consulta
-- **Auditoria**: Registro da orientação recebida
+- **Universalidade**: CLARA pode ser usada por qualquer servidor da prefeitura
+- **Flexibilidade**: Não limitada a SEI/SDP - pode expandir para outros sistemas
+- **Identidade própria**: Marca independente com estética e cores personalizadas
+- **Escalabilidade**: Facilita parcerias com outras secretarias
