@@ -9,7 +9,8 @@ const Header = () => {
   const navLinks = [
     { label: 'Base de Conhecimento', href: '#conhecimento' },
     { label: 'Dúvidas Frequentes', href: '#faq' },
-    { label: 'Termos de Uso', href: '#termos' },
+    { label: 'Política de Privacidade', href: '/privacidade' },
+    { label: 'Termos de Uso', href: '/termos' },
   ];
 
   return (

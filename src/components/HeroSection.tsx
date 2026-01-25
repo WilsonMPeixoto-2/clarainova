@@ -151,6 +151,20 @@ const HeroSection = () => {
               </motion.button>
             </motion.div>
 
+            {/* Privacy Policy Link */}
+            <motion.p 
+              variants={itemVariants}
+              className="text-sm text-muted-foreground"
+            >
+              Ao usar nossos serviços, você concorda com nossa{' '}
+              <a 
+                href="/privacidade" 
+                className="text-primary hover:underline font-medium"
+              >
+                Política de Privacidade
+              </a>
+            </motion.p>
+
             {/* Search Bar */}
             <motion.div variants={itemVariants} className="pt-4">
               <form 
