@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { ArrowLeft, Trash2, MessageSquare, Keyboard } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useChat } from "@/hooks/useChat";
+import { useAuth } from "@/contexts/AuthContext";
 import { ChatMessage } from "@/components/chat/ChatMessage";
 import { ChatInput } from "@/components/chat/ChatInput";
 import { ThinkingIndicator } from "@/components/chat/ThinkingIndicator";
@@ -11,6 +12,8 @@ import { OfflineIndicator } from "@/components/OfflineIndicator";
 import { useToast } from "@/hooks/use-toast";
 import { SEOHead } from "@/components/SEOHead";
 import { useChatShortcuts } from "@/hooks/useKeyboardShortcuts";
+import UserMenu from "@/components/auth/UserMenu";
+import GoogleLoginButton from "@/components/auth/GoogleLoginButton";
 import {
   Tooltip,
   TooltipContent,
@@ -51,6 +54,7 @@ export default function Chat() {
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const hasAutoSent = useRef(false);
   const { toast } = useToast();
+  const { user, loading: authLoading } = useAuth();
 
   const { messages, isLoading, thinking, sendMessage, clearHistory, cancelStream } = useChat({
     onError: (error) => {
@@ -190,6 +194,22 @@ export default function Chat() {
                 </TooltipTrigger>
                 <TooltipContent>Limpar histórico (Ctrl+Shift+L)</TooltipContent>
               </Tooltip>
+
+              {/* Auth Section */}
+              {!authLoading && (
+                user ? (
+                  <UserMenu />
+                ) : (
+                  <motion.button
+                    onClick={() => navigate('/login')}
+                    className="flex items-center gap-2 px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground border border-border/30 rounded-lg hover:bg-card/50 transition-colors"
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                  >
+                    Entrar
+                  </motion.button>
+                )
+              )}
             </div>
           </div>
         </motion.header>

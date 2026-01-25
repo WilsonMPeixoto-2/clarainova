@@ -127,7 +127,7 @@ const HeroSection = () => {
               className="flex flex-col sm:flex-row gap-4 pt-2"
             >
               <motion.button 
-                onClick={() => navigate('/chat')}
+                onClick={() => navigate('/login')}
                 className="btn-clara-primary flex items-center justify-center gap-2"
                 whileHover={{ scale: 1.03, boxShadow: "0 10px 30px -10px hsl(var(--primary) / 0.4)" }}
                 whileTap={{ scale: 0.98 }}
