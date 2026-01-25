@@ -69,9 +69,9 @@ const Termos = () => {
                 </p>
                 <ul className="list-disc list-inside text-muted-foreground space-y-2 ml-4 mt-2">
                   <li>Orientações sobre o Sistema Eletrônico de Informações (SEI)</li>
-                  <li>Procedimentos do Sistema de Diárias e Passagens (SDP)</li>
-                  <li>Rotinas administrativas da 4ª Coordenadoria Regional de Educação (4ª CRE)</li>
+                  <li>Procedimentos e rotinas administrativas</li>
                   <li>Consultas à legislação e normas aplicáveis</li>
+                  <li>Sistemas de gestão pública</li>
                 </ul>
                 <p className="text-muted-foreground leading-relaxed mt-4">
                   O serviço utiliza inteligência artificial para fornecer orientações baseadas em documentos 

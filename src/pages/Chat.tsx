@@ -118,7 +118,7 @@ export default function Chat() {
     <TooltipProvider>
       <SEOHead 
         title="Chat - CLARA"
-        description="Converse com a CLARA, sua assistente especializada em SEI, SDP e procedimentos da 4ª CRE."
+        description="Converse com a CLARA, sua assistente especializada em legislação e procedimentos administrativos."
       />
       
       <OfflineIndicator />
@@ -154,7 +154,7 @@ export default function Chat() {
               </Tooltip>
               <div>
                 <h1 className="text-lg font-semibold text-foreground">CLARA</h1>
-                <p className="text-xs text-muted-foreground">Assistente SEI & SDP</p>
+                <p className="text-xs text-muted-foreground">Inteligência Administrativa</p>
               </div>
             </div>
 
@@ -245,7 +245,7 @@ export default function Chat() {
                   variants={itemVariants}
                   className="text-muted-foreground max-w-md mb-8"
                 >
-                  Sua assistente especializada em SEI, SDP e procedimentos da 4ª CRE.
+                  Sua assistente especializada em legislação e procedimentos administrativos.
                   Como posso ajudar você hoje?
                 </motion.p>
                 

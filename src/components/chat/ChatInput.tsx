@@ -86,7 +86,7 @@ export function ChatInput({ onSend, isLoading, onCancel, initialValue = "" }: Ch
           onKeyDown={handleKeyDown}
           onFocus={() => setIsFocused(true)}
           onBlur={() => setIsFocused(false)}
-          placeholder="Digite sua pergunta sobre SEI, SDP ou procedimentos da 4ª CRE..."
+          placeholder="Digite sua pergunta sobre legislação ou rotinas administrativas..."
           disabled={isLoading}
           rows={1}
           aria-describedby="chat-hint"

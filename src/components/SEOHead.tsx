@@ -12,8 +12,8 @@ interface SEOHeadProps {
 
 export function SEOHead({
   title = "CLARA Inteligência Administrativa",
-  description = "Consultora de Legislação e Apoio a Rotinas Administrativas. Sua assistente especializada em SEI, SDP e procedimentos da 4ª CRE.",
-  keywords = ["SEI", "SDP", "legislação", "4ª CRE", "assistente virtual", "administração pública"],
+  description = "Consultora de Legislação e Apoio a Rotinas Administrativas. Sua assistente especializada em sistemas eletrônicos de informação e procedimentos administrativos.",
+  keywords = ["SEI", "legislação", "administração pública", "assistente virtual", "CLARA", "inteligência administrativa", "procedimentos administrativos"],
   type = "website",
   image = "/og-image.png",
   noIndex = false,

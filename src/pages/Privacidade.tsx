@@ -51,7 +51,7 @@ const Privacidade = () => {
                 <h2 className="text-xl font-semibold text-foreground mb-4">1. Introdução</h2>
                 <p className="text-muted-foreground leading-relaxed">
                   A CLARA (Consultora de Legislação e Apoio a Rotinas Administrativas) é um assistente virtual 
-                  especializado em orientações sobre SEI, SDP e procedimentos administrativos da 4ª CRE. 
+                  especializado em orientações sobre legislação e procedimentos administrativos. 
                   Esta Política de Privacidade descreve como coletamos, usamos, armazenamos e protegemos suas 
                   informações pessoais quando você utiliza nosso serviço.
                 </p>
