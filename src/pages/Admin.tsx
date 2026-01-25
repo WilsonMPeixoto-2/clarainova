@@ -27,6 +27,32 @@ interface Document {
   chunk_count?: number;
 }
 
+// Guard function to ensure file is a valid Blob (prevents silent failures)
+function assertIsBlobLike(x: unknown, filename: string): asserts x is Blob {
+  if (!(x instanceof Blob)) {
+    throw new Error(`Upload abortado: "${filename}" não é File/Blob válido.`);
+  }
+  if (x.size === 0) {
+    throw new Error(`Upload abortado: "${filename}" está vazio (0 bytes).`);
+  }
+}
+
+// Map HTTP status codes to user-friendly error messages
+function getUploadErrorMessage(status: number, body: string): string {
+  const errorMap: Record<number, string> = {
+    400: 'Requisição inválida - verifique o formato do arquivo',
+    403: 'URL expirada ou sem permissão - tente novamente',
+    404: 'Bucket ou caminho não encontrado - verifique configuração',
+    409: 'Conflito - arquivo já existe com mesmo nome',
+    413: 'Arquivo muito grande - limite excedido',
+    429: 'Muitas requisições - aguarde e tente novamente',
+    500: 'Erro interno do servidor - tente novamente',
+    502: 'Gateway inválido - serviço temporariamente indisponível',
+    503: 'Serviço indisponível - tente novamente em alguns minutos',
+  };
+  return errorMap[status] || `Erro ${status}: ${body || 'Erro desconhecido'}`;
+}
+
 const Admin = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -164,6 +190,7 @@ const Admin = () => {
     }
   };
 
+
   const handleFileUpload = async (files: FileList | null) => {
     console.log('[Admin] handleFileUpload called with files:', files?.length);
     
@@ -265,8 +292,12 @@ const Admin = () => {
         console.log(`[Admin] Got signed URL for path: ${signedUrlData.path}`);
         setUploadProgress(Math.round(((completedFiles + 0.3) / totalFiles) * 100));
 
-        // STEP 2: Upload file directly via PUT request (more reliable diagnostic)
+        // STEP 2: Upload file directly via PUT request (diagnostic definitivo)
         console.log(`[Admin] ========== UPLOAD STEP 2 ==========`);
+        
+        // Validate file is a proper Blob before upload
+        assertIsBlobLike(file, file.name);
+        console.log(`[Admin] ✓ File validated as Blob`);
         console.log(`[Admin] File: ${file.name}`);
         console.log(`[Admin] Size: ${file.size} bytes (${(file.size / 1024 / 1024).toFixed(2)} MB)`);
         console.log(`[Admin] Type: ${file.type}`);
@@ -280,7 +311,7 @@ const Admin = () => {
           uploadResponse = await fetch(signedUrlData.signedUrl, {
             method: 'PUT',
             headers: {
-              'Content-Type': file.type || 'application/octet-stream',
+              'Content-Type': file.type || 'application/pdf',
             },
             body: file,
           });
@@ -292,16 +323,19 @@ const Admin = () => {
             const errorText = await uploadResponse.text().catch(() => 'Could not read response body');
             console.error(`[Admin] PUT FAILED - Status: ${uploadResponse.status}`);
             console.error(`[Admin] PUT FAILED - Body: ${errorText}`);
-            throw new Error(`Upload falhou [${uploadResponse.status}]: ${errorText || uploadResponse.statusText}`);
+            console.error(`[Admin] PUT FAILED - Diagnóstico: ${getUploadErrorMessage(uploadResponse.status, errorText)}`);
+            throw new Error(`PUT falhou: ${uploadResponse.status} ${uploadResponse.statusText} | ${errorText}`);
           }
           
           const responseBody = await uploadResponse.text().catch(() => '');
+          console.log(`[Admin] [UPLOAD OK]`, { status: uploadResponse.status, path: signedUrlData.path });
           console.log(`[Admin] PUT SUCCESS - Response body: ${responseBody || '(empty)'}`);
           
         } catch (fetchError: any) {
           console.error('[Admin] PUT request exception:', fetchError);
           console.error('[Admin] Error name:', fetchError?.name);
           console.error('[Admin] Error message:', fetchError?.message);
+          throw new Error(`Erro de rede no upload: ${fetchError.message || 'Erro desconhecido'}`);
           throw new Error(`Erro de rede no upload: ${fetchError.message || 'Erro desconhecido'}`);
         }
         
