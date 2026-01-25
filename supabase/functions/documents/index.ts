@@ -91,7 +91,7 @@ serve(async (req) => {
   const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
   const supabase = createClient(supabaseUrl, supabaseServiceKey);
   
-  const ADMIN_KEY = Deno.env.get("ADMIN_KEY");
+  const ADMIN_KEY = Deno.env.get("ADMIN_KEY")?.trim();
   const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
 
   const url = new URL(req.url);
@@ -104,8 +104,8 @@ serve(async (req) => {
     // =============================================
     if (req.method === "GET" && (!documentId || documentId === "documents")) {
       // Validate admin key for listing documents
-      const adminKey = req.headers.get("x-admin-key");
-      if (!adminKey || adminKey !== ADMIN_KEY) {
+       const adminKey = (req.headers.get("x-admin-key") || "").trim();
+       if (!adminKey || !ADMIN_KEY || adminKey !== ADMIN_KEY) {
         return new Response(
           JSON.stringify({ error: "Não autorizado" }),
           { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -152,8 +152,8 @@ serve(async (req) => {
     // =============================================
     if (req.method === "POST") {
       // Verificar admin key
-      const adminKey = req.headers.get("x-admin-key");
-      if (!adminKey || adminKey !== ADMIN_KEY) {
+       const adminKey = (req.headers.get("x-admin-key") || "").trim();
+       if (!adminKey || !ADMIN_KEY || adminKey !== ADMIN_KEY) {
         return new Response(
           JSON.stringify({ error: "Não autorizado" }),
           { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -364,8 +364,8 @@ Responda APENAS com o texto extraído do documento.`
     // =============================================
     if (req.method === "DELETE") {
       // Verificar admin key
-      const adminKey = req.headers.get("x-admin-key");
-      if (!adminKey || adminKey !== ADMIN_KEY) {
+       const adminKey = (req.headers.get("x-admin-key") || "").trim();
+       if (!adminKey || !ADMIN_KEY || adminKey !== ADMIN_KEY) {
         return new Response(
           JSON.stringify({ error: "Não autorizado" }),
           { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }

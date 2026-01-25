@@ -22,7 +22,7 @@ serve(async (req) => {
       );
     }
 
-    const adminKey = req.headers.get("x-admin-key");
+    const adminKey = (req.headers.get("x-admin-key") || "").trim();
 
     if (!adminKey) {
       return new Response(
