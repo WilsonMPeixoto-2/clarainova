@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Search, MessageCircle, BookOpen, Sparkles } from 'lucide-react';
 import claraHero from '@/assets/clara-hero.png';
@@ -26,8 +25,11 @@ const floatAnimation = {
   transition: { duration: 4, repeat: Infinity, ease: "easeInOut" as const }
 };
 
-const HeroSection = () => {
-  const navigate = useNavigate();
+interface HeroSectionProps {
+  onOpenChat: (query?: string) => void;
+}
+
+const HeroSection = ({ onOpenChat }: HeroSectionProps) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearchFocused, setIsSearchFocused] = useState(false);
 
@@ -127,7 +129,7 @@ const HeroSection = () => {
               className="flex flex-col sm:flex-row gap-4 pt-2"
             >
               <motion.button 
-                onClick={() => navigate('/login')}
+                onClick={() => onOpenChat()}
                 className="btn-clara-primary flex items-center justify-center gap-2"
                 whileHover={{ scale: 1.03, boxShadow: "0 10px 30px -10px hsl(var(--primary) / 0.4)" }}
                 whileTap={{ scale: 0.98 }}
@@ -171,7 +173,8 @@ const HeroSection = () => {
                 onSubmit={(e) => {
                   e.preventDefault();
                   if (searchQuery.trim()) {
-                    navigate(`/chat?q=${encodeURIComponent(searchQuery.trim())}`);
+                    onOpenChat(searchQuery.trim());
+                    setSearchQuery('');
                   }
                 }}
                 className="relative max-w-xl"
