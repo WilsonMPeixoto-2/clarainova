@@ -265,32 +265,83 @@ const Admin = () => {
         console.log(`[Admin] Got signed URL for path: ${signedUrlData.path}`);
         setUploadProgress(Math.round(((completedFiles + 0.3) / totalFiles) * 100));
 
-        // STEP 2: Upload file using Supabase SDK helper (more reliable than raw fetch)
-        console.log(`[Admin] Uploading ${file.name} to path: ${signedUrlData.path}`);
-        console.log(`[Admin] File size: ${file.size} bytes, type: ${file.type}`);
+        // STEP 2: Upload file directly via PUT request (more reliable diagnostic)
+        console.log(`[Admin] ========== UPLOAD STEP 2 ==========`);
+        console.log(`[Admin] File: ${file.name}`);
+        console.log(`[Admin] Size: ${file.size} bytes (${(file.size / 1024 / 1024).toFixed(2)} MB)`);
+        console.log(`[Admin] Type: ${file.type}`);
+        console.log(`[Admin] Target path: ${signedUrlData.path}`);
+        console.log(`[Admin] Bucket: ${signedUrlData.bucket}`);
+        console.log(`[Admin] Signed URL (first 100 chars): ${signedUrlData.signedUrl?.substring(0, 100)}...`);
         
+        let uploadResponse: Response;
         try {
-          const { data: uploadData, error: uploadError } = await supabase.storage
-            .from(signedUrlData.bucket)
-            .uploadToSignedUrl(signedUrlData.path, signedUrlData.token, file, {
-              contentType: file.type || 'application/octet-stream',
-            });
+          console.log(`[Admin] Initiating PUT request to signed URL...`);
+          uploadResponse = await fetch(signedUrlData.signedUrl, {
+            method: 'PUT',
+            headers: {
+              'Content-Type': file.type || 'application/octet-stream',
+            },
+            body: file,
+          });
           
-          if (uploadError) {
-            console.error('[Admin] Upload error:', uploadError);
-            throw new Error(`Falha no upload: ${uploadError.message}`);
+          console.log(`[Admin] PUT response status: ${uploadResponse.status} ${uploadResponse.statusText}`);
+          console.log(`[Admin] PUT response headers:`, Object.fromEntries(uploadResponse.headers.entries()));
+          
+          if (!uploadResponse.ok) {
+            const errorText = await uploadResponse.text().catch(() => 'Could not read response body');
+            console.error(`[Admin] PUT FAILED - Status: ${uploadResponse.status}`);
+            console.error(`[Admin] PUT FAILED - Body: ${errorText}`);
+            throw new Error(`Upload falhou [${uploadResponse.status}]: ${errorText || uploadResponse.statusText}`);
           }
           
-          console.log(`[Admin] Upload complete:`, uploadData);
-        } catch (uploadErr: any) {
-          console.error('[Admin] Upload exception:', uploadErr);
-          throw new Error(`Erro no upload: ${uploadErr.message || 'Erro desconhecido'}`);
+          const responseBody = await uploadResponse.text().catch(() => '');
+          console.log(`[Admin] PUT SUCCESS - Response body: ${responseBody || '(empty)'}`);
+          
+        } catch (fetchError: any) {
+          console.error('[Admin] PUT request exception:', fetchError);
+          console.error('[Admin] Error name:', fetchError?.name);
+          console.error('[Admin] Error message:', fetchError?.message);
+          throw new Error(`Erro de rede no upload: ${fetchError.message || 'Erro desconhecido'}`);
         }
+        
+        // Verify file exists in storage
+        console.log(`[Admin] ========== VERIFY UPLOAD ==========`);
+        console.log(`[Admin] Checking if file exists at: ${signedUrlData.path}`);
+        
+        const { data: fileCheck, error: checkError } = await supabase.storage
+          .from(signedUrlData.bucket)
+          .list(signedUrlData.path.split('/').slice(0, -1).join('/'));
+        
+        if (checkError) {
+          console.warn(`[Admin] Could not verify upload:`, checkError);
+        } else {
+          const fileName = signedUrlData.path.split('/').pop();
+          const fileExists = fileCheck?.some(f => f.name === fileName);
+          console.log(`[Admin] File exists in bucket: ${fileExists}`);
+          console.log(`[Admin] Files in folder:`, fileCheck?.map(f => f.name));
+        }
+        
+        console.log(`[Admin] ========== UPLOAD COMPLETE ==========`);
 
         setUploadProgress(Math.round(((completedFiles + 0.6) / totalFiles) * 100));
 
         // STEP 3: Process document via documents Edge Function
-        console.log(`[Admin] Processing document at path: ${signedUrlData.path}`);
+        console.log(`[Admin] ========== PROCESSING STEP 3 ==========`);
+        console.log(`[Admin] Calling documents Edge Function...`);
+        console.log(`[Admin] filePath: ${signedUrlData.path}`);
+        console.log(`[Admin] title: ${file.name.replace(/\.[^/.]+$/, '')}`);
+        console.log(`[Admin] fileType: ${file.type || signedUrlData.contentType}`);
+        
+        const processPayload = {
+          filePath: signedUrlData.path,
+          title: file.name.replace(/\.[^/.]+$/, ''),
+          category: 'manual',
+          fileType: file.type || signedUrlData.contentType,
+          originalName: file.name,
+        };
+        console.log(`[Admin] Request payload:`, JSON.stringify(processPayload, null, 2));
+        
         const processResponse = await fetch(
           `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/documents`,
           {
@@ -301,15 +352,11 @@ const Admin = () => {
               Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
               'Content-Type': 'application/json',
             },
-            body: JSON.stringify({
-              filePath: signedUrlData.path,
-              title: file.name.replace(/\.[^/.]+$/, ''),
-              category: 'manual',
-              fileType: file.type || signedUrlData.contentType,
-              originalName: file.name,
-            }),
+            body: JSON.stringify(processPayload),
           }
         );
+        
+        console.log(`[Admin] Process response status: ${processResponse.status} ${processResponse.statusText}`);
 
         setUploadProgress(Math.round(((completedFiles + 0.9) / totalFiles) * 100));
 
@@ -321,7 +368,7 @@ const Admin = () => {
           const errorData = await processResponse
             .json()
             .catch(() => ({ error: 'Falha ao processar documento (resposta inválida).' }));
-          console.error('[Admin] Processing error:', processResponse.status, errorData);
+          console.error('[Admin] Processing FAILED:', processResponse.status, errorData);
           // Clean up the uploaded file if processing failed
           try {
             console.log('[Admin] Cleaning up uploaded file...');
@@ -333,10 +380,15 @@ const Admin = () => {
         }
 
         const processResult = await processResponse.json();
-        console.log(`[Admin] Processing complete:`, processResult);
+        console.log(`[Admin] ========== PROCESSING SUCCESS ==========`);
+        console.log(`[Admin] Document ID: ${processResult.document?.id || 'unknown'}`);
+        console.log(`[Admin] Chunks created: ${processResult.document?.chunk_count || processResult.chunks || 'unknown'}`);
+        console.log(`[Admin] Full response:`, JSON.stringify(processResult, null, 2));
 
         completedFiles++;
         setUploadProgress(Math.round((completedFiles / totalFiles) * 100));
+        
+        console.log(`[Admin] ========== FILE ${completedFiles}/${totalFiles} COMPLETE ==========`);
 
         toast({
           title: 'Upload concluído',
