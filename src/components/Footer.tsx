@@ -16,13 +16,13 @@ const Footer = () => {
           {/* Links */}
           <nav className="flex flex-wrap justify-center gap-6 md:gap-8" aria-label="Links do rodapé">
             <a 
-              href="/termos" 
+              href="/termos.html" 
               className="text-sm text-muted-foreground hover:text-foreground transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-primary/50 rounded px-1"
             >
               Termos de Serviço
             </a>
             <a 
-              href="/privacidade" 
+              href="/privacidade.html" 
               rel="privacy-policy"
               itemProp="privacyPolicy"
               className="text-sm font-medium text-foreground hover:text-primary transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-primary/50 rounded px-1"
