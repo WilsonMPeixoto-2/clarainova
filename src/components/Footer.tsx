@@ -19,11 +19,13 @@ const Footer = () => {
               href="/termos" 
               className="text-sm text-muted-foreground hover:text-foreground transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-primary/50 rounded px-1"
             >
-              Termos de Uso
+              Termos de Serviço
             </a>
             <a 
               href="/privacidade" 
-              className="text-sm text-muted-foreground hover:text-foreground transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-primary/50 rounded px-1"
+              rel="privacy-policy"
+              itemProp="privacyPolicy"
+              className="text-sm font-medium text-foreground hover:text-primary transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-primary/50 rounded px-1"
             >
               Política de Privacidade
             </a>

@@ -7,15 +7,17 @@ interface SEOHeadProps {
   type?: "website" | "article";
   image?: string;
   noIndex?: boolean;
+  googleVerification?: string;
 }
 
 export function SEOHead({
-  title = "CLARA - Assistente de Legislação",
+  title = "CLARA Inteligência Administrativa",
   description = "Consultora de Legislação e Apoio a Rotinas Administrativas. Sua assistente especializada em SEI, SDP e procedimentos da 4ª CRE.",
   keywords = ["SEI", "SDP", "legislação", "4ª CRE", "assistente virtual", "administração pública"],
   type = "website",
   image = "/og-image.png",
   noIndex = false,
+  googleVerification,
 }: SEOHeadProps) {
   useEffect(() => {
     // Update document title
@@ -33,6 +35,17 @@ export function SEOHead({
       meta.setAttribute("content", content);
     };
 
+    // Add or update link element
+    const updateLink = (rel: string, href: string) => {
+      let link = document.querySelector(`link[rel="${rel}"]`);
+      if (!link) {
+        link = document.createElement("link");
+        link.setAttribute("rel", rel);
+        document.head.appendChild(link);
+      }
+      link.setAttribute("href", href);
+    };
+
     updateMeta("description", description);
     updateMeta("keywords", keywords.join(", "));
     updateMeta("og:title", title, true);
@@ -42,6 +55,14 @@ export function SEOHead({
     updateMeta("twitter:card", "summary_large_image");
     updateMeta("twitter:title", title);
     updateMeta("twitter:description", description);
+
+    // Add privacy policy link for Google verification
+    updateLink("privacy-policy", "/privacidade");
+
+    // Add Google site verification if provided
+    if (googleVerification) {
+      updateMeta("google-site-verification", googleVerification);
+    }
 
     if (noIndex) {
       updateMeta("robots", "noindex, nofollow");
@@ -54,7 +75,7 @@ export function SEOHead({
         if (robotsMeta) robotsMeta.remove();
       }
     };
-  }, [title, description, keywords, type, image, noIndex]);
+  }, [title, description, keywords, type, image, noIndex, googleVerification]);
 
   return null;
 }
