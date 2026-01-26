@@ -14,6 +14,28 @@ const corsHeaders = {
 // Lovable AI Gateway URL
 const LOVABLE_AI_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
 
+const AI_TIMEOUT_MS = 120_000; // >=60s (desktop). Keep generous but bounded.
+
+function safeJsonStringify(x: unknown): string {
+  try {
+    return JSON.stringify(x);
+  } catch {
+    return String(x);
+  }
+}
+
+async function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+  const timeoutPromise: Promise<T> = new Promise((_, reject) => {
+    const id = setTimeout(() => {
+      clearTimeout(id);
+      reject(new Error(`TIMEOUT: ${label} after ${ms}ms`));
+    }, ms);
+  });
+
+  // Cast keeps Deno/TS from widening Promise.race() to unknown in some libs.
+  return (await Promise.race([promise, timeoutPromise])) as T;
+}
+
 async function blobToBase64(fileBlob: Blob): Promise<string> {
   const arrayBuffer = await fileBlob.arrayBuffer();
   const uint8Array = new Uint8Array(arrayBuffer);
@@ -41,14 +63,19 @@ async function extractPdfViaLovableAIBase64(fileBlob: Blob, lovableApiKey: strin
   const base64Data = await blobToBase64(fileBlob);
   const dataUrl = `data:application/pdf;base64,${base64Data}`;
 
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), AI_TIMEOUT_MS);
+
   const response = await fetch(LOVABLE_AI_URL, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${lovableApiKey}`,
     },
+    signal: controller.signal,
     body: JSON.stringify({
-      model: "google/gemini-2.5-flash",
+      // Default for Lovable AI is google/gemini-3-flash-preview; we set explicitly.
+      model: "google/gemini-3-flash-preview",
       messages: [
         {
           role: "user",
@@ -74,10 +101,15 @@ Responda APENAS com o texto extraído.`,
     }),
   });
 
+  clearTimeout(timeoutId);
+
   if (!response.ok) {
-    const errorText = await response.text();
+    const errorText = await response.text().catch(() => "(no body)");
     console.error("[documents] Lovable AI error:", response.status, errorText);
-    throw new Error(`Lovable AI failed: ${response.status} - ${errorText}`);
+    // Keep raw payload in the error message for debugging (no secrets included).
+    throw new Error(
+      `LovableAI HTTP ${response.status}: ${errorText}`
+    );
   }
 
   const data = await response.json();
@@ -106,9 +138,11 @@ async function extractPdfViaGeminiBase64(fileBlob: Blob, geminiApiKey: string): 
   console.log(`[documents] Base64 size: ${Math.round(base64Data.length / 1024)}KB`);
   
   const genAI = new GoogleGenerativeAI(geminiApiKey);
-  const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+  // Requested verification: use gemini-1.5-flash for direct Gemini fallback.
+  const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
   
-  const result = await model.generateContent([
+  const result = await withTimeout(
+    model.generateContent([
     {
       inlineData: {
         mimeType: "application/pdf",
@@ -127,7 +161,10 @@ Instruções:
 
 Responda APENAS com o texto extraído do documento.`
     }
-  ]);
+  ]),
+    AI_TIMEOUT_MS,
+    "Gemini generateContent (PDF base64)"
+  );
   
   const extractedText = result.response.text();
   
@@ -475,6 +512,12 @@ serve(async (req) => {
               return new Response(
                 JSON.stringify({ 
                   error: "Falha ao processar PDF. Ambos os provedores falharam.",
+                  // Provide explicit, raw-ish errors for debugging.
+                  debug: {
+                    lovable_ai_error: lovableErrorMsg,
+                    gemini_error: geminiErrorMsg,
+                    notes: "Se Gemini retornar 429/quota, o problema é a cota/chave do GEMINI_API_KEY; o Lovable AI deve funcionar para PDFs via data URL até ~20MB.",
+                  },
                   details: `Lovable AI: ${lovableErrorMsg}. Gemini: ${geminiErrorMsg}`
                 }),
                 { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -581,8 +624,13 @@ serve(async (req) => {
          let embeddingJson: string | null = null;
          if (!embeddingsDisabled && embeddingModel) {
            try {
-             const embeddingResult = await embeddingModel.embedContent(chunk);
-             const embedding = embeddingResult.embedding.values;
+              const embeddingResult = await withTimeout<any>(
+                embeddingModel.embedContent(chunk) as Promise<any>,
+                AI_TIMEOUT_MS,
+                "Gemini embedContent (text-embedding-004)"
+              );
+              const embedding = embeddingResult?.embedding?.values;
+              if (!embedding) throw new Error("Embedding inválido retornado pelo modelo");
              embeddingJson = JSON.stringify(embedding);
            } catch (e) {
              // Disable further embedding attempts if we hit rate limits/quota or any persistent error.
