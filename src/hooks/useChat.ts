@@ -108,6 +108,7 @@ export function useChat(options: UseChatOptions = {}) {
     const assistantId = crypto.randomUUID();
     let assistantContent = "";
     let localSources: string[] = [];
+    let webSources: string[] = [];
 
     setMessages(prev => [
       ...prev,
@@ -210,6 +211,9 @@ export function useChat(options: UseChatOptions = {}) {
                   if (data.local) {
                     localSources = data.local;
                   }
+                  if (data.web) {
+                    webSources = data.web;
+                  }
                   break;
                   
                 case "done":
@@ -249,7 +253,14 @@ export function useChat(options: UseChatOptions = {}) {
 
       // Finalizar mensagem do assistente e salvar analytics
       const finalContent = assistantContent || "Desculpe, não consegui gerar uma resposta.";
-      const finalSources = localSources.length > 0 ? { local: localSources } : undefined;
+      const hasLocalSources = localSources.length > 0;
+      const hasWebSources = webSources.length > 0;
+      const finalSources = (hasLocalSources || hasWebSources) 
+        ? { 
+            local: localSources,
+            ...(hasWebSources && { web: webSources })
+          } 
+        : undefined;
 
       // Save to query_analytics (fire and forget)
       let savedQueryId: string | null = null;

@@ -39,21 +39,41 @@ export function SourceCitation({ sources }: SourceCitationProps) {
             </div>
           ))}
           
-          {sources.web?.map((source, i) => (
-            <a
-              key={`web-${i}`}
-              href={source}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-3 px-3 py-2 rounded-lg bg-muted/30 text-sm hover:bg-muted/50 transition-colors group"
-            >
-              <ExternalLink className="w-4 h-4 text-accent flex-shrink-0" />
-              <span className="text-foreground/80 truncate flex-1">{source}</span>
-              <span className="text-xs text-muted-foreground group-hover:text-primary transition-colors">
-                Abrir ↗
-              </span>
-            </a>
-          ))}
+          {sources.web?.map((source, i) => {
+            // Parse "title - url" format from grounding metadata
+            const parts = source.split(" - ");
+            const title = parts.length > 1 ? parts[0] : source;
+            const url = parts.length > 1 ? parts.slice(1).join(" - ") : source;
+            const isValidUrl = url.startsWith("http");
+            
+            return isValidUrl ? (
+              <a
+                key={`web-${i}`}
+                href={url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-3 px-3 py-2 rounded-lg bg-accent/10 text-sm hover:bg-accent/20 transition-colors group"
+              >
+                <ExternalLink className="w-4 h-4 text-accent flex-shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <span className="text-foreground/80 block truncate">{title}</span>
+                  <span className="text-xs text-muted-foreground truncate block">{url}</span>
+                </div>
+                <span className="text-xs text-accent group-hover:underline transition-colors flex-shrink-0">
+                  Abrir ↗
+                </span>
+              </a>
+            ) : (
+              <div
+                key={`web-${i}`}
+                className="flex items-center gap-3 px-3 py-2 rounded-lg bg-accent/10 text-sm"
+              >
+                <ExternalLink className="w-4 h-4 text-accent flex-shrink-0" />
+                <span className="text-foreground/80 truncate flex-1">{source}</span>
+                <span className="text-xs text-muted-foreground">Busca web</span>
+              </div>
+            );
+          })}
         </div>
       )}
     </div>
