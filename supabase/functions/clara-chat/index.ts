@@ -7,10 +7,10 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// Model configuration based on response mode
+// Model configuration based on response mode (Direct Gemini API models)
 const MODEL_MAP: Record<string, { model: string; temperature: number; max_tokens: number }> = {
-  "fast": { model: "google/gemini-3-flash-preview", temperature: 0.5, max_tokens: 4096 },
-  "deep": { model: "google/gemini-3-pro-preview", temperature: 0.3, max_tokens: 8192 },
+  "fast": { model: "gemini-2.0-flash", temperature: 0.5, max_tokens: 4096 },
+  "deep": { model: "gemini-1.5-pro", temperature: 0.3, max_tokens: 8192 },
 };
 
 // Web search grounding configuration
@@ -671,154 +671,97 @@ Responda à pergunta do usuário com base no contexto fornecido. Se o contexto n
 
 Sempre cite as fontes quando usar informação do contexto [Nome do Documento].${webSearchInstruction}`;
 
-    // Build request body - add google_search tool when web search is needed
-    const requestBody: Record<string, unknown> = {
-      model: MODEL_MAP[mode]?.model || MODEL_MAP["fast"].model,
-      messages: [
-        { role: "system", content: CLARA_SYSTEM_PROMPT },
-        ...chatHistory,
-        { role: "user", content: userPrompt }
-      ],
-      stream: true,
-      temperature: MODEL_MAP[mode]?.temperature || MODEL_MAP["fast"].temperature,
-      max_tokens: MODEL_MAP[mode]?.max_tokens || MODEL_MAP["fast"].max_tokens,
+    // Use Google Generative AI SDK directly for chat completion (reuse genAI from embeddings)
+    const modelConfig = MODEL_MAP[mode] || MODEL_MAP["fast"];
+    
+    // Create chat model with optional Google Search grounding
+    // deno-lint-ignore no-explicit-any
+    const modelOptions: any = {
+      model: modelConfig.model,
+      generationConfig: {
+        temperature: modelConfig.temperature,
+        maxOutputTokens: modelConfig.max_tokens,
+      },
     };
-
+    
     // Enable Google Search grounding when local RAG is insufficient
     if (needsWebSearch) {
-      requestBody.tools = [{ google_search: {} }];
+      modelOptions.tools = [{ googleSearch: {} }];
       console.log("[clara-chat] Google Search grounding enabled for this request");
     }
+    
+    const chatModel = genAI.getGenerativeModel(modelOptions);
 
-    // Use Lovable AI Gateway for chat completion (OpenAI-compatible API)
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
+    // Build chat history for the SDK
+    const contents = [
+      ...chatHistory.map((msg: { role: string; content: string }) => ({
+        role: msg.role === "assistant" ? "model" : "user",
+        parts: [{ text: msg.content }],
+      })),
+      {
+        role: "user",
+        parts: [{ text: userPrompt }],
       },
-      body: JSON.stringify(requestBody),
-    });
+    ];
 
-    if (!response.ok) {
-      if (response.status === 429) {
+    console.log(`[clara-chat] Using direct Gemini API with model: ${modelConfig.model}, webSearch: ${needsWebSearch}`);
+
+    // Generate content with streaming
+    let result;
+    try {
+      result = await chatModel.generateContentStream({
+        contents,
+        systemInstruction: CLARA_SYSTEM_PROMPT,
+      });
+    } catch (error: unknown) {
+      const err = error as { status?: number; message?: string };
+      if (err.status === 429 || (err.message && err.message.includes("429"))) {
         return new Response(
           JSON.stringify({ error: "Limite de requisições da IA excedido. Tente novamente em alguns segundos." }),
           { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
-      if (response.status === 402) {
-        return new Response(
-          JSON.stringify({ error: "Créditos de IA esgotados. Entre em contato com o administrador." }),
-          { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-      const errorText = await response.text();
-      console.error("Lovable AI Gateway error:", response.status, errorText);
-      throw new Error(`AI gateway error: ${response.status}`);
+      throw error;
     }
 
     // Coletar fontes locais
     const localSources = documents?.map(d => d.title) || [];
     
-    // Create SSE stream that transforms OpenAI format to our format
+    // Create SSE stream from Google SDK stream
     const encoder = new TextEncoder();
-    const reader = response.body?.getReader();
     
-    if (!reader) {
-      throw new Error("No response body from AI gateway");
-    }
-
     // Track web sources from grounding metadata
     const webSources: string[] = [];
 
     const stream = new ReadableStream({
       async start(controller) {
         try {
-          // Enviar evento de início - customize message based on web search
+          // Enviar evento de início
           const thinkingStep = needsWebSearch 
             ? "Buscando na web e base de conhecimento..." 
             : "Buscando na base de conhecimento...";
           controller.enqueue(encoder.encode(`event: thinking\ndata: ${JSON.stringify({ status: "searching", step: thinkingStep })}\n\n`));
           
-          const decoder = new TextDecoder();
-          let buffer = "";
-          
-          while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
-            
-            buffer += decoder.decode(value, { stream: true });
-            
-            // Process line by line
-            let newlineIndex: number;
-            while ((newlineIndex = buffer.indexOf("\n")) !== -1) {
-              let line = buffer.slice(0, newlineIndex);
-              buffer = buffer.slice(newlineIndex + 1);
-              
-              if (line.endsWith("\r")) line = line.slice(0, -1);
-              if (line.startsWith(":") || line.trim() === "") continue;
-              if (!line.startsWith("data: ")) continue;
-              
-              const jsonStr = line.slice(6).trim();
-              if (jsonStr === "[DONE]") continue;
-              
-              try {
-                const parsed = JSON.parse(jsonStr);
-                const content = parsed.choices?.[0]?.delta?.content as string | undefined;
-                if (content) {
-                  controller.enqueue(encoder.encode(`event: delta\ndata: ${JSON.stringify({ content })}\n\n`));
-                }
-                
-                // Extract grounding metadata if present (web search sources)
-                const groundingMeta = parsed.choices?.[0]?.groundingMetadata || parsed.groundingMetadata;
-                if (groundingMeta?.groundingChunks) {
-                  for (const chunk of groundingMeta.groundingChunks) {
-                    if (chunk.web?.uri && chunk.web?.title) {
-                      const webSource = `${chunk.web.title} - ${chunk.web.uri}`;
-                      if (!webSources.includes(webSource)) {
-                        webSources.push(webSource);
-                      }
-                    }
-                  }
-                }
-              } catch {
-                // Incomplete JSON, put it back and wait for more data
-                buffer = line + "\n" + buffer;
-                break;
-              }
+          // Process streaming response
+          for await (const chunk of result.stream) {
+            const text = chunk.text();
+            if (text) {
+              controller.enqueue(encoder.encode(`event: delta\ndata: ${JSON.stringify({ content: text })}\n\n`));
             }
-          }
-          
-          // Final flush
-          if (buffer.trim()) {
-            for (let raw of buffer.split("\n")) {
-              if (!raw) continue;
-              if (raw.endsWith("\r")) raw = raw.slice(0, -1);
-              if (raw.startsWith(":") || raw.trim() === "") continue;
-              if (!raw.startsWith("data: ")) continue;
-              const jsonStr = raw.slice(6).trim();
-              if (jsonStr === "[DONE]") continue;
-              try {
-                const parsed = JSON.parse(jsonStr);
-                const content = parsed.choices?.[0]?.delta?.content as string | undefined;
-                if (content) {
-                  controller.enqueue(encoder.encode(`event: delta\ndata: ${JSON.stringify({ content })}\n\n`));
-                }
-                
-                // Extract grounding metadata from final chunks
-                const groundingMeta = parsed.choices?.[0]?.groundingMetadata || parsed.groundingMetadata;
-                if (groundingMeta?.groundingChunks) {
-                  for (const chunk of groundingMeta.groundingChunks) {
-                    if (chunk.web?.uri && chunk.web?.title) {
-                      const webSource = `${chunk.web.title} - ${chunk.web.uri}`;
-                      if (!webSources.includes(webSource)) {
-                        webSources.push(webSource);
-                      }
-                    }
+            
+            // Extract grounding metadata if present (web search sources)
+            // Note: SDK has a typo - it's "groundingChuncks" not "groundingChunks"
+            // deno-lint-ignore no-explicit-any
+            const groundingMeta = (chunk.candidates?.[0] as any)?.groundingMetadata;
+            if (groundingMeta?.groundingChuncks) {
+              for (const grChunk of groundingMeta.groundingChuncks) {
+                if (grChunk.web?.uri && grChunk.web?.title) {
+                  const webSource = `${grChunk.web.title} - ${grChunk.web.uri}`;
+                  if (!webSources.includes(webSource)) {
+                    webSources.push(webSource);
                   }
                 }
-              } catch { /* ignore partial leftovers */ }
+              }
             }
           }
           
