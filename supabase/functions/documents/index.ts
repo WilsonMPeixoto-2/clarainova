@@ -275,16 +275,41 @@ serve(async (req) => {
       // Extract text based on file type
       let contentText: string;
       
+      // File size limit for processing (15MB for PDF due to base64 expansion)
+      const MAX_PDF_SIZE = 15 * 1024 * 1024; // 15MB
+      const MAX_DOCX_SIZE = 50 * 1024 * 1024; // 50MB
+      
       if (isTXT) {
         contentText = await fileData.text();
         console.log(`[documents] TXT extracted: ${contentText.length} characters`);
       } else if (isPDF) {
+        // Check file size to prevent memory issues
+        if (fileData.size > MAX_PDF_SIZE) {
+          console.error(`[documents] PDF too large: ${Math.round(fileData.size / 1024 / 1024)}MB (max ${MAX_PDF_SIZE / 1024 / 1024}MB)`);
+          return new Response(
+            JSON.stringify({ 
+              error: `PDF muito grande (${Math.round(fileData.size / 1024 / 1024)}MB). O limite para PDFs é ${MAX_PDF_SIZE / 1024 / 1024}MB. Por favor, divida o documento em partes menores.`,
+              code: "FILE_TOO_LARGE",
+              maxSizeMB: MAX_PDF_SIZE / 1024 / 1024,
+              actualSizeMB: Math.round(fileData.size / 1024 / 1024)
+            }),
+            { status: 413, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+        
         // Extract text from PDF using Gemini (compatible with Deno)
         try {
           const arrayBuffer = await fileData.arrayBuffer();
-          const base64Data = btoa(
-            new Uint8Array(arrayBuffer).reduce((data, byte) => data + String.fromCharCode(byte), '')
-          );
+          
+          // Use chunked base64 encoding to reduce peak memory usage
+          const uint8Array = new Uint8Array(arrayBuffer);
+          const CHUNK_SIZE_B64 = 32768; // 32KB chunks for base64 encoding
+          let base64Data = '';
+          
+          for (let i = 0; i < uint8Array.length; i += CHUNK_SIZE_B64) {
+            const chunk = uint8Array.slice(i, i + CHUNK_SIZE_B64);
+            base64Data += btoa(String.fromCharCode.apply(null, [...chunk]));
+          }
           
           console.log(`[documents] PDF size: ${Math.round(arrayBuffer.byteLength / 1024)}KB, extracting with Gemini...`);
           
@@ -320,10 +345,24 @@ Responda APENAS com o texto extraído do documento.`
           }
         } catch (pdfError) {
           console.error("Erro ao extrair PDF:", pdfError);
+          const errorMessage = pdfError instanceof Error ? pdfError.message : "Erro desconhecido";
+          
+          // Check for specific error types
+          if (errorMessage.includes("memory") || errorMessage.includes("Memory")) {
+            return new Response(
+              JSON.stringify({ 
+                error: "PDF muito grande para processar. Por favor, divida o documento em partes menores (máximo 15MB).",
+                code: "MEMORY_EXCEEDED",
+                details: errorMessage
+              }),
+              { status: 413, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+            );
+          }
+          
           return new Response(
             JSON.stringify({ 
               error: "Erro ao processar PDF. Verifique se o arquivo não está corrompido ou protegido.",
-              details: pdfError instanceof Error ? pdfError.message : "Erro desconhecido"
+              details: errorMessage
             }),
             { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
           );

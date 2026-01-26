@@ -216,15 +216,19 @@ const Admin = () => {
       'text/plain',
     ];
 
-    const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB limit
+    // Size limits by file type (PDF limited due to base64 memory constraints in edge function)
+    const MAX_PDF_SIZE = 15 * 1024 * 1024; // 15MB limit for PDFs
+    const MAX_OTHER_SIZE = 50 * 1024 * 1024; // 50MB limit for DOCX/TXT
     
     const validFiles = Array.from(files).filter(file => {
       debugLog(`[Admin] Checking file: ${file.name}, type: ${file.type}, size: ${Math.round(file.size / 1024 / 1024)}MB`);
       
       const isValidType = allowedTypes.includes(file.type) || file.name.endsWith('.txt') || file.name.endsWith('.pdf') || file.name.endsWith('.docx');
-      const isValidSize = file.size <= MAX_FILE_SIZE;
+      const isPDF = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
+      const maxSize = isPDF ? MAX_PDF_SIZE : MAX_OTHER_SIZE;
+      const isValidSize = file.size <= maxSize;
       
-      debugLog(`[Admin] File ${file.name}: validType=${isValidType}, validSize=${isValidSize}`);
+      debugLog(`[Admin] File ${file.name}: validType=${isValidType}, validSize=${isValidSize}, isPDF=${isPDF}`);
       
       if (!isValidType) {
         debugLog(`[Admin] Invalid type for ${file.name}`);
@@ -237,10 +241,14 @@ const Admin = () => {
       }
       
       if (!isValidSize) {
-        debugLog(`[Admin] File too large: ${file.name} (${Math.round(file.size / 1024 / 1024)}MB)`);
+        const fileSizeMB = Math.round(file.size / 1024 / 1024);
+        const maxSizeMB = Math.round(maxSize / 1024 / 1024);
+        debugLog(`[Admin] File too large: ${file.name} (${fileSizeMB}MB, max: ${maxSizeMB}MB)`);
         toast({
           title: `Arquivo muito grande: ${file.name}`,
-          description: `Limite: 50MB. Seu arquivo: ${Math.round(file.size / 1024 / 1024)}MB.`,
+          description: isPDF 
+            ? `PDFs têm limite de ${maxSizeMB}MB para processamento. Seu arquivo: ${fileSizeMB}MB. Divida o documento em partes menores.`
+            : `Limite: ${maxSizeMB}MB. Seu arquivo: ${fileSizeMB}MB.`,
           variant: 'destructive',
         });
         return false;
