@@ -9,6 +9,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { toast } from "@/hooks/use-toast";
+import claraLogoPdf from "@/assets/clara-logo-pdf.png";
 
 interface DownloadPdfButtonProps {
   userQuery: string;
@@ -16,6 +17,28 @@ interface DownloadPdfButtonProps {
   timestamp: Date;
   sources?: { local: string[]; web?: string[] };
   className?: string;
+}
+
+// Function to load image and convert to base64 for jsPDF
+async function loadImageAsBase64(src: string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => {
+      const canvas = document.createElement("canvas");
+      canvas.width = img.width;
+      canvas.height = img.height;
+      const ctx = canvas.getContext("2d");
+      if (ctx) {
+        ctx.drawImage(img, 0, 0);
+        resolve(canvas.toDataURL("image/png"));
+      } else {
+        reject(new Error("Could not get canvas context"));
+      }
+    };
+    img.onerror = () => reject(new Error("Could not load image"));
+    img.src = src;
+  });
 }
 
 export function DownloadPdfButton({ 
@@ -51,32 +74,28 @@ export function DownloadPdfButton({
         return false;
       };
       
-      // Logo - Minimalist amber circle with "C"
-      const logoSize = 12;
-      const logoX = margin;
-      const logoY = currentY - 8;
-      
-      // Draw amber circle
-      doc.setFillColor(212, 165, 116); // Primary amber #D4A574
-      doc.circle(logoX + logoSize / 2, logoY + logoSize / 2, logoSize / 2, 'F');
-      
-      // Draw "C" letter in white
-      doc.setTextColor(255, 255, 255);
-      doc.setFontSize(10);
-      doc.setFont("helvetica", "bold");
-      doc.text("C", logoX + 3.5, logoY + 8.5);
-      
-      // Header text next to logo
-      doc.setTextColor(0);
-      doc.setFontSize(16);
-      doc.setFont("helvetica", "bold");
-      doc.text("CLARA", logoX + logoSize + 4, currentY);
-      currentY += 6;
-      doc.setFontSize(9);
-      doc.setFont("helvetica", "normal");
-      doc.setTextColor(80);
-      doc.text("Consultora de Legislação e Apoio a Rotinas Administrativas", logoX + logoSize + 4, currentY);
-      currentY += 8;
+      // Try to load and add logo image
+      try {
+        const logoBase64 = await loadImageAsBase64(claraLogoPdf);
+        // Add logo image - proportionally sized to fit header
+        const logoWidth = 60;
+        const logoHeight = 32; // Approximate aspect ratio
+        doc.addImage(logoBase64, "PNG", margin, currentY - 5, logoWidth, logoHeight);
+        currentY += logoHeight + 5;
+      } catch (error) {
+        // Fallback to text logo if image fails
+        console.warn("Could not load logo image, using text fallback");
+        doc.setTextColor(212, 165, 116); // Primary amber
+        doc.setFontSize(16);
+        doc.setFont("helvetica", "bold");
+        doc.text("CLARA", margin, currentY);
+        currentY += 6;
+        doc.setFontSize(9);
+        doc.setFont("helvetica", "normal");
+        doc.setTextColor(80);
+        doc.text("Consultora de Legislação e Apoio a Rotinas Administrativas", margin, currentY);
+        currentY += 8;
+      }
       
       // Date
       doc.setFontSize(10);
