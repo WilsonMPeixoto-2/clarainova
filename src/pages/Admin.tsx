@@ -516,7 +516,7 @@ const Admin = () => {
 
         toast({
           title: 'Upload concluído',
-          description: `"${file.name}" processado com sucesso (${completedFiles}/${totalFiles}).`,
+          description: `"${file.name}" processado com sucesso (${completedFiles}/${totalFiles}).${processResult?.warning ? `\n\nAviso: ${processResult.warning}` : ''}`,
         });
 
       } catch (error: any) {
