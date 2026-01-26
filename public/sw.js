@@ -17,7 +17,6 @@ const STATIC_ASSETS = [
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(STATIC_CACHE_NAME).then((cache) => {
-      console.log('[SW] Caching static assets');
       return cache.addAll(STATIC_ASSETS);
     })
   );
@@ -33,7 +32,6 @@ self.addEventListener('activate', (event) => {
         cacheNames
           .filter((name) => name !== STATIC_CACHE_NAME && name !== DYNAMIC_CACHE_NAME)
           .map((name) => {
-            console.log('[SW] Deleting old cache:', name);
             return caches.delete(name);
           })
       );
@@ -133,7 +131,6 @@ self.addEventListener('message', (event) => {
 // Background sync for offline queries (future enhancement)
 self.addEventListener('sync', (event) => {
   if (event.tag === 'sync-queries') {
-    console.log('[SW] Syncing offline queries');
     // Future: sync saved queries when back online
   }
 });

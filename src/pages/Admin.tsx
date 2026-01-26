@@ -30,6 +30,13 @@ interface Document {
   chunk_count?: number;
 }
 
+// Conditional debug logging (only in development)
+const debugLog = (...args: unknown[]) => {
+  if (import.meta.env.DEV) {
+    console.log(...args);
+  }
+};
+
 // Guard function to ensure file is a valid Blob (prevents silent failures)
 function assertIsBlobLike(x: unknown, filename: string): asserts x is Blob {
   if (!(x instanceof Blob)) {
@@ -196,10 +203,10 @@ const Admin = () => {
 
 
   const handleFileUpload = async (files: FileList | null) => {
-    console.log('[Admin] handleFileUpload called with files:', files?.length);
+    debugLog('[Admin] handleFileUpload called with files:', files?.length);
     
     if (!files || files.length === 0) {
-      console.log('[Admin] No files provided');
+      debugLog('[Admin] No files provided');
       return;
     }
 
@@ -212,15 +219,15 @@ const Admin = () => {
     const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB limit
     
     const validFiles = Array.from(files).filter(file => {
-      console.log(`[Admin] Checking file: ${file.name}, type: ${file.type}, size: ${Math.round(file.size / 1024 / 1024)}MB`);
+      debugLog(`[Admin] Checking file: ${file.name}, type: ${file.type}, size: ${Math.round(file.size / 1024 / 1024)}MB`);
       
       const isValidType = allowedTypes.includes(file.type) || file.name.endsWith('.txt') || file.name.endsWith('.pdf') || file.name.endsWith('.docx');
       const isValidSize = file.size <= MAX_FILE_SIZE;
       
-      console.log(`[Admin] File ${file.name}: validType=${isValidType}, validSize=${isValidSize}`);
+      debugLog(`[Admin] File ${file.name}: validType=${isValidType}, validSize=${isValidSize}`);
       
       if (!isValidType) {
-        console.log(`[Admin] Invalid type for ${file.name}`);
+        debugLog(`[Admin] Invalid type for ${file.name}`);
         toast({
           title: `Arquivo ignorado: ${file.name}`,
           description: 'Use apenas PDF, DOCX ou TXT.',
@@ -230,7 +237,7 @@ const Admin = () => {
       }
       
       if (!isValidSize) {
-        console.log(`[Admin] File too large: ${file.name} (${Math.round(file.size / 1024 / 1024)}MB)`);
+        debugLog(`[Admin] File too large: ${file.name} (${Math.round(file.size / 1024 / 1024)}MB)`);
         toast({
           title: `Arquivo muito grande: ${file.name}`,
           description: `Limite: 50MB. Seu arquivo: ${Math.round(file.size / 1024 / 1024)}MB.`,
@@ -242,10 +249,10 @@ const Admin = () => {
       return true;
     });
 
-    console.log('[Admin] Valid files count:', validFiles.length);
+    debugLog('[Admin] Valid files count:', validFiles.length);
 
     if (validFiles.length === 0) {
-      console.log('[Admin] No valid files to upload');
+      debugLog('[Admin] No valid files to upload');
       return;
     }
 
@@ -266,7 +273,7 @@ const Admin = () => {
         }
 
         // STEP 1: Get signed upload URL from Edge Function
-        console.log(`[Admin] Getting signed upload URL for ${file.name}...`);
+        debugLog(`[Admin] Getting signed upload URL for ${file.name}...`);
         setUploadProgress(Math.round(((completedFiles + 0.1) / totalFiles) * 100));
 
         const signedUrlResponse = await fetch(
@@ -293,26 +300,26 @@ const Admin = () => {
         }
 
         const signedUrlData = await signedUrlResponse.json();
-        console.log(`[Admin] Got signed URL for path: ${signedUrlData.path}`);
+        debugLog(`[Admin] Got signed URL for path: ${signedUrlData.path}`);
         setUploadProgress(Math.round(((completedFiles + 0.3) / totalFiles) * 100));
 
         // STEP 2: Upload file directly via PUT request (diagnostic definitivo)
-        console.log(`[Admin] ========== UPLOAD STEP 2 ==========`);
+        debugLog(`[Admin] ========== UPLOAD STEP 2 ==========`);
         
         // Validate file is a proper Blob before upload
         assertIsBlobLike(file, file.name);
-        console.log(`[Admin] ✓ File validated as Blob`);
-        console.log(`[Admin] File: ${file.name}`);
-        console.log(`[Admin] Size: ${file.size} bytes (${(file.size / 1024 / 1024).toFixed(2)} MB)`);
-        console.log(`[Admin] Type: ${file.type}`);
-        console.log(`[Admin] Target path: ${signedUrlData.path}`);
-        console.log(`[Admin] Bucket: ${signedUrlData.bucket}`);
-        console.log(`[Admin] Signed URL (first 100 chars): ${signedUrlData.signedUrl?.substring(0, 100)}...`);
+        debugLog(`[Admin] ✓ File validated as Blob`);
+        debugLog(`[Admin] File: ${file.name}`);
+        debugLog(`[Admin] Size: ${file.size} bytes (${(file.size / 1024 / 1024).toFixed(2)} MB)`);
+        debugLog(`[Admin] Type: ${file.type}`);
+        debugLog(`[Admin] Target path: ${signedUrlData.path}`);
+        debugLog(`[Admin] Bucket: ${signedUrlData.bucket}`);
+        debugLog(`[Admin] Signed URL (first 100 chars): ${signedUrlData.signedUrl?.substring(0, 100)}...`);
         
         // Mobile-optimized upload function
         const uploadFile = async (fileToUpload: File, signedUrl: string): Promise<Response> => {
           const isMobile = /mobile|android|iphone|ipad|ipod/i.test(navigator.userAgent);
-          console.log(`[Admin] Device type: ${isMobile ? 'Mobile' : 'Desktop'}`);
+          debugLog(`[Admin] Device type: ${isMobile ? 'Mobile' : 'Desktop'}`);
 
           // 1) Conservative limit on mobile
           const maxMb = isMobile ? 10 : 50;
@@ -324,19 +331,19 @@ const Admin = () => {
           const timeoutMs = isMobile ? 120000 : 30000;
           const controller = new AbortController();
           const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-          console.log(`[Admin] Upload timeout set to ${timeoutMs / 1000}s`);
+          debugLog(`[Admin] Upload timeout set to ${timeoutMs / 1000}s`);
 
           // 3) Content-Type with fallback (mobile sometimes comes empty)
           const isPdf = (fileToUpload.type?.includes("pdf") || fileToUpload.name?.toLowerCase().endsWith(".pdf"));
           const contentType = fileToUpload.type || (isPdf ? "application/pdf" : "application/octet-stream");
-          console.log(`[Admin] Using Content-Type: ${contentType}`);
+          debugLog(`[Admin] Using Content-Type: ${contentType}`);
 
           try {
             // 4) More compatible body on iOS (arrayBuffer for PDF)
             const body = isPdf ? await fileToUpload.arrayBuffer() : fileToUpload;
-            console.log(`[Admin] Body type: ${isPdf ? 'ArrayBuffer' : 'File'}`);
+            debugLog(`[Admin] Body type: ${isPdf ? 'ArrayBuffer' : 'File'}`);
 
-            console.log(`[Admin] PUT request starting...`);
+            debugLog(`[Admin] PUT request starting...`);
             const uploadRes = await fetch(signedUrl, {
               method: "PUT",
               headers: {
@@ -347,7 +354,7 @@ const Admin = () => {
             });
 
             clearTimeout(timeoutId);
-            console.log(`[Admin] PUT response status: ${uploadRes.status} ${uploadRes.statusText}`);
+            debugLog(`[Admin] PUT response status: ${uploadRes.status} ${uploadRes.statusText}`);
 
             if (!uploadRes.ok) {
               const msg = `Upload falhou: HTTP ${uploadRes.status}`;
@@ -372,16 +379,15 @@ const Admin = () => {
 
         // Execute the mobile-optimized upload
         const uploadResponse = await uploadFile(file, signedUrlData.signedUrl);
-        console.log(`[Admin] PUT response headers:`, Object.fromEntries(uploadResponse.headers.entries()));
+        debugLog(`[Admin] PUT response headers:`, Object.fromEntries(uploadResponse.headers.entries()));
         
         const responseBody = await uploadResponse.text().catch(() => '');
-        console.log(`[Admin] [UPLOAD OK]`, { status: uploadResponse.status, path: signedUrlData.path });
-        console.log(`[Admin] PUT SUCCESS - Response body: ${responseBody || '(empty)'}`);
-        
+        debugLog(`[Admin] [UPLOAD OK]`, { status: uploadResponse.status, path: signedUrlData.path });
+        debugLog(`[Admin] PUT SUCCESS - Response body: ${responseBody || '(empty)'}`);
         
         // Verify file exists in storage
-        console.log(`[Admin] ========== VERIFY UPLOAD ==========`);
-        console.log(`[Admin] Checking if file exists at: ${signedUrlData.path}`);
+        debugLog(`[Admin] ========== VERIFY UPLOAD ==========`);
+        debugLog(`[Admin] Checking if file exists at: ${signedUrlData.path}`);
         
         const { data: fileCheck, error: checkError } = await supabase.storage
           .from(signedUrlData.bucket)
@@ -392,20 +398,20 @@ const Admin = () => {
         } else {
           const fileName = signedUrlData.path.split('/').pop();
           const fileExists = fileCheck?.some(f => f.name === fileName);
-          console.log(`[Admin] File exists in bucket: ${fileExists}`);
-          console.log(`[Admin] Files in folder:`, fileCheck?.map(f => f.name));
+          debugLog(`[Admin] File exists in bucket: ${fileExists}`);
+          debugLog(`[Admin] Files in folder:`, fileCheck?.map(f => f.name));
         }
         
-        console.log(`[Admin] ========== UPLOAD COMPLETE ==========`);
+        debugLog(`[Admin] ========== UPLOAD COMPLETE ==========`);
 
         setUploadProgress(Math.round(((completedFiles + 0.6) / totalFiles) * 100));
 
         // STEP 3: Process document via documents Edge Function
-        console.log(`[Admin] ========== PROCESSING STEP 3 ==========`);
-        console.log(`[Admin] Calling documents Edge Function...`);
-        console.log(`[Admin] filePath: ${signedUrlData.path}`);
-        console.log(`[Admin] title: ${file.name.replace(/\.[^/.]+$/, '')}`);
-        console.log(`[Admin] fileType: ${file.type || signedUrlData.contentType}`);
+        debugLog(`[Admin] ========== PROCESSING STEP 3 ==========`);
+        debugLog(`[Admin] Calling documents Edge Function...`);
+        debugLog(`[Admin] filePath: ${signedUrlData.path}`);
+        debugLog(`[Admin] title: ${file.name.replace(/\.[^/.]+$/, '')}`);
+        debugLog(`[Admin] fileType: ${file.type || signedUrlData.contentType}`);
         
         const processPayload = {
           filePath: signedUrlData.path,
@@ -414,7 +420,7 @@ const Admin = () => {
           fileType: file.type || signedUrlData.contentType,
           originalName: file.name,
         };
-        console.log(`[Admin] Request payload:`, JSON.stringify(processPayload, null, 2));
+        debugLog(`[Admin] Request payload:`, JSON.stringify(processPayload, null, 2));
         
         const processResponse = await fetch(
           `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/documents`,
@@ -430,7 +436,7 @@ const Admin = () => {
           }
         );
         
-        console.log(`[Admin] Process response status: ${processResponse.status} ${processResponse.statusText}`);
+        debugLog(`[Admin] Process response status: ${processResponse.status} ${processResponse.statusText}`);
 
         setUploadProgress(Math.round(((completedFiles + 0.9) / totalFiles) * 100));
 
@@ -445,7 +451,7 @@ const Admin = () => {
           console.error('[Admin] Processing FAILED:', processResponse.status, errorData);
           // Clean up the uploaded file if processing failed
           try {
-            console.log('[Admin] Cleaning up uploaded file...');
+            debugLog('[Admin] Cleaning up uploaded file...');
             await supabase.storage.from('knowledge-base').remove([signedUrlData.path]);
           } catch (cleanupError) {
             console.error('[Admin] Cleanup error:', cleanupError);
@@ -454,15 +460,15 @@ const Admin = () => {
         }
 
         const processResult = await processResponse.json();
-        console.log(`[Admin] ========== PROCESSING SUCCESS ==========`);
-        console.log(`[Admin] Document ID: ${processResult.document?.id || 'unknown'}`);
-        console.log(`[Admin] Chunks created: ${processResult.document?.chunk_count || processResult.chunks || 'unknown'}`);
-        console.log(`[Admin] Full response:`, JSON.stringify(processResult, null, 2));
+        debugLog(`[Admin] ========== PROCESSING SUCCESS ==========`);
+        debugLog(`[Admin] Document ID: ${processResult.document?.id || 'unknown'}`);
+        debugLog(`[Admin] Chunks created: ${processResult.document?.chunk_count || processResult.chunks || 'unknown'}`);
+        debugLog(`[Admin] Full response:`, JSON.stringify(processResult, null, 2));
 
         completedFiles++;
         setUploadProgress(Math.round((completedFiles / totalFiles) * 100));
         
-        console.log(`[Admin] ========== FILE ${completedFiles}/${totalFiles} COMPLETE ==========`);
+        debugLog(`[Admin] ========== FILE ${completedFiles}/${totalFiles} COMPLETE ==========`);
 
         toast({
           title: 'Upload concluído',
