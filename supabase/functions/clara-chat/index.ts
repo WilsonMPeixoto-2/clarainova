@@ -13,6 +13,12 @@ const MODEL_MAP: Record<string, { model: string; temperature: number; max_tokens
   "deep": { model: "gemini-1.5-pro", temperature: 0.3, max_tokens: 8192 },
 };
 
+// Lovable AI Gateway model map (fallback when Gemini rate limits)
+const LOVABLE_MODEL_MAP: Record<string, { model: string; temperature: number; max_tokens: number }> = {
+  "fast": { model: "google/gemini-3-flash-preview", temperature: 0.5, max_tokens: 4096 },
+  "deep": { model: "google/gemini-3-pro-preview", temperature: 0.3, max_tokens: 8192 },
+};
+
 // Web search grounding configuration
 const WEB_SEARCH_CONFIG = {
   // Minimum chunks required to skip web search
@@ -706,8 +712,12 @@ Sempre cite as fontes quando usar informação do contexto [Nome do Documento].$
 
     console.log(`[clara-chat] Using direct Gemini API with model: ${modelConfig.model}, webSearch: ${needsWebSearch}`);
 
-    // Generate content with streaming
-    let result;
+    // Try Gemini API first, fallback to Lovable AI Gateway on 429
+    let result: Awaited<ReturnType<typeof chatModel.generateContentStream>> | null = null;
+    let useFallback = false;
+    let apiProvider: "gemini" | "lovable" = "gemini";
+    let activeModelName = modelConfig.model;
+    
     try {
       result = await chatModel.generateContentStream({
         contents,
@@ -716,31 +726,159 @@ Sempre cite as fontes quando usar informação do contexto [Nome do Documento].$
     } catch (error: unknown) {
       const err = error as { status?: number; message?: string };
       if (err.status === 429 || (err.message && err.message.includes("429"))) {
-        return new Response(
-          JSON.stringify({ error: "Limite de requisições da IA excedido. Tente novamente em alguns segundos." }),
-          { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
+        console.log("[clara-chat] Gemini rate limit hit (429), falling back to Lovable AI Gateway...");
+        useFallback = true;
+      } else {
+        throw error;
       }
-      throw error;
     }
 
     // Coletar fontes locais
     const localSources = documents?.map(d => d.title) || [];
     
-    // Create SSE stream from Google SDK stream
+    // Create SSE stream
     const encoder = new TextEncoder();
     
     // Track web sources from grounding metadata
     const webSources: string[] = [];
-    
-    // API provider identifier for client-side indicator
-    const apiProvider = "gemini";
 
+    // If we need to use fallback, use Lovable AI Gateway
+    if (useFallback) {
+      const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+      if (!LOVABLE_API_KEY) {
+        return new Response(
+          JSON.stringify({ error: "Limite de requisições excedido e fallback não configurado. Tente novamente em alguns segundos." }),
+          { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      
+      const lovableModelConfig = LOVABLE_MODEL_MAP[mode] || LOVABLE_MODEL_MAP["fast"];
+      activeModelName = lovableModelConfig.model;
+      apiProvider = "lovable";
+      
+      // Prepare messages for Lovable AI Gateway (OpenAI format)
+      const gatewayMessages = [
+        { role: "system", content: CLARA_SYSTEM_PROMPT },
+        ...chatHistory.map((msg: { role: string; content: string }) => ({
+          role: msg.role,
+          content: msg.content,
+        })),
+        { role: "user", content: userPrompt },
+      ];
+      
+      console.log(`[clara-chat] Using Lovable AI Gateway with model: ${lovableModelConfig.model}`);
+      
+      // Make request to Lovable AI Gateway
+      const gatewayResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${LOVABLE_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: lovableModelConfig.model,
+          messages: gatewayMessages,
+          temperature: lovableModelConfig.temperature,
+          max_tokens: lovableModelConfig.max_tokens,
+          stream: true,
+        }),
+      });
+      
+      if (!gatewayResponse.ok) {
+        if (gatewayResponse.status === 429) {
+          return new Response(
+            JSON.stringify({ error: "Ambas as APIs atingiram o limite. Tente novamente em alguns minutos." }),
+            { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+        if (gatewayResponse.status === 402) {
+          return new Response(
+            JSON.stringify({ error: "Créditos esgotados no gateway de fallback." }),
+            { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+        const errorText = await gatewayResponse.text();
+        console.error("[clara-chat] Lovable Gateway error:", gatewayResponse.status, errorText);
+        throw new Error(`Gateway error: ${gatewayResponse.status}`);
+      }
+      
+      // Stream from Lovable AI Gateway (OpenAI SSE format)
+      const gatewayReader = gatewayResponse.body!.getReader();
+      const decoder = new TextDecoder();
+      
+      const stream = new ReadableStream({
+        async start(controller) {
+          try {
+            // Enviar evento de provedor de API (fallback)
+            controller.enqueue(encoder.encode(`event: api_provider\ndata: ${JSON.stringify({ provider: apiProvider, model: activeModelName })}\n\n`));
+            
+            // Enviar evento de início
+            controller.enqueue(encoder.encode(`event: thinking\ndata: ${JSON.stringify({ status: "searching", step: "Usando API de fallback..." })}\n\n`));
+            
+            let buffer = "";
+            
+            while (true) {
+              const { done, value } = await gatewayReader.read();
+              if (done) break;
+              
+              buffer += decoder.decode(value, { stream: true });
+              
+              // Process complete lines
+              let newlineIndex: number;
+              while ((newlineIndex = buffer.indexOf("\n")) !== -1) {
+                const line = buffer.slice(0, newlineIndex).trim();
+                buffer = buffer.slice(newlineIndex + 1);
+                
+                if (!line || line.startsWith(":")) continue;
+                if (!line.startsWith("data: ")) continue;
+                
+                const jsonStr = line.slice(6).trim();
+                if (jsonStr === "[DONE]") continue;
+                
+                try {
+                  const parsed = JSON.parse(jsonStr);
+                  const content = parsed.choices?.[0]?.delta?.content;
+                  if (content) {
+                    controller.enqueue(encoder.encode(`event: delta\ndata: ${JSON.stringify({ content })}\n\n`));
+                  }
+                } catch {
+                  // Ignore parse errors for incomplete chunks
+                }
+              }
+            }
+            
+            // Enviar fontes locais (no web sources from fallback)
+            if (localSources.length > 0) {
+              controller.enqueue(encoder.encode(`event: sources\ndata: ${JSON.stringify({ local: localSources })}\n\n`));
+            }
+            
+            controller.enqueue(encoder.encode(`event: done\ndata: {}\n\n`));
+            controller.close();
+          } catch (error) {
+            console.error("Erro no streaming (fallback):", error);
+            const errorMessage = error instanceof Error ? error.message : "Erro desconhecido";
+            controller.enqueue(encoder.encode(`event: error\ndata: ${JSON.stringify({ message: errorMessage })}\n\n`));
+            controller.close();
+          }
+        }
+      });
+      
+      return new Response(stream, {
+        headers: {
+          ...corsHeaders,
+          "Content-Type": "text/event-stream",
+          "Cache-Control": "no-cache",
+          "Connection": "keep-alive"
+        }
+      });
+    }
+
+    // Primary path: Stream from Gemini SDK
     const stream = new ReadableStream({
       async start(controller) {
         try {
           // Enviar evento de provedor de API
-          controller.enqueue(encoder.encode(`event: api_provider\ndata: ${JSON.stringify({ provider: apiProvider, model: modelConfig.model })}\n\n`));
+          controller.enqueue(encoder.encode(`event: api_provider\ndata: ${JSON.stringify({ provider: apiProvider, model: activeModelName })}\n\n`));
           
           // Enviar evento de início
           const thinkingStep = needsWebSearch 
@@ -749,7 +887,7 @@ Sempre cite as fontes quando usar informação do contexto [Nome do Documento].$
           controller.enqueue(encoder.encode(`event: thinking\ndata: ${JSON.stringify({ status: "searching", step: thinkingStep })}\n\n`));
           
           // Process streaming response
-          for await (const chunk of result.stream) {
+          for await (const chunk of result!.stream) {
             const text = chunk.text();
             if (text) {
               controller.enqueue(encoder.encode(`event: delta\ndata: ${JSON.stringify({ content: text })}\n\n`));
