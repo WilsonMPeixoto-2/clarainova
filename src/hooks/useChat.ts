@@ -3,6 +3,11 @@ import { supabase } from "@/integrations/supabase/client";
 
 export type ResponseMode = "fast" | "deep";
 
+export interface ApiProviderInfo {
+  provider: "gemini" | "lovable";
+  model: string;
+}
+
 export interface ChatMessage {
   id: string;
   role: "user" | "assistant";
@@ -15,6 +20,7 @@ export interface ChatMessage {
   isStreaming?: boolean;
   queryId?: string; // ID from query_analytics for feedback
   userQuery?: string; // Original user query for PDF export (only on assistant messages)
+  apiProvider?: ApiProviderInfo; // Which API was used for this response
 }
 
 interface ThinkingState {
@@ -109,6 +115,7 @@ export function useChat(options: UseChatOptions = {}) {
     let assistantContent = "";
     let localSources: string[] = [];
     let webSources: string[] = [];
+    let apiProviderInfo: ApiProviderInfo | undefined;
 
     setMessages(prev => [
       ...prev,
@@ -189,6 +196,19 @@ export function useChat(options: UseChatOptions = {}) {
               const data = JSON.parse(jsonStr);
 
               switch (eventType) {
+                case "api_provider":
+                  if (data.provider && data.model) {
+                    apiProviderInfo = { provider: data.provider, model: data.model };
+                    setMessages(prev => 
+                      prev.map(msg => 
+                        msg.id === assistantId 
+                          ? { ...msg, apiProvider: apiProviderInfo }
+                          : msg
+                      )
+                    );
+                  }
+                  break;
+
                 case "thinking":
                   setThinking({ isThinking: true, step: data.step || "Processando..." });
                   break;
@@ -292,6 +312,7 @@ export function useChat(options: UseChatOptions = {}) {
                 sources: finalSources,
                 queryId: savedQueryId || undefined,
                 userQuery: userQueryContent, // Store original query for PDF export
+                apiProvider: apiProviderInfo, // Store which API was used
               }
             : msg
         );

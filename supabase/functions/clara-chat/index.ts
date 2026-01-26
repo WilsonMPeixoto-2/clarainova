@@ -732,10 +732,16 @@ Sempre cite as fontes quando usar informação do contexto [Nome do Documento].$
     
     // Track web sources from grounding metadata
     const webSources: string[] = [];
+    
+    // API provider identifier for client-side indicator
+    const apiProvider = "gemini";
 
     const stream = new ReadableStream({
       async start(controller) {
         try {
+          // Enviar evento de provedor de API
+          controller.enqueue(encoder.encode(`event: api_provider\ndata: ${JSON.stringify({ provider: apiProvider, model: modelConfig.model })}\n\n`));
+          
           // Enviar evento de início
           const thinkingStep = needsWebSearch 
             ? "Buscando na web e base de conhecimento..." 
