@@ -1,100 +1,96 @@
 
-# Plano: Processamento de PDFs Grandes via URL
 
-## Resumo do Problema
-Quando você tenta fazer upload de PDFs grandes (acima de ~15MB), o sistema trava porque o servidor precisa baixar o arquivo inteiro e converter para um formato especial (base64), o que usa muita memória.
+# Plano: Fallback com Lovable AI para Processamento de Documentos
+
+## Problema Identificado
+A conexão está funcionando corretamente. O erro 400 que você viu foi causado porque a **cota gratuita do Gemini esgotou** (erro 429 nos bastidores). O PDF de 34MB foi enviado com sucesso, mas o Gemini não pôde processar.
 
 ## Solução Proposta
-Em vez de baixar o PDF para o servidor, vamos **enviar apenas o link do arquivo** para o serviço de inteligência artificial. Assim, o próprio serviço de IA baixa e processa o arquivo diretamente, sem sobrecarregar o servidor.
+Implementar o mesmo sistema de fallback que já existe no chat: quando o Gemini retornar erro de cota (429), automaticamente tentar processar via **Lovable AI**.
 
-**Benefícios:**
-- PDFs de até **50MB** poderão ser processados (antes era 15MB)
-- Processamento mais rápido (menos etapas)
-- Servidor não precisa carregar o arquivo na memória
+## Benefícios
+- O processamento de documentos continua funcionando mesmo com cota esgotada
+- Não precisa aguardar reset da cota ou pagar por chave premium
+- Consistência com o comportamento do chat
 
 ## O que será alterado
 
-### 1. Função de processamento de documentos
-- Ao receber um PDF, gerar um link temporário (válido por 5 minutos)
-- Enviar esse link diretamente para o Gemini processar
-- Remover o código que baixa e converte o arquivo
+### Arquivo: `supabase/functions/documents/index.ts`
 
-### 2. Atualização dos limites no painel Admin
-- Aumentar o limite de PDFs de 15MB para 50MB
-- Manter validação para outros formatos
-
-### 3. Mensagens de erro mais claras
-- Se o PDF for maior que 50MB, orientar a dividir o documento
-
----
-
-## Detalhes Técnicos
-
-### Mudanças no arquivo `supabase/functions/documents/index.ts`
+1. Adicionar variável de ambiente para Lovable AI
+2. Criar função de extração via Lovable AI (similar ao clara-chat)
+3. Implementar lógica de fallback: se Gemini falhar com 429, tentar Lovable AI
 
 ```text
 ┌─────────────────────────────────────────────────────────────┐
-│ ANTES (método atual)                                        │
+│ FLUXO ATUAL                                                 │
 ├─────────────────────────────────────────────────────────────┤
-│ 1. Download do PDF para memória do servidor                 │
-│ 2. Converter bytes para base64 (dobra o uso de memória)     │
-│ 3. Enviar base64 para Gemini                                │
-│ 4. LIMITE: ~15MB (memória estoura com arquivos maiores)     │
+│ PDF → URL Assinada → Gemini API                             │
+│         ↓                                                   │
+│      Se 429 → ERRO (parou aqui)                             │
 └─────────────────────────────────────────────────────────────┘
 
 ┌─────────────────────────────────────────────────────────────┐
-│ DEPOIS (novo método)                                        │
+│ FLUXO PROPOSTO                                              │
 ├─────────────────────────────────────────────────────────────┤
-│ 1. Gerar URL assinada do arquivo no Storage                 │
-│ 2. Enviar URL diretamente para Gemini                       │
-│ 3. Gemini acessa e processa o arquivo                       │
-│ 4. LIMITE: ~50MB (sem uso de memória do servidor)           │
+│ PDF → URL Assinada → Gemini API                             │
+│         ↓                                                   │
+│      Se 429 → Tenta Lovable AI (fallback)                   │
+│                   ↓                                         │
+│               Sucesso → Continua processamento              │
 └─────────────────────────────────────────────────────────────┘
 ```
 
-### Código principal a ser modificado
+## Detalhes Técnicos
 
-**Gerar URL assinada:**
+### Variáveis de ambiente necessárias
+- `LOVABLE_API_KEY` - já configurada no projeto
+
+### Função de extração via Lovable AI
 ```typescript
-const { data: signedUrlData } = await supabase.storage
-  .from("knowledge-base")
-  .createSignedUrl(filePath, 300); // 5 minutos
-
-const signedUrl = signedUrlData?.signedUrl;
+async function extractPdfViaLovableAI(signedUrl: string): Promise<string> {
+  const response = await fetch("https://ai.lovable.dev/api/v1/chat", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${LOVABLE_API_KEY}`,
+    },
+    body: JSON.stringify({
+      model: "google/gemini-2.5-flash",
+      messages: [{
+        role: "user",
+        content: [
+          { type: "file_url", file_url: { url: signedUrl } },
+          { type: "text", text: "Extraia TODO o texto deste PDF..." }
+        ]
+      }]
+    }),
+  });
+  // ... parse response
+}
 ```
 
-**Enviar URL para o Gemini (em vez de base64):**
+### Lógica de fallback
 ```typescript
-const result = await model.generateContent([
-  {
-    fileData: {
-      mimeType: "application/pdf",
-      fileUri: signedUrl  // URL em vez de base64
-    }
-  },
-  { text: "Extraia TODO o texto deste documento..." }
-]);
+try {
+  // Tentar Gemini primeiro
+  contentText = await extractWithGemini(signedUrl);
+} catch (geminiError) {
+  if (isRateLimitError(geminiError)) {
+    console.log("[documents] Gemini rate limited, trying Lovable AI...");
+    contentText = await extractPdfViaLovableAI(signedUrl);
+  } else {
+    throw geminiError;
+  }
+}
 ```
-
-### Mudanças no arquivo `src/pages/Admin.tsx`
-
-- Atualizar `MAX_PDF_SIZE` de 15MB para 50MB
-- Ajustar mensagens de validação
-
-### Compatibilidade
-
-- **TXT e DOCX**: Continuam funcionando como antes (já são leves)
-- **PDFs**: Passam a usar o novo método via URL
-- **Fallback**: Se a URL assinada falhar, tentar o método antigo como backup
-
----
 
 ## Resumo das Alterações
 
 | Arquivo | Mudança |
 |---------|---------|
-| `supabase/functions/documents/index.ts` | Processar PDF via URL assinada em vez de base64 |
-| `src/pages/Admin.tsx` | Aumentar limite de PDF para 50MB |
+| `supabase/functions/documents/index.ts` | Adicionar fallback com Lovable AI para extração de PDF |
 
 ## Resultado Esperado
-Após a implementação, você poderá fazer upload de PDFs de até 50MB sem erros de memória ou timeout.
+Após a implementação, o processamento de documentos grandes continuará funcionando mesmo quando a cota do Gemini esgotar.
+
