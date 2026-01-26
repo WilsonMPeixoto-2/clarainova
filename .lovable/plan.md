@@ -1,171 +1,234 @@
 
 
-# Plano: Refinar Escopo da CLARA com Foco em Inclusoes e Modelos de Conversao
+# Plano: Seletor de Modo de Resposta (Rápido vs. Profundo)
 
-## Objetivo
+## Visão Geral
 
-Substituir o escopo generico atual por uma definicao precisa do que a CLARA PODE responder, evitando que se torne um "ChatGPT pessoal". Adicionar modelos prontos de recusa + conversao para guiar usuarios de volta ao escopo.
+Implementar um toggle/botão que permite ao usuário escolher entre dois modos de resposta:
 
----
+| Modo | Rótulo para Usuário | Modelo Real | Características |
+|------|---------------------|-------------|-----------------|
+| **Rápido** | "Resposta Rápida" | `google/gemini-3-flash-preview` | Menor latência, bom para dúvidas simples |
+| **Profundo** | "Análise Completa" | `google/gemini-3-pro-preview` | Raciocínio avançado, ideal para legislação complexa |
 
-## Diagnostico do Problema Atual
-
-| Aspecto | Situacao Atual | Problema |
-|---------|----------------|----------|
-| Escopo "Posso ajudar" | "Procedimentos administrativos gerais", "Sistemas de gestao publica" | Muito vago, abre brecha para qualquer pergunta |
-| Lista de exclusoes | 3 itens genericos | Nao cobre casos reais (receitas, esportes, opinioes) |
-| Modelos de recusa | Generico ("agradeca educadamente") | Sem conversao pratica para o escopo correto |
+Os nomes técnicos (Google, Gemini) ficam ocultos - o usuário só vê rótulos amigáveis.
 
 ---
 
-## Arquivo a Modificar
-
-`supabase/functions/clara-chat/index.ts` (linhas 65-88, secao de Escopo)
-
----
-
-## Nova Estrutura do Escopo
-
-### Bloco 1: Escopo Positivo (O Que ESTA Incluido)
+## Arquitetura da Solução
 
 ```text
-## Escopo de Atuacao (Definicao Precisa)
-
-Voce SOMENTE responde perguntas sobre:
-
-1. **Sistemas SEI (SEI!Rio e SEI Federal)**
-   - Criacao, tramitacao e arquivamento de processos
-   - Inclusao, edicao e assinatura de documentos
-   - Blocos de assinatura (internos e externos)
-   - Niveis de acesso e permissoes
-   - Pesquisa e localizacao de processos
-   - Erros operacionais e suas solucoes
-
-2. **Procedimentos Administrativos Formais**
-   - Prestacao de contas de verbas (ex: como prestar contas do PDDE?)
-   - Formalizacao de acoes administrativas (ex: como formalizar uma dispensa de licitacao?)
-   - Documentos necessarios para procedimentos especificos
-   - Fluxos e tramites institucionais
-
-3. **Legislacao e Normas Vigentes**
-   - Decretos, portarias e resolucoes aplicaveis
-   - Consultas do tipo "qual decreto regula X?"
-   - Prazos legais e obrigacoes normativas
-   - Orientacoes de orgaos oficiais (CGM, TCM, etc.)
-```
-
-### Bloco 2: Modelos de Recusa + Conversao
-
-```text
-## Tratamento de Perguntas Fora do Escopo
-
-Se a pergunta NAO se enquadrar nos 3 eixos acima, use um dos modelos:
-
-**Modelo 1: Recusa + Sugestao de Reformulacao**
-> "Meu foco e apoiar rotinas administrativas no SEI e procedimentos formais. Se sua duvida estiver relacionada a algum processo administrativo ou ao uso do sistema, ficarei feliz em ajudar. Podemos reformular?"
-
-**Modelo 2: Recusa + Conversao Proativa**
-> "Essa pergunta esta fora do meu escopo, mas posso ajudar se voce tiver duvidas sobre:
-> - Como registrar isso no SEI
-> - Qual procedimento administrativo se aplica
-> - Qual legislacao regula esse assunto
-> Quer explorar algum desses angulos?"
-
-**Nunca responda perguntas sobre:**
-- Assuntos pessoais (saude, relacionamentos, receitas)
-- Esportes, entretenimento ou cultura geral
-- Opiniao politica ou posicionamento ideologico
-- Suporte tecnico de TI (rede, hardware, software)
-- Interpretacao juridica de casos concretos (isso e papel de advogado)
+┌─────────────────────────────────────────────────────────────┐
+│                      FRONTEND                               │
+│                                                             │
+│  ┌─────────────────────────────────────────────────────┐   │
+│  │ ChatInput.tsx                                        │   │
+│  │  ┌───────────────────────────────────────────────┐  │   │
+│  │  │  [⚡ Rápido]  [🧠 Análise Completa]           │  │   │
+│  │  │       ↓ toggle selecionado                    │  │   │
+│  │  │  state: responseMode = "fast" | "deep"        │  │   │
+│  │  └───────────────────────────────────────────────┘  │   │
+│  └─────────────────────────────────────────────────────┘   │
+│                          │                                  │
+│                          ▼                                  │
+│  ┌─────────────────────────────────────────────────────┐   │
+│  │ useChat.ts                                           │   │
+│  │   sendMessage(content, mode) → POST /clara-chat      │   │
+│  │   body: { message, history, mode: "fast"|"deep" }    │   │
+│  └─────────────────────────────────────────────────────┘   │
+└─────────────────────────────────────────────────────────────┘
+                            │
+                            ▼
+┌─────────────────────────────────────────────────────────────┐
+│                  EDGE FUNCTION                              │
+│                                                             │
+│  supabase/functions/clara-chat/index.ts                    │
+│  ┌─────────────────────────────────────────────────────┐   │
+│  │  const mode = body.mode || "fast";                   │   │
+│  │                                                      │   │
+│  │  const MODEL_MAP = {                                 │   │
+│  │    "fast": "google/gemini-3-flash-preview",          │   │
+│  │    "deep": "google/gemini-3-pro-preview"             │   │
+│  │  };                                                  │   │
+│  │                                                      │   │
+│  │  model: MODEL_MAP[mode]                              │   │
+│  └─────────────────────────────────────────────────────┘   │
+└─────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## Codigo Completo da Secao Atualizada
+## Etapas de Implementação
 
+### Etapa 1: Atualizar Edge Function (`clara-chat`)
+
+**Arquivo:** `supabase/functions/clara-chat/index.ts`
+
+**Mudanças:**
+1. Adicionar constante `MODEL_MAP` no topo do arquivo:
+   ```typescript
+   const MODEL_MAP: Record<string, string> = {
+     "fast": "google/gemini-3-flash-preview",
+     "deep": "google/gemini-3-pro-preview"
+   };
+   ```
+
+2. Extrair o parâmetro `mode` do body da requisição (com default "fast"):
+   ```typescript
+   const { message, history = [], mode = "fast" } = await req.json();
+   ```
+
+3. Usar o modelo correto na chamada à API:
+   ```typescript
+   model: MODEL_MAP[mode] || MODEL_MAP["fast"],
+   ```
+
+4. Ajustar `max_tokens` e `temperature` por modo (opcional):
+   - Fast: `temperature: 0.5`, `max_tokens: 4096`
+   - Deep: `temperature: 0.3`, `max_tokens: 8192`
+
+---
+
+### Etapa 2: Atualizar Hook `useChat`
+
+**Arquivo:** `src/hooks/useChat.ts`
+
+**Mudanças:**
+1. Adicionar tipo para o modo:
+   ```typescript
+   export type ResponseMode = "fast" | "deep";
+   ```
+
+2. Modificar `sendMessage` para aceitar o modo:
+   ```typescript
+   const sendMessage = useCallback(async (content: string, mode: ResponseMode = "fast") => {
+   ```
+
+3. Incluir `mode` no body do fetch:
+   ```typescript
+   body: JSON.stringify({
+     message: content,
+     history: historyForApi.slice(0, -1),
+     mode: mode
+   }),
+   ```
+
+---
+
+### Etapa 3: Criar Componente de Seleção de Modo
+
+**Arquivo (novo):** `src/components/chat/ResponseModeSelector.tsx`
+
+**Funcionalidade:**
+- Toggle com dois botões estilizados
+- Ícones visuais: ⚡ (Rápido) e 🧠 (Análise Completa)
+- Tooltip explicando cada modo
+- Estado controlado pelo componente pai
+
+**Design sugerido:**
+```text
+┌──────────────────────────────────────┐
+│  [⚡ Rápido]   [🧠 Análise Completa] │
+│     ↑ selecionado (fundo primário)   │
+└──────────────────────────────────────┘
+```
+
+---
+
+### Etapa 4: Integrar no ChatInput
+
+**Arquivo:** `src/components/chat/ChatInput.tsx`
+
+**Mudanças:**
+1. Importar e usar `ResponseModeSelector`
+2. Adicionar estado local: `const [mode, setMode] = useState<ResponseMode>("fast")`
+3. Posicionar o seletor acima ou ao lado do campo de texto
+4. Passar o `mode` no `onSend`:
+   ```typescript
+   interface ChatInputProps {
+     onSend: (message: string, mode: ResponseMode) => void;
+     // ...
+   }
+   ```
+
+---
+
+### Etapa 5: Atualizar ChatPanel
+
+**Arquivo:** `src/components/chat/ChatPanel.tsx`
+
+**Mudanças:**
+- Ajustar a chamada do `sendMessage` para passar o modo recebido do `ChatInput`
+- As sugestões de perguntas usam modo "fast" por padrão
+
+---
+
+## Design Visual do Seletor
+
+Duas opções de posicionamento:
+
+**Opção A - Dentro do ChatInput (recomendada):**
+```text
+┌────────────────────────────────────────────────────┐
+│  [⚡ Rápido] [🧠 Completa]                         │
+├────────────────────────────────────────────────────┤
+│  Digite sua pergunta...                      [➤]  │
+└────────────────────────────────────────────────────┘
+```
+
+**Opção B - Barra de status inferior:**
+```text
+┌────────────────────────────────────────────────────┐
+│  Digite sua pergunta...                      [➤]  │
+├────────────────────────────────────────────────────┤
+│  Modo: [⚡ Rápido] [🧠 Completa]    120/2000      │
+└────────────────────────────────────────────────────┘
+```
+
+**Cores:**
+- Botão selecionado: fundo `bg-primary`, texto `text-primary-foreground`
+- Botão não selecionado: fundo `bg-muted/50`, texto `text-muted-foreground`
+- Transição suave com `transition-colors`
+
+---
+
+## Tooltips Explicativos
+
+| Modo | Tooltip |
+|------|---------|
+| ⚡ Rápido | "Respostas ágeis para dúvidas simples e procedimentos do dia a dia." |
+| 🧠 Análise Completa | "Análise mais profunda para questões complexas de legislação e normas." |
+
+---
+
+## Persistência (Opcional)
+
+O modo selecionado pode ser salvo no `localStorage` para manter a preferência do usuário entre sessões:
 ```typescript
-## Escopo de Atuacao
-
-Voce SOMENTE responde perguntas sobre:
-
-**1. Sistemas SEI (SEI!Rio e SEI Federal)**
-- Criacao, tramitacao e arquivamento de processos
-- Inclusao, edicao e assinatura de documentos
-- Blocos de assinatura (internos e externos)
-- Niveis de acesso, permissoes e credenciamento
-- Pesquisa, localizacao e acompanhamento de processos
-- Erros operacionais do sistema e suas solucoes
-
-**2. Procedimentos Administrativos Formais**
-- Prestacao de contas de verbas (PDDE, FNDE, verbas municipais)
-- Formalizacao de acoes (dispensas, inexigibilidades, contratos)
-- Documentos necessarios para cada tipo de procedimento
-- Fluxos e tramites entre setores e orgaos
-
-**3. Legislacao e Normas Vigentes**
-- Decretos, portarias, resolucoes e instrucoes normativas
-- Consultas do tipo "qual decreto regula X?"
-- Prazos legais, obrigacoes e penalidades
-- Orientacoes de orgaos de controle (CGM, TCM, CGU)
-
-## Tratamento de Perguntas Fora do Escopo
-
-Se a pergunta NAO se enquadrar nos 3 eixos acima, use um destes modelos:
-
-**Modelo 1 - Recusa + Reformulacao:**
-"Meu foco e apoiar rotinas administrativas no SEI e procedimentos formais. Se sua duvida estiver relacionada a algum processo administrativo ou ao uso do sistema, ficarei feliz em ajudar. Podemos reformular?"
-
-**Modelo 2 - Recusa + Conversao Proativa:**
-"Essa pergunta esta fora do meu escopo, mas posso ajudar se voce tiver duvidas sobre:
-- Como registrar isso no SEI
-- Qual procedimento administrativo se aplica
-- Qual legislacao regula esse assunto
-Quer explorar algum desses angulos?"
-
-**Lista de exclusao explicita (nunca responda):**
-- Assuntos pessoais (saude, receitas, relacionamentos)
-- Esportes, entretenimento, cultura geral
-- Opiniao politica ou ideologica
-- Suporte de TI (rede, hardware, software)
-- Interpretacao juridica de casos concretos
+const STORAGE_KEY = "clara-response-mode";
+const [mode, setMode] = useLocalStorage<ResponseMode>(STORAGE_KEY, "fast");
 ```
 
 ---
 
-## Integracao com o Prompt Completo
+## Considerações Técnicas
 
-Esta secao substituira as linhas 65-88 do prompt atual. O restante do prompt (identidade, formatacao, protocolo de resposta) permanece inalterado.
-
----
-
-## Comparativo: Antes vs Depois
-
-| Aspecto | Antes | Depois |
-|---------|-------|--------|
-| Definicao de escopo | "Procedimentos administrativos gerais" (vago) | 3 eixos precisos com exemplos |
-| Modelo de recusa | "Agradeca educadamente" (sem estrutura) | 2 modelos prontos com conversao |
-| Lista de exclusao | 3 itens genericos | 5 categorias explicitas |
-| Risco de uso indevido | Alto (brecha para qualquer pergunta) | Baixo (escopo bem delimitado) |
+| Aspecto | Detalhe |
+|---------|---------|
+| **Custo** | O modo "deep" (Pro) consome mais créditos que o "fast" (Flash) |
+| **Latência** | Flash responde ~2-3x mais rápido que Pro |
+| **Default** | "fast" é o padrão - maioria das dúvidas são operacionais |
+| **Migração** | Atualiza de `gemini-2.5-flash` para `gemini-3-flash-preview` |
 
 ---
 
-## Exemplos de Comportamento Esperado
+## Arquivos Afetados
 
-**Pergunta permitida:** "Como fazer prestacao de contas do PDDE?"
-- Resposta: Passo a passo detalhado com fontes
-
-**Pergunta permitida:** "Qual decreto regula dispensa de licitacao?"
-- Resposta: Citacao do decreto aplicavel
-
-**Pergunta fora do escopo:** "Qual a melhor dieta para emagrecer?"
-- Resposta: Modelo 1 (recusa + reformulacao)
-
-**Pergunta convertivel:** "Meu chefe quer que eu faca X, o que fazer?"
-- Resposta: Modelo 2 (conversao proativa - perguntar se ha procedimento administrativo envolvido)
-
----
-
-## Resumo
-
-Esta atualizacao transforma o escopo de "generico" para "cirurgico", definindo com precisao o que a CLARA pode responder (SEI + Procedimentos + Legislacao) e fornecendo modelos prontos para recusar e converter perguntas fora do escopo. Isso evita que a ferramenta seja usada como "ChatGPT pessoal" enquanto mantem a utilidade para servidores publicos.
+| Arquivo | Ação |
+|---------|------|
+| `supabase/functions/clara-chat/index.ts` | Modificar - adicionar MODEL_MAP e extrair mode |
+| `src/hooks/useChat.ts` | Modificar - adicionar parâmetro mode |
+| `src/components/chat/ResponseModeSelector.tsx` | **Criar** - novo componente |
+| `src/components/chat/ChatInput.tsx` | Modificar - integrar seletor |
+| `src/components/chat/ChatPanel.tsx` | Modificar - propagar mode nas chamadas |
 
