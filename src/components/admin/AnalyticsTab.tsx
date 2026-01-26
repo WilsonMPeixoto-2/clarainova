@@ -1,11 +1,13 @@
 import { useState, useEffect, useMemo } from "react";
-import { RefreshCw, Download, TrendingUp, TrendingDown, MessageSquare, ThumbsUp, ThumbsDown, Eye, Search } from "lucide-react";
+import { RefreshCw, Download, TrendingUp, TrendingDown, MessageSquare, ThumbsUp, ThumbsDown, Eye, Search, BarChart3 } from "lucide-react";
+import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { FeedbackDetailModal } from "./FeedbackDetailModal";
+import { StorageMonitor } from "./StorageMonitor";
 
 interface QueryAnalytics {
   id: string;
@@ -13,6 +15,7 @@ interface QueryAnalytics {
   assistant_response: string;
   sources_cited: string[];
   created_at: string;
+  session_fingerprint?: string | null;
 }
 
 interface ResponseFeedback {
@@ -118,6 +121,40 @@ export function AnalyticsTab() {
       satisfactionRate,
     };
   }, [queries, feedbacks]);
+
+  // Calculate daily feedback trend for chart (last 30 days)
+  const feedbackTrendData = useMemo(() => {
+    const now = new Date();
+    const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+    
+    // Create a map for each day
+    const dailyData: Record<string, { date: string; positive: number; negative: number }> = {};
+    
+    // Initialize last 30 days
+    for (let i = 29; i >= 0; i--) {
+      const date = new Date(now.getTime() - i * 24 * 60 * 60 * 1000);
+      const dateKey = date.toISOString().split("T")[0];
+      const displayDate = date.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
+      dailyData[dateKey] = { date: displayDate, positive: 0, negative: 0 };
+    }
+    
+    // Count feedbacks by day
+    feedbacks.forEach(feedback => {
+      const feedbackDate = new Date(feedback.created_at);
+      if (feedbackDate >= thirtyDaysAgo) {
+        const dateKey = feedbackDate.toISOString().split("T")[0];
+        if (dailyData[dateKey]) {
+          if (feedback.rating) {
+            dailyData[dateKey].positive++;
+          } else {
+            dailyData[dateKey].negative++;
+          }
+        }
+      }
+    });
+    
+    return Object.values(dailyData);
+  }, [feedbacks]);
 
   // Calculate top topics
   const topTopics = useMemo((): TopicCount[] => {
@@ -312,6 +349,75 @@ export function AnalyticsTab() {
         </Card>
       </div>
 
+      {/* Feedback Trend Chart */}
+      <Card className="glass-card">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-lg">
+            <BarChart3 className="w-5 h-5 text-primary" />
+            Tendência de Feedbacks (últimos 30 dias)
+          </CardTitle>
+          <CardDescription>
+            Evolução diária de avaliações positivas e negativas
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {feedbackTrendData.every(d => d.positive === 0 && d.negative === 0) ? (
+            <p className="text-muted-foreground text-sm text-center py-8">
+              Ainda não há feedbacks registrados nos últimos 30 dias.
+            </p>
+          ) : (
+            <ResponsiveContainer width="100%" height={280}>
+              <LineChart data={feedbackTrendData} margin={{ top: 5, right: 30, left: 0, bottom: 5 }}>
+                <XAxis 
+                  dataKey="date" 
+                  tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }}
+                  tickLine={false}
+                  axisLine={{ stroke: 'hsl(var(--border))' }}
+                  interval="preserveStartEnd"
+                />
+                <YAxis 
+                  tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }}
+                  tickLine={false}
+                  axisLine={{ stroke: 'hsl(var(--border))' }}
+                  allowDecimals={false}
+                />
+                <Tooltip 
+                  contentStyle={{ 
+                    backgroundColor: 'hsl(var(--card))',
+                    border: '1px solid hsl(var(--border))',
+                    borderRadius: '8px',
+                    color: 'hsl(var(--foreground))'
+                  }}
+                  labelStyle={{ color: 'hsl(var(--foreground))', fontWeight: 600 }}
+                />
+                <Legend 
+                  wrapperStyle={{ paddingTop: '10px' }}
+                  formatter={(value) => <span style={{ color: 'hsl(var(--foreground))' }}>{value}</span>}
+                />
+                <Line 
+                  type="monotone" 
+                  dataKey="positive" 
+                  name="Positivos"
+                  stroke="hsl(142, 76%, 36%)" 
+                  strokeWidth={2}
+                  dot={{ fill: 'hsl(142, 76%, 36%)', strokeWidth: 0, r: 3 }}
+                  activeDot={{ r: 5, fill: 'hsl(142, 76%, 36%)' }}
+                />
+                <Line 
+                  type="monotone" 
+                  dataKey="negative" 
+                  name="Negativos"
+                  stroke="hsl(var(--destructive))" 
+                  strokeWidth={2}
+                  dot={{ fill: 'hsl(var(--destructive))', strokeWidth: 0, r: 3 }}
+                  activeDot={{ r: 5, fill: 'hsl(var(--destructive))' }}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          )}
+        </CardContent>
+      </Card>
+
       {/* Two-column layout */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Top Topics */}
@@ -402,6 +508,9 @@ export function AnalyticsTab() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Storage Monitor */}
+      <StorageMonitor />
 
       {/* Detail Modal */}
       <FeedbackDetailModal

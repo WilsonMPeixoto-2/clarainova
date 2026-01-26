@@ -391,6 +391,7 @@ export const ChatMessage = memo(function ChatMessage({ message }: ChatMessagePro
                 userQuery={message.userQuery}
                 assistantResponse={message.content}
                 timestamp={message.timestamp}
+                sources={message.sources}
               />
             )}
             <FeedbackButtons queryId={message.queryId || null} />

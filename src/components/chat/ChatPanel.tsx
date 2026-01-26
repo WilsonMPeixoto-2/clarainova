@@ -1,4 +1,4 @@
-import { useEffect, useRef, useCallback } from "react";
+import { useEffect, useRef, useCallback, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, Trash2, MessageSquare, Keyboard } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -8,9 +8,12 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
-import { useChat } from "@/hooks/useChat";
+import { useChat, ChatMessage as ChatMessageType } from "@/hooks/useChat";
+import { useChatSessions } from "@/hooks/useChatSessions";
+import { useAuth } from "@/contexts/AuthContext";
 import { ChatMessage } from "@/components/chat/ChatMessage";
 import { ChatInput } from "@/components/chat/ChatInput";
+import { ChatHistory } from "@/components/chat/ChatHistory";
 import { ThinkingIndicator } from "@/components/chat/ThinkingIndicator";
 import { useToast } from "@/hooks/use-toast";
 import { useChatShortcuts } from "@/hooks/useKeyboardShortcuts";
@@ -59,8 +62,9 @@ export function ChatPanel({ open, onOpenChange, initialQuery }: ChatPanelProps) 
   const lastInitialQuery = useRef<string>("");
   const { toast } = useToast();
   const isMobile = useIsMobile();
+  const { user } = useAuth();
 
-  const { messages, isLoading, thinking, sendMessage, clearHistory, cancelStream } = useChat({
+  const { messages, isLoading, thinking, sendMessage, clearHistory, cancelStream, setMessages } = useChat({
     onError: (error) => {
       toast({
         variant: "destructive",
@@ -70,11 +74,48 @@ export function ChatPanel({ open, onOpenChange, initialQuery }: ChatPanelProps) 
     }
   });
 
+  // Chat sessions for authenticated users
+  const {
+    sessions,
+    currentSessionId,
+    isLoading: sessionsLoading,
+    createSession,
+    updateSession,
+    loadSession,
+    deleteSession,
+    refreshSessions,
+  } = useChatSessions();
+
+  // Track if we need to save to database
+  const lastSavedLength = useRef(0);
+
+  // Auto-save messages to database for authenticated users
+  useEffect(() => {
+    if (!user || messages.length === 0) return;
+    if (messages.length <= lastSavedLength.current) return;
+    
+    // Debounce saving
+    const timeoutId = setTimeout(async () => {
+      // Only save complete messages (not streaming)
+      const completeMessages = messages.filter(m => !m.isStreaming);
+      if (completeMessages.length === 0) return;
+
+      if (currentSessionId) {
+        await updateSession(currentSessionId, completeMessages);
+      } else if (completeMessages.length >= 2) {
+        // Create a new session after first exchange
+        await createSession(completeMessages);
+      }
+      lastSavedLength.current = messages.length;
+    }, 1000);
+
+    return () => clearTimeout(timeoutId);
+  }, [user, messages, currentSessionId, createSession, updateSession]);
+
   // Keyboard shortcuts
   useChatShortcuts({
     onNewChat: () => {
-      clearHistory();
-      toast({ title: "Nova conversa iniciada" });
+      handleNewChat();
     },
     onClearHistory: () => {
       if (messages.length > 0) {
@@ -116,12 +157,35 @@ export function ChatPanel({ open, onOpenChange, initialQuery }: ChatPanelProps) 
   const handleClearHistory = useCallback(() => {
     if (messages.length > 0) {
       clearHistory();
+      lastSavedLength.current = 0;
       toast({
         title: "Histórico limpo",
         description: "A conversa foi apagada."
       });
     }
   }, [messages.length, clearHistory, toast]);
+
+  const handleNewChat = useCallback(() => {
+    clearHistory();
+    lastSavedLength.current = 0;
+    toast({ title: "Nova conversa iniciada" });
+  }, [clearHistory, toast]);
+
+  const handleLoadSession = useCallback(async (sessionId: string) => {
+    const loadedMessages = await loadSession(sessionId);
+    if (loadedMessages && setMessages) {
+      setMessages(loadedMessages);
+      lastSavedLength.current = loadedMessages.length;
+    }
+  }, [loadSession, setMessages]);
+
+  const handleDeleteSession = useCallback(async (sessionId: string) => {
+    await deleteSession(sessionId);
+    toast({
+      title: "Conversa excluída",
+      description: "A conversa foi removida do histórico."
+    });
+  }, [deleteSession, toast]);
 
   const suggestions = [
     "Como criar um novo processo no SEI?",
@@ -155,6 +219,18 @@ export function ChatPanel({ open, onOpenChange, initialQuery }: ChatPanelProps) 
               </div>
 
               <div className="flex items-center gap-1">
+                {/* History Button - only for authenticated users */}
+                {user && (
+                  <ChatHistory
+                    sessions={sessions}
+                    currentSessionId={currentSessionId}
+                    isLoading={sessionsLoading}
+                    onLoadSession={handleLoadSession}
+                    onDeleteSession={handleDeleteSession}
+                    onNewChat={handleNewChat}
+                  />
+                )}
+
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Button

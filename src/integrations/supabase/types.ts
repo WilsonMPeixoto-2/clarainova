@@ -149,6 +149,7 @@ export type Database = {
           assistant_response: string
           created_at: string
           id: string
+          session_fingerprint: string | null
           sources_cited: string[] | null
           user_query: string
         }
@@ -156,6 +157,7 @@ export type Database = {
           assistant_response: string
           created_at?: string
           id?: string
+          session_fingerprint?: string | null
           sources_cited?: string[] | null
           user_query: string
         }
@@ -163,6 +165,7 @@ export type Database = {
           assistant_response?: string
           created_at?: string
           id?: string
+          session_fingerprint?: string | null
           sources_cited?: string[] | null
           user_query?: string
         }
@@ -266,7 +269,20 @@ export type Database = {
           reset_in: number
         }[]
       }
+      cleanup_old_chat_sessions: {
+        Args: { days_old?: number }
+        Returns: number
+      }
       cleanup_rate_limits: { Args: never; Returns: number }
+      get_chat_storage_stats: {
+        Args: never
+        Returns: {
+          newest_session: string
+          oldest_session: string
+          total_sessions: number
+          total_size_bytes: number
+        }[]
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]

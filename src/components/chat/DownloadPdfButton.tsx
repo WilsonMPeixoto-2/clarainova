@@ -14,6 +14,7 @@ interface DownloadPdfButtonProps {
   userQuery: string;
   assistantResponse: string;
   timestamp: Date;
+  sources?: { local: string[]; web?: string[] };
   className?: string;
 }
 
@@ -21,6 +22,7 @@ export function DownloadPdfButton({
   userQuery, 
   assistantResponse, 
   timestamp,
+  sources,
   className = "" 
 }: DownloadPdfButtonProps) {
   const [isDownloading, setIsDownloading] = useState(false);
@@ -141,6 +143,53 @@ export function DownloadPdfButton({
         currentY += 6;
       });
       
+      // Sources section (if available)
+      const hasLocalSources = sources?.local && sources.local.length > 0;
+      const hasWebSources = sources?.web && sources.web.length > 0;
+      
+      if (hasLocalSources || hasWebSources) {
+        currentY += 8;
+        checkPageBreak(20);
+        
+        // Section header
+        doc.setDrawColor(200);
+        doc.line(margin, currentY, pageWidth - margin, currentY);
+        currentY += 8;
+        
+        doc.setTextColor(0);
+        doc.setFontSize(12);
+        doc.setFont("helvetica", "bold");
+        doc.text("Fontes Consultadas:", margin, currentY);
+        currentY += 8;
+        
+        doc.setFontSize(10);
+        doc.setFont("helvetica", "normal");
+        doc.setTextColor(60);
+        
+        // Local sources (documents)
+        if (hasLocalSources) {
+          sources.local.forEach((source) => {
+            checkPageBreak(6);
+            doc.text(`• ${source}`, margin + 4, currentY);
+            currentY += 6;
+          });
+        }
+        
+        // Web sources (if any)
+        if (hasWebSources) {
+          if (hasLocalSources) {
+            currentY += 2;
+          }
+          sources.web?.forEach((url) => {
+            checkPageBreak(6);
+            // Truncate long URLs for display
+            const displayUrl = url.length > 60 ? url.substring(0, 57) + "..." : url;
+            doc.text(`• ${displayUrl}`, margin + 4, currentY);
+            currentY += 6;
+          });
+        }
+      }
+      
       // Footer on last page
       const totalPages = doc.getNumberOfPages();
       for (let i = 1; i <= totalPages; i++) {
@@ -180,7 +229,7 @@ export function DownloadPdfButton({
     } finally {
       setIsDownloading(false);
     }
-  }, [userQuery, assistantResponse, timestamp, isDownloading]);
+  }, [userQuery, assistantResponse, timestamp, sources, isDownloading]);
 
   return (
     <Tooltip>

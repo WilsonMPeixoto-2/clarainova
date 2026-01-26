@@ -54,6 +54,17 @@ function saveMessagesToStorage(messages: ChatMessage[]) {
   }
 }
 
+// Get or create session fingerprint
+function getSessionFingerprint(): string {
+  const FINGERPRINT_KEY = "clara-session-fingerprint";
+  let fingerprint = sessionStorage.getItem(FINGERPRINT_KEY);
+  if (!fingerprint) {
+    fingerprint = `sess_${Date.now()}_${crypto.randomUUID().slice(0, 8)}`;
+    sessionStorage.setItem(FINGERPRINT_KEY, fingerprint);
+  }
+  return fingerprint;
+}
+
 export function useChat(options: UseChatOptions = {}) {
   const [messages, setMessages] = useState<ChatMessage[]>(() => loadMessagesFromStorage());
   const [isLoading, setIsLoading] = useState(false);
@@ -240,12 +251,14 @@ export function useChat(options: UseChatOptions = {}) {
       // Save to query_analytics (fire and forget)
       let savedQueryId: string | null = null;
       try {
+        const sessionFingerprint = getSessionFingerprint();
         const { data: analyticsData } = await supabase
           .from("query_analytics")
           .insert({
             user_query: content.trim(),
             assistant_response: finalContent,
             sources_cited: localSources,
+            session_fingerprint: sessionFingerprint,
           })
           .select("id")
           .single();
@@ -315,6 +328,7 @@ export function useChat(options: UseChatOptions = {}) {
     thinking,
     sendMessage,
     clearHistory,
-    cancelStream
+    cancelStream,
+    setMessages
   };
 }
