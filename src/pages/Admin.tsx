@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Upload, FileText, Trash2, RefreshCw, Lock, Check, X, AlertCircle, BarChart3 } from 'lucide-react';
+import { ArrowLeft, Upload, FileText, Trash2, RefreshCw, Lock, Check, X, AlertCircle, BarChart3, ClipboardList } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -9,6 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { AnalyticsTab } from '@/components/admin/AnalyticsTab';
+import { ReportsTab } from '@/components/admin/ReportsTab';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -648,7 +649,7 @@ const Admin = () => {
 
       <main className="container mx-auto px-4 py-8">
         <Tabs defaultValue="documents" className="space-y-6">
-          <TabsList className="grid w-full max-w-md grid-cols-2">
+          <TabsList className="grid w-full max-w-lg grid-cols-3">
             <TabsTrigger value="documents" className="flex items-center gap-2">
               <FileText className="w-4 h-4" />
               Documentos
@@ -656,6 +657,10 @@ const Admin = () => {
             <TabsTrigger value="analytics" className="flex items-center gap-2">
               <BarChart3 className="w-4 h-4" />
               Analytics
+            </TabsTrigger>
+            <TabsTrigger value="reports" className="flex items-center gap-2">
+              <ClipboardList className="w-4 h-4" />
+              Relatórios
             </TabsTrigger>
           </TabsList>
 
@@ -792,6 +797,10 @@ const Admin = () => {
 
           <TabsContent value="analytics">
             <AnalyticsTab />
+          </TabsContent>
+
+          <TabsContent value="reports">
+            <ReportsTab />
           </TabsContent>
         </Tabs>
       </main>
