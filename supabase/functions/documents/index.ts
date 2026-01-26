@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { GoogleGenerativeAI } from "https://esm.sh/@google/generative-ai@0.21.0";
+import { encodeBase64 } from "https://deno.land/std@0.224.0/encoding/base64.ts";
 // @ts-ignore - mammoth for DOCX parsing
 import mammoth from "https://esm.sh/mammoth@1.6.0";
 
@@ -12,6 +13,12 @@ const corsHeaders = {
 
 // Lovable AI Gateway URL
 const LOVABLE_AI_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
+
+async function blobToBase64(fileBlob: Blob): Promise<string> {
+  const arrayBuffer = await fileBlob.arrayBuffer();
+  const uint8Array = new Uint8Array(arrayBuffer);
+  return encodeBase64(uint8Array);
+}
 
 // Helper to check if error is a rate limit error
 function isRateLimitError(error: unknown): boolean {
@@ -25,10 +32,15 @@ function isRateLimitError(error: unknown): boolean {
   return false;
 }
 
-// Extract PDF text using Lovable AI (PRIMARY METHOD - supports external URLs)
-async function extractPdfViaLovableAI(signedUrl: string, lovableApiKey: string): Promise<string> {
-  console.log("[documents] Attempting PDF extraction via Lovable AI (PRIMARY)...");
-  
+// Extract PDF text using Lovable AI Gateway (PRIMARY)
+// IMPORTANT: PDFs cannot be sent as external URLs in `image_url`.
+// The gateway/provider supports PDFs when sent as a data URL with MIME type.
+async function extractPdfViaLovableAIBase64(fileBlob: Blob, lovableApiKey: string): Promise<string> {
+  console.log("[documents] Attempting PDF extraction via Lovable AI (PRIMARY - base64 data URL)...");
+
+  const base64Data = await blobToBase64(fileBlob);
+  const dataUrl = `data:application/pdf;base64,${base64Data}`;
+
   const response = await fetch(LOVABLE_AI_URL, {
     method: "POST",
     headers: {
@@ -37,71 +49,59 @@ async function extractPdfViaLovableAI(signedUrl: string, lovableApiKey: string):
     },
     body: JSON.stringify({
       model: "google/gemini-2.5-flash",
-      messages: [{
-        role: "user",
-        content: [
-          { 
-            type: "image_url", 
-            image_url: { url: signedUrl } 
-          },
-          { 
-            type: "text", 
-            text: `Extraia TODO o texto deste documento PDF de forma literal e completa. 
+      messages: [
+        {
+          role: "user",
+          content: [
+            {
+              type: "image_url",
+              image_url: { url: dataUrl },
+            },
+            {
+              type: "text",
+              text: `Extraia TODO o texto deste documento mantendo a estrutura.
 
-Instruções:
-- Preserve a estrutura original (títulos, parágrafos, listas)
-- Mantenha numerações e marcadores
-- Inclua todo o conteúdo textual, sem resumir ou omitir
-- Use quebras de linha para separar seções
-- Não adicione comentários ou explicações, apenas o texto extraído
+Regras:
+- Preserve títulos, parágrafos, tabelas (quando possível) e listas
+- Não resuma e não omita conteúdo
+- Mantenha números/valores/códigos exatamente como no original
 
-Responda APENAS com o texto extraído do documento.`
-          }
-        ]
-      }]
+Responda APENAS com o texto extraído.`,
+            },
+          ],
+        },
+      ],
     }),
   });
-  
+
   if (!response.ok) {
     const errorText = await response.text();
     console.error("[documents] Lovable AI error:", response.status, errorText);
     throw new Error(`Lovable AI failed: ${response.status} - ${errorText}`);
   }
-  
+
   const data = await response.json();
   const extractedText = data.choices?.[0]?.message?.content || "";
-  
+
   if (!extractedText || extractedText.trim().length < 50) {
     throw new Error("Texto extraído via Lovable AI muito curto");
   }
-  
+
   console.log(`[documents] PDF extracted via Lovable AI: ${extractedText.length} characters`);
   return extractedText;
 }
 
 // Extract PDF text using Gemini with base64 (FALLBACK - for PDFs < 15MB)
 async function extractPdfViaGeminiBase64(fileBlob: Blob, geminiApiKey: string): Promise<string> {
-  const MAX_BASE64_SIZE = 15 * 1024 * 1024; // 15MB limit for base64 encoding
+  const MAX_BASE64_SIZE = 20 * 1024 * 1024; // 20MB limit for base64 encoding
   
   if (fileBlob.size > MAX_BASE64_SIZE) {
     throw new Error(`PDF muito grande para fallback Gemini (${Math.round(fileBlob.size / 1024 / 1024)}MB, max: 15MB)`);
   }
   
   console.log("[documents] Converting PDF to base64 for Gemini fallback...");
-  
-  const arrayBuffer = await fileBlob.arrayBuffer();
-  const uint8Array = new Uint8Array(arrayBuffer);
-  
-  // Convert to base64 in chunks (memory efficient)
-  let binaryString = "";
-  const chunkSize = 8192;
-  for (let i = 0; i < uint8Array.length; i += chunkSize) {
-    const chunk = uint8Array.slice(i, Math.min(i + chunkSize, uint8Array.length));
-    for (let j = 0; j < chunk.length; j++) {
-      binaryString += String.fromCharCode(chunk[j]);
-    }
-  }
-  const base64Data = btoa(binaryString);
+
+  const base64Data = await blobToBase64(fileBlob);
   
   console.log(`[documents] Base64 size: ${Math.round(base64Data.length / 1024)}KB`);
   
@@ -346,10 +346,8 @@ serve(async (req) => {
           { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
-      
-      if (!GEMINI_API_KEY) {
-        throw new Error("GEMINI_API_KEY não configurada");
-      }
+      // NOTE: GEMINI_API_KEY is optional for PDF extraction (we can use Lovable AI).
+      // It is still used for embeddings when available.
       
       // Parse JSON body (not FormData anymore)
       const body = await req.json();
@@ -427,43 +425,31 @@ serve(async (req) => {
           );
         }
         
-        // Extract text from PDF using Gemini via signed URL (avoids memory issues)
-        // With fallback to Lovable AI if Gemini rate limits
-        
-        console.log(`[documents] PDF size: ${Math.round(fileData.size / 1024)}KB, generating signed URL...`);
-        
-        // Generate a signed URL for accessing the PDF directly
-        const { data: signedUrlData, error: signedUrlError } = await supabase.storage
-          .from("knowledge-base")
-          .createSignedUrl(filePath, 600); // 10 minutes validity for fallback attempts
-        
-        if (signedUrlError || !signedUrlData?.signedUrl) {
-          console.error(`[documents] Failed to create signed URL:`, signedUrlError);
-          return new Response(
-            JSON.stringify({ 
-              error: "Falha ao gerar URL de acesso para o PDF",
-              details: signedUrlError?.message
-            }),
-            { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-          );
-        }
-        
-        const signedUrl = signedUrlData.signedUrl;
-        let usedFallback = false;
-        
-        // NEW FLOW: Try Lovable AI first (supports external URLs), then Gemini base64 as fallback
+        // Extraction flow:
+        // 1) Lovable AI gateway with PDF as base64 data URL (does not depend on GEMINI_API_KEY quotas)
+        // 2) Direct Gemini base64 fallback (requires GEMINI_API_KEY with active quota)
+
+        console.log(`[documents] ========== EXTRACTION FLOW ==========`);
+        console.log(`[documents] PDF size: ${Math.round(fileData.size / 1024)}KB`);
+
         let usedProvider = "unknown";
+        const MAX_INLINE_PDF_SIZE = 20 * 1024 * 1024; // Keep request sizes reasonable
         
         try {
-          // PRIMARY: Lovable AI (supports external URLs like signed URLs)
+          // PRIMARY: Lovable AI (PDF base64 data URL)
           if (!LOVABLE_API_KEY) {
             throw new Error("LOVABLE_API_KEY não configurada - tentando Gemini base64");
           }
+
+          if (fileData.size > MAX_INLINE_PDF_SIZE) {
+            throw new Error(
+              `PDF muito grande para extração via Lovable AI (base64) (${Math.round(fileData.size / 1024 / 1024)}MB > 20MB)`
+            );
+          }
           
-          console.log(`[documents] ========== EXTRACTION FLOW ==========`);
-          console.log(`[documents] PRIMARY: Attempting Lovable AI extraction...`);
+          console.log(`[documents] PRIMARY: Attempting Lovable AI (base64) extraction...`);
           
-          contentText = await extractPdfViaLovableAI(signedUrl, LOVABLE_API_KEY);
+          contentText = await extractPdfViaLovableAIBase64(fileData, LOVABLE_API_KEY);
           usedProvider = "lovable-ai";
           console.log(`[documents] SUCCESS: PDF extracted via Lovable AI: ${contentText.length} characters`);
           
@@ -472,7 +458,7 @@ serve(async (req) => {
           const lovableErrorMsg = lovableError instanceof Error ? lovableError.message : String(lovableError);
           
           // FALLBACK: Gemini with base64 (only for PDFs < 15MB)
-          const MAX_BASE64_SIZE = 15 * 1024 * 1024; // 15MB limit
+          const MAX_BASE64_SIZE = 20 * 1024 * 1024; // 20MB limit
           
           if (GEMINI_API_KEY && fileData.size <= MAX_BASE64_SIZE) {
             console.log(`[documents] FALLBACK: Attempting Gemini base64 extraction...`);
@@ -499,16 +485,16 @@ serve(async (req) => {
             console.error(`[documents] PDF too large for Gemini base64 fallback: ${Math.round(fileData.size / 1024 / 1024)}MB`);
             return new Response(
               JSON.stringify({ 
-                error: `Lovable AI falhou e o PDF é muito grande para fallback (${Math.round(fileData.size / 1024 / 1024)}MB > 15MB).`,
+                error: `Falha ao processar PDF. O arquivo é grande demais para extração inline (>${MAX_BASE64_SIZE / 1024 / 1024}MB). Divida em partes menores.`,
                 details: lovableErrorMsg
               }),
-              { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+              { status: 413, headers: { ...corsHeaders, "Content-Type": "application/json" } }
             );
           } else {
             // No GEMINI_API_KEY and Lovable AI failed
             return new Response(
               JSON.stringify({ 
-                error: "Lovable AI falhou e GEMINI_API_KEY não configurada para fallback.",
+                error: "Falha ao processar PDF. Lovable AI falhou e não há fallback disponível.",
                 details: lovableErrorMsg
               }),
               { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -569,33 +555,57 @@ serve(async (req) => {
       const chunks = splitIntoChunks(contentText);
       console.log(`[documents] Document split into ${chunks.length} chunks`);
       
-      // Generate embeddings
-      const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
-      const embeddingModel = genAI.getGenerativeModel({ model: "text-embedding-004" });
-      
-      const chunkRecords = [];
-      
-      for (let i = 0; i < chunks.length; i++) {
-        const chunk = chunks[i];
-        const metadata = extractMetadata(chunk, i);
-        
-        // Generate embedding
-        const embeddingResult = await embeddingModel.embedContent(chunk);
-        const embedding = embeddingResult.embedding.values;
-        
-        chunkRecords.push({
-          document_id: document.id,
-          content: chunk,
-          chunk_index: i,
-          embedding: JSON.stringify(embedding),
-          metadata
-        });
-        
-        // Small pause to not overload the API
-        if (i % 5 === 0 && i > 0) {
-          await new Promise(resolve => setTimeout(resolve, 100));
-        }
-      }
+       // Generate embeddings (best-effort)
+       // If the key is missing or rate-limited, we still save chunks without embeddings.
+       const chunkRecords: Array<any> = [];
+       let embeddingsWarning: string | null = null;
+       let embeddingModel: any = null;
+
+       if (!GEMINI_API_KEY) {
+         embeddingsWarning = "Embeddings não geradas (GEMINI_API_KEY não configurada).";
+       } else {
+         try {
+           const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
+           embeddingModel = genAI.getGenerativeModel({ model: "text-embedding-004" });
+         } catch (e) {
+           embeddingsWarning = `Embeddings desativadas (falha ao inicializar modelo): ${e instanceof Error ? e.message : String(e)}`;
+         }
+       }
+
+       let embeddingsDisabled = !embeddingModel;
+
+       for (let i = 0; i < chunks.length; i++) {
+         const chunk = chunks[i];
+         const metadata = extractMetadata(chunk, i);
+
+         let embeddingJson: string | null = null;
+         if (!embeddingsDisabled && embeddingModel) {
+           try {
+             const embeddingResult = await embeddingModel.embedContent(chunk);
+             const embedding = embeddingResult.embedding.values;
+             embeddingJson = JSON.stringify(embedding);
+           } catch (e) {
+             // Disable further embedding attempts if we hit rate limits/quota or any persistent error.
+             embeddingsDisabled = true;
+             const msg = e instanceof Error ? e.message : String(e);
+             embeddingsWarning = embeddingsWarning || `Embeddings interrompidas: ${msg}`;
+             console.error("[documents] Embedding generation failed, continuing without embeddings:", e);
+           }
+         }
+
+         chunkRecords.push({
+           document_id: document.id,
+           content: chunk,
+           chunk_index: i,
+           embedding: embeddingJson,
+           metadata,
+         });
+
+         // Small pause to not overload the API
+         if (!embeddingsDisabled && i % 5 === 0 && i > 0) {
+           await new Promise((resolve) => setTimeout(resolve, 100));
+         }
+       }
       
       // Insert chunks in batches
       const batchSize = 50;
@@ -616,6 +626,7 @@ serve(async (req) => {
       return new Response(
         JSON.stringify({
           success: true,
+           warning: embeddingsWarning,
           document: {
             id: document.id,
             title: document.title,
