@@ -8,6 +8,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { FeedbackDetailModal } from "./FeedbackDetailModal";
 import { StorageMonitor } from "./StorageMonitor";
+import { UsageHeatmap } from "./UsageHeatmap";
+import { KnowledgeGapAnalysis } from "./KnowledgeGapAnalysis";
 
 interface QueryAnalytics {
   id: string;
@@ -508,6 +510,12 @@ export function AnalyticsTab() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Usage Heatmap */}
+      <UsageHeatmap queries={queries} />
+
+      {/* Knowledge Gap Analysis */}
+      <KnowledgeGapAnalysis queries={queries} feedbacks={feedbacks} />
 
       {/* Storage Monitor */}
       <StorageMonitor />
