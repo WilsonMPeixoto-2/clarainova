@@ -1,0 +1,52 @@
+{
+  "name": "CLARA - Consultora de Legislação",
+  "short_name": "CLARA",
+  "description": "Consultora de Legislação e Apoio a Rotinas Administrativas - IA especializada em SEI e procedimentos administrativos",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#09090b",
+  "theme_color": "#16a34a",
+  "orientation": "portrait-primary",
+  "scope": "/",
+  "lang": "pt-BR",
+  "icons": [
+    {
+      "src": "/favicon.ico",
+      "sizes": "64x64",
+      "type": "image/x-icon"
+    },
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "/og-image.png",
+      "sizes": "1200x630",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "CLARA - Página inicial"
+    }
+  ],
+  "categories": ["productivity", "utilities", "education"],
+  "prefer_related_applications": false,
+  "related_applications": [],
+  "shortcuts": [
+    {
+      "name": "Nova Consulta",
+      "short_name": "Consulta",
+      "description": "Iniciar nova conversa com a CLARA",
+      "url": "/chat",
+      "icons": [{ "src": "/favicon.ico", "sizes": "64x64" }]
+    }
+  ]
+}
