@@ -468,9 +468,41 @@ serve(async (req) => {
 
     const { message, history = [], mode = "fast" } = await req.json();
     
+    // Input validation - message
     if (!message || typeof message !== "string") {
       return new Response(
         JSON.stringify({ error: "Mensagem é obrigatória" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+    
+    // Input validation - message length (max 10,000 characters)
+    if (message.length > 10000) {
+      return new Response(
+        JSON.stringify({ error: "Mensagem muito longa. Máximo de 10.000 caracteres permitidos." }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+    
+    // Input validation - history (max 50 messages)
+    if (!Array.isArray(history)) {
+      return new Response(
+        JSON.stringify({ error: "Histórico deve ser um array" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+    
+    if (history.length > 50) {
+      return new Response(
+        JSON.stringify({ error: "Histórico muito longo. Máximo de 50 mensagens permitidas." }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+    
+    // Input validation - mode
+    if (mode !== "fast" && mode !== "deep") {
+      return new Response(
+        JSON.stringify({ error: "Modo inválido. Use 'fast' ou 'deep'." }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }

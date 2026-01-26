@@ -7,12 +7,79 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
+// Rate limiting configuration for admin endpoints (stricter)
+const ADMIN_RATE_LIMIT = {
+  maxRequests: 5,    // 5 attempts per window
+  windowSeconds: 300, // 5 minute window
+};
+
+// Helper to get client identifier for rate limiting
+function getClientKey(req: Request): string {
+  const forwarded = req.headers.get("x-forwarded-for");
+  const cfIp = req.headers.get("cf-connecting-ip");
+  const realIp = req.headers.get("x-real-ip");
+  
+  if (forwarded) {
+    return forwarded.split(",")[0].trim();
+  }
+  if (cfIp) return cfIp;
+  if (realIp) return realIp;
+  
+  return "unknown";
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
 
   try {
+    const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
+    const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    
+    if (!SUPABASE_URL || !SERVICE_ROLE) {
+      console.error("[admin_get_upload_url] Missing Supabase config");
+      return new Response(
+        JSON.stringify({ error: "Configuração do Supabase incompleta." }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+    
+    const supabase = createClient(SUPABASE_URL, SERVICE_ROLE);
+
+    // Rate limiting check BEFORE validating admin key (prevent brute force)
+    const clientKey = getClientKey(req);
+    const { data: rateLimitResult, error: rateLimitError } = await supabase.rpc(
+      "check_rate_limit",
+      {
+        p_client_key: `${clientKey}:admin-upload`,
+        p_endpoint: "admin_get_upload_url",
+        p_max_requests: ADMIN_RATE_LIMIT.maxRequests,
+        p_window_seconds: ADMIN_RATE_LIMIT.windowSeconds,
+      }
+    );
+
+    if (rateLimitError) {
+      console.error("[admin_get_upload_url] Rate limit check error:", rateLimitError);
+    } else if (rateLimitResult && rateLimitResult.length > 0 && !rateLimitResult[0].allowed) {
+      const resetIn = rateLimitResult[0].reset_in || ADMIN_RATE_LIMIT.windowSeconds;
+      console.log(`[admin_get_upload_url] Rate limited: ${clientKey}`);
+      return new Response(
+        JSON.stringify({
+          error: `Muitas tentativas. Tente novamente em ${Math.ceil(resetIn / 60)} minutos.`,
+          retryAfter: resetIn,
+        }),
+        {
+          status: 429,
+          headers: {
+            ...corsHeaders,
+            "Content-Type": "application/json",
+            "Retry-After": String(resetIn),
+          },
+        }
+      );
+    }
+
     // Validate admin key
     const adminKey = (req.headers.get("x-admin-key") || "").trim();
     const expected = (Deno.env.get("ADMIN_KEY") || "").trim();
@@ -32,19 +99,6 @@ serve(async (req) => {
         { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
-
-    const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
-    const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    
-    if (!SUPABASE_URL || !SERVICE_ROLE) {
-      console.error("[admin_get_upload_url] Missing Supabase config");
-      return new Response(
-        JSON.stringify({ error: "Configuração do Supabase incompleta." }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-    
-    const supabase = createClient(SUPABASE_URL, SERVICE_ROLE);
 
     // Parse request body
     const { filename, contentType } = await req.json();
