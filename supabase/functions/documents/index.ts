@@ -25,9 +25,9 @@ function isRateLimitError(error: unknown): boolean {
   return false;
 }
 
-// Extract PDF text using Lovable AI as fallback
+// Extract PDF text using Lovable AI (PRIMARY METHOD - supports external URLs)
 async function extractPdfViaLovableAI(signedUrl: string, lovableApiKey: string): Promise<string> {
-  console.log("[documents] Attempting PDF extraction via Lovable AI...");
+  console.log("[documents] Attempting PDF extraction via Lovable AI (PRIMARY)...");
   
   const response = await fetch(LOVABLE_AI_URL, {
     method: "POST",
@@ -76,6 +76,66 @@ Responda APENAS com o texto extraído do documento.`
   }
   
   console.log(`[documents] PDF extracted via Lovable AI: ${extractedText.length} characters`);
+  return extractedText;
+}
+
+// Extract PDF text using Gemini with base64 (FALLBACK - for PDFs < 15MB)
+async function extractPdfViaGeminiBase64(fileBlob: Blob, geminiApiKey: string): Promise<string> {
+  const MAX_BASE64_SIZE = 15 * 1024 * 1024; // 15MB limit for base64 encoding
+  
+  if (fileBlob.size > MAX_BASE64_SIZE) {
+    throw new Error(`PDF muito grande para fallback Gemini (${Math.round(fileBlob.size / 1024 / 1024)}MB, max: 15MB)`);
+  }
+  
+  console.log("[documents] Converting PDF to base64 for Gemini fallback...");
+  
+  const arrayBuffer = await fileBlob.arrayBuffer();
+  const uint8Array = new Uint8Array(arrayBuffer);
+  
+  // Convert to base64 in chunks (memory efficient)
+  let binaryString = "";
+  const chunkSize = 8192;
+  for (let i = 0; i < uint8Array.length; i += chunkSize) {
+    const chunk = uint8Array.slice(i, Math.min(i + chunkSize, uint8Array.length));
+    for (let j = 0; j < chunk.length; j++) {
+      binaryString += String.fromCharCode(chunk[j]);
+    }
+  }
+  const base64Data = btoa(binaryString);
+  
+  console.log(`[documents] Base64 size: ${Math.round(base64Data.length / 1024)}KB`);
+  
+  const genAI = new GoogleGenerativeAI(geminiApiKey);
+  const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+  
+  const result = await model.generateContent([
+    {
+      inlineData: {
+        mimeType: "application/pdf",
+        data: base64Data  // Base64 works with Gemini!
+      }
+    },
+    {
+      text: `Extraia TODO o texto deste documento PDF de forma literal e completa. 
+
+Instruções:
+- Preserve a estrutura original (títulos, parágrafos, listas)
+- Mantenha numerações e marcadores
+- Inclua todo o conteúdo textual, sem resumir ou omitir
+- Use quebras de linha para separar seções
+- Não adicione comentários ou explicações, apenas o texto extraído
+
+Responda APENAS com o texto extraído do documento.`
+    }
+  ]);
+  
+  const extractedText = result.response.text();
+  
+  if (!extractedText || extractedText.trim().length < 50) {
+    throw new Error("Texto extraído via Gemini base64 muito curto");
+  }
+  
+  console.log(`[documents] PDF extracted via Gemini base64: ${extractedText.length} characters`);
   return extractedText;
 }
 
@@ -391,94 +451,76 @@ serve(async (req) => {
         const signedUrl = signedUrlData.signedUrl;
         let usedFallback = false;
         
-        // Try Gemini first
+        // NEW FLOW: Try Lovable AI first (supports external URLs), then Gemini base64 as fallback
+        let usedProvider = "unknown";
+        
         try {
-          if (!GEMINI_API_KEY) {
-            throw new Error("GEMINI_API_KEY não configurada - tentando fallback");
+          // PRIMARY: Lovable AI (supports external URLs like signed URLs)
+          if (!LOVABLE_API_KEY) {
+            throw new Error("LOVABLE_API_KEY não configurada - tentando Gemini base64");
           }
           
-          console.log(`[documents] Attempting PDF extraction via Gemini...`);
+          console.log(`[documents] ========== EXTRACTION FLOW ==========`);
+          console.log(`[documents] PRIMARY: Attempting Lovable AI extraction...`);
           
-          const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
-          const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+          contentText = await extractPdfViaLovableAI(signedUrl, LOVABLE_API_KEY);
+          usedProvider = "lovable-ai";
+          console.log(`[documents] SUCCESS: PDF extracted via Lovable AI: ${contentText.length} characters`);
           
-          const result = await model.generateContent([
-            {
-              fileData: {
-                mimeType: "application/pdf",
-                fileUri: signedUrl
-              }
-            },
-            {
-              text: `Extraia TODO o texto deste documento PDF de forma literal e completa. 
-
-Instruções:
-- Preserve a estrutura original (títulos, parágrafos, listas)
-- Mantenha numerações e marcadores
-- Inclua todo o conteúdo textual, sem resumir ou omitir
-- Use quebras de linha para separar seções
-- Não adicione comentários ou explicações, apenas o texto extraído
-
-Responda APENAS com o texto extraído do documento.`
-            }
-          ]);
+        } catch (lovableError) {
+          console.error("[documents] Lovable AI extraction failed:", lovableError);
+          const lovableErrorMsg = lovableError instanceof Error ? lovableError.message : String(lovableError);
           
-          contentText = result.response.text();
-          console.log(`[documents] PDF extracted via Gemini: ${contentText.length} characters`);
+          // FALLBACK: Gemini with base64 (only for PDFs < 15MB)
+          const MAX_BASE64_SIZE = 15 * 1024 * 1024; // 15MB limit
           
-          if (!contentText || contentText.trim().length < 50) {
-            throw new Error("Texto extraído muito curto - tentando fallback");
-          }
-        } catch (geminiError) {
-          console.error("[documents] Gemini extraction failed:", geminiError);
-          
-          // Check if it's a rate limit error or if we should try fallback
-          if (isRateLimitError(geminiError) || !GEMINI_API_KEY) {
-            console.log("[documents] Attempting fallback to Lovable AI...");
-            
-            if (!LOVABLE_API_KEY) {
-              return new Response(
-                JSON.stringify({ 
-                  error: "Cota do Gemini esgotada e LOVABLE_API_KEY não configurada",
-                  details: "Aguarde o reset da cota ou configure uma chave alternativa"
-                }),
-                { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-              );
-            }
+          if (GEMINI_API_KEY && fileData.size <= MAX_BASE64_SIZE) {
+            console.log(`[documents] FALLBACK: Attempting Gemini base64 extraction...`);
+            console.log(`[documents] File size (${Math.round(fileData.size / 1024)}KB) is within base64 limit`);
             
             try {
-              contentText = await extractPdfViaLovableAI(signedUrl, LOVABLE_API_KEY);
-              usedFallback = true;
-              console.log(`[documents] PDF extracted via Lovable AI fallback: ${contentText.length} characters`);
-            } catch (fallbackError) {
-              console.error("[documents] Lovable AI fallback also failed:", fallbackError);
-              const errorMessage = fallbackError instanceof Error ? fallbackError.message : "Erro desconhecido";
+              contentText = await extractPdfViaGeminiBase64(fileData, GEMINI_API_KEY);
+              usedProvider = "gemini-base64";
+              console.log(`[documents] SUCCESS: PDF extracted via Gemini base64: ${contentText.length} characters`);
+            } catch (geminiError) {
+              console.error("[documents] Gemini base64 fallback also failed:", geminiError);
+              const geminiErrorMsg = geminiError instanceof Error ? geminiError.message : String(geminiError);
               
               return new Response(
                 JSON.stringify({ 
-                  error: "Erro ao processar PDF. Ambos os provedores falharam.",
-                  details: errorMessage
+                  error: "Falha ao processar PDF. Ambos os provedores falharam.",
+                  details: `Lovable AI: ${lovableErrorMsg}. Gemini: ${geminiErrorMsg}`
                 }),
                 { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
               );
             }
-          } else {
-            // Non-rate-limit error from Gemini
-            const errorMessage = geminiError instanceof Error ? geminiError.message : "Erro desconhecido";
-            
+          } else if (fileData.size > MAX_BASE64_SIZE) {
+            // PDF too large for base64 fallback
+            console.error(`[documents] PDF too large for Gemini base64 fallback: ${Math.round(fileData.size / 1024 / 1024)}MB`);
             return new Response(
               JSON.stringify({ 
-                error: "Erro ao processar PDF. Verifique se o arquivo não está corrompido ou protegido.",
-                details: errorMessage
+                error: `Lovable AI falhou e o PDF é muito grande para fallback (${Math.round(fileData.size / 1024 / 1024)}MB > 15MB).`,
+                details: lovableErrorMsg
               }),
-              { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+              { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+            );
+          } else {
+            // No GEMINI_API_KEY and Lovable AI failed
+            return new Response(
+              JSON.stringify({ 
+                error: "Lovable AI falhou e GEMINI_API_KEY não configurada para fallback.",
+                details: lovableErrorMsg
+              }),
+              { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
             );
           }
         }
         
-        if (usedFallback) {
-          console.log("[documents] Successfully processed PDF using Lovable AI fallback");
-        }
+        console.log(`[documents] ========== EXTRACTION COMPLETE ==========`);
+        console.log(`[documents] Provider used: ${usedProvider}`);
+        console.log(`[documents] Content length: ${contentText.length} characters`);
+        
+        // Log which provider was used for debugging
       } else if (isDOCX) {
         // Extract text from DOCX
         try {

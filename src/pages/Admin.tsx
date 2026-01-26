@@ -324,7 +324,7 @@ const Admin = () => {
         debugLog(`[Admin] Bucket: ${signedUrlData.bucket}`);
         debugLog(`[Admin] Signed URL (first 100 chars): ${signedUrlData.signedUrl?.substring(0, 100)}...`);
         
-        // Mobile-optimized upload function
+        // Mobile-optimized upload function with retry logic
         const uploadFile = async (fileToUpload: File, signedUrl: string): Promise<Response> => {
           const isMobile = /mobile|android|iphone|ipad|ipod/i.test(navigator.userAgent);
           debugLog(`[Admin] Device type: ${isMobile ? 'Mobile' : 'Desktop'}`);
@@ -336,21 +336,23 @@ const Admin = () => {
           }
 
           // 2) Longer timeout on mobile
-          const timeoutMs = isMobile ? 120000 : 30000;
-          const controller = new AbortController();
-          const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-          debugLog(`[Admin] Upload timeout set to ${timeoutMs / 1000}s`);
-
+          const timeoutMs = isMobile ? 120000 : 60000;
+          
           // 3) Content-Type with fallback (mobile sometimes comes empty)
           const isPdf = (fileToUpload.type?.includes("pdf") || fileToUpload.name?.toLowerCase().endsWith(".pdf"));
           const contentType = fileToUpload.type || (isPdf ? "application/pdf" : "application/octet-stream");
           debugLog(`[Admin] Using Content-Type: ${contentType}`);
 
-          try {
-            // 4) More compatible body on iOS (arrayBuffer for PDF)
-            const body = isPdf ? await fileToUpload.arrayBuffer() : fileToUpload;
-            debugLog(`[Admin] Body type: ${isPdf ? 'ArrayBuffer' : 'File'}`);
+          // 4) More compatible body on iOS (arrayBuffer for PDF)
+          const body = isPdf ? await fileToUpload.arrayBuffer() : fileToUpload;
+          debugLog(`[Admin] Body type: ${isPdf ? 'ArrayBuffer' : 'File'}`);
 
+          // Execute upload with timeout
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+          debugLog(`[Admin] Upload timeout set to ${timeoutMs / 1000}s`);
+
+          try {
             debugLog(`[Admin] PUT request starting...`);
             const uploadRes = await fetch(signedUrl, {
               method: "PUT",
@@ -385,8 +387,42 @@ const Admin = () => {
           }
         };
 
-        // Execute the mobile-optimized upload
-        const uploadResponse = await uploadFile(file, signedUrlData.signedUrl);
+        // Retry with exponential backoff
+        const MAX_RETRIES = 3;
+        const BASE_DELAY = 1000; // 1 second
+        
+        const uploadWithRetry = async (fileToUpload: File, signedUrl: string): Promise<Response> => {
+          let lastError: Error | null = null;
+          
+          for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+            try {
+              debugLog(`[Admin] Upload attempt ${attempt}/${MAX_RETRIES}`);
+              return await uploadFile(fileToUpload, signedUrl);
+            } catch (error) {
+              lastError = error instanceof Error ? error : new Error(String(error));
+              debugLog(`[Admin] Attempt ${attempt} failed:`, lastError.message);
+              
+              // Don't retry for definitive errors
+              if (lastError.message.includes("muito grande") || 
+                  lastError.message.includes("não autorizado") ||
+                  lastError.message.includes("conflito") ||
+                  lastError.message.includes("permissão")) {
+                throw lastError;
+              }
+              
+              if (attempt < MAX_RETRIES) {
+                const delay = BASE_DELAY * Math.pow(2, attempt - 1); // 1s, 2s, 4s
+                debugLog(`[Admin] Retrying in ${delay}ms...`);
+                await new Promise(r => setTimeout(r, delay));
+              }
+            }
+          }
+          
+          throw lastError || new Error("Upload falhou após todas tentativas");
+        };
+
+        // Execute the mobile-optimized upload with retry logic
+        const uploadResponse = await uploadWithRetry(file, signedUrlData.signedUrl);
         debugLog(`[Admin] PUT response headers:`, Object.fromEntries(uploadResponse.headers.entries()));
         
         const responseBody = await uploadResponse.text().catch(() => '');
