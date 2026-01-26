@@ -167,12 +167,24 @@ serve(async (req) => {
 
     const { query, limit = 12 } = await req.json();
     
+    // Input validation - query
     if (!query || typeof query !== "string") {
       return new Response(
         JSON.stringify({ error: "Query é obrigatória" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
+    
+    // Input validation - query length (max 500 characters)
+    if (query.length > 500) {
+      return new Response(
+        JSON.stringify({ error: "Query muito longa. Máximo de 500 caracteres permitidos." }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+    
+    // Input validation - limit (max 50)
+    const safeLimit = Math.min(Math.max(1, Number(limit) || 12), 50);
 
     const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
     if (!GEMINI_API_KEY) {
@@ -251,7 +263,7 @@ serve(async (req) => {
     // Ordenar e pegar top N
     const finalResults = Array.from(chunkScores.values())
       .sort((a, b) => b.score - a.score)
-      .slice(0, limit);
+      .slice(0, safeLimit);
     
     // Buscar títulos dos documentos
     const documentIds = [...new Set(finalResults.map(r => r.chunk.document_id))];

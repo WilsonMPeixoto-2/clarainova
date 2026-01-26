@@ -82,6 +82,27 @@ function extractMetadata(chunk: string, index: number): Record<string, any> {
   };
 }
 
+// Rate limiting configuration for admin endpoints (stricter)
+const ADMIN_RATE_LIMIT = {
+  maxRequests: 5,    // 5 attempts per window
+  windowSeconds: 300, // 5 minute window
+};
+
+// Helper to get client identifier for rate limiting
+function getClientKey(req: Request): string {
+  const forwarded = req.headers.get("x-forwarded-for");
+  const cfIp = req.headers.get("cf-connecting-ip");
+  const realIp = req.headers.get("x-real-ip");
+  
+  if (forwarded) {
+    return forwarded.split(",")[0].trim();
+  }
+  if (cfIp) return cfIp;
+  if (realIp) return realIp;
+  
+  return "unknown";
+}
+
 serve(async (req) => {
   // Handle CORS preflight
   if (req.method === "OPTIONS") {
@@ -100,6 +121,41 @@ serve(async (req) => {
   const documentId = pathParts[pathParts.length - 1];
 
   try {
+    // Rate limiting for POST/DELETE (admin operations)
+    if (req.method === "POST" || req.method === "DELETE") {
+      const clientKey = getClientKey(req);
+      const { data: rateLimitResult, error: rateLimitError } = await supabase.rpc(
+        "check_rate_limit",
+        {
+          p_client_key: `${clientKey}:admin-documents`,
+          p_endpoint: "documents-admin",
+          p_max_requests: ADMIN_RATE_LIMIT.maxRequests,
+          p_window_seconds: ADMIN_RATE_LIMIT.windowSeconds,
+        }
+      );
+
+      if (rateLimitError) {
+        console.error("[documents] Rate limit check error:", rateLimitError);
+      } else if (rateLimitResult && rateLimitResult.length > 0 && !rateLimitResult[0].allowed) {
+        const resetIn = rateLimitResult[0].reset_in || ADMIN_RATE_LIMIT.windowSeconds;
+        console.log(`[documents] Rate limited: ${clientKey}`);
+        return new Response(
+          JSON.stringify({
+            error: `Muitas tentativas. Tente novamente em ${Math.ceil(resetIn / 60)} minutos.`,
+            retryAfter: resetIn,
+          }),
+          {
+            status: 429,
+            headers: {
+              ...corsHeaders,
+              "Content-Type": "application/json",
+              "Retry-After": String(resetIn),
+            },
+          }
+        );
+      }
+    }
+
     // =============================================
     // GET /documents - Listar todos os documentos
     // =============================================
@@ -176,6 +232,7 @@ serve(async (req) => {
       console.log(`[documents] fileType: ${fileType}`);
       console.log(`[documents] originalName: ${originalName}`);
       
+      // Input validation
       if (!filePath) {
         console.error(`[documents] ERROR: filePath is missing`);
         return new Response(
