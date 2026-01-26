@@ -10,6 +10,7 @@ import { FeedbackDetailModal } from "./FeedbackDetailModal";
 import { StorageMonitor } from "./StorageMonitor";
 import { UsageHeatmap } from "./UsageHeatmap";
 import { KnowledgeGapAnalysis } from "./KnowledgeGapAnalysis";
+import { ApiUsageMonitor } from "./ApiUsageMonitor";
 
 interface QueryAnalytics {
   id: string;
@@ -350,6 +351,9 @@ export function AnalyticsTab() {
           </CardContent>
         </Card>
       </div>
+
+      {/* API Usage Monitor */}
+      <ApiUsageMonitor />
 
       {/* Feedback Trend Chart */}
       <Card className="glass-card">
