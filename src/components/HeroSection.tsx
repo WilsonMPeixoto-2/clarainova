@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Search, MessageCircle, BookOpen, Sparkles } from 'lucide-react';
+import { useIsMobile } from '@/hooks/use-mobile';
 import claraHero from '@/assets/clara-hero.png';
 
 const containerVariants = {
@@ -32,14 +33,15 @@ interface HeroSectionProps {
 const HeroSection = ({ onOpenChat }: HeroSectionProps) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearchFocused, setIsSearchFocused] = useState(false);
+  const isMobile = useIsMobile();
 
   return (
     <section className="relative min-h-screen flex items-center overflow-hidden">
       {/* Background Image Layer - Integrated, no frame */}
       <motion.div 
-        initial={{ scale: 1.1, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        transition={{ duration: 1.2, ease: "easeOut" }}
+        initial={isMobile ? { opacity: 0 } : { scale: 1.1, opacity: 0 }}
+        animate={isMobile ? { opacity: 1 } : { scale: 1, opacity: 1 }}
+        transition={{ duration: isMobile ? 0.6 : 1.2, ease: "easeOut" }}
         className="absolute inset-0 z-0 pointer-events-none"
         style={{
           backgroundImage: `url(${claraHero})`,
@@ -59,15 +61,19 @@ const HeroSection = ({ onOpenChat }: HeroSectionProps) => {
         className="absolute inset-0 z-10 pointer-events-none md:hidden hero-overlay-mobile"
       />
 
-      {/* Floating decorative elements */}
-      <motion.div
-        animate={floatAnimation}
-        className="absolute top-1/4 right-1/4 w-2 h-2 rounded-full bg-primary/30 blur-sm hidden lg:block"
-      />
-      <motion.div
-        animate={floatAnimation}
-        className="absolute top-1/3 right-1/3 w-3 h-3 rounded-full bg-primary/20 blur-sm hidden lg:block"
-      />
+      {/* Floating decorative elements - Only render on desktop to save mobile CPU */}
+      {!isMobile && (
+        <>
+          <motion.div
+            animate={floatAnimation}
+            className="absolute top-1/4 right-1/4 w-2 h-2 rounded-full bg-primary/30 blur-sm hidden lg:block"
+          />
+          <motion.div
+            animate={floatAnimation}
+            className="absolute top-1/3 right-1/3 w-3 h-3 rounded-full bg-primary/20 blur-sm hidden lg:block"
+          />
+        </>
+      )}
 
       {/* Content Layer */}
       <div className="container mx-auto px-6 relative z-20 pt-24 md:pt-32 pb-16 md:pb-24">
