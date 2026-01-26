@@ -1,113 +1,100 @@
 
+# Plano: Processamento de PDFs Grandes via URL
 
-# Plano: Migrar CLARA do Lovable AI Gateway para API Direta do Gemini
+## Resumo do Problema
+Quando você tenta fazer upload de PDFs grandes (acima de ~15MB), o sistema trava porque o servidor precisa baixar o arquivo inteiro e converter para um formato especial (base64), o que usa muita memória.
 
-## Objetivo
-Modificar a Edge Function `clara-chat` para usar sua chave `GEMINI_API_KEY` diretamente em vez do Lovable AI Gateway, garantindo limites de uso conhecidos e transparentes.
+## Solução Proposta
+Em vez de baixar o PDF para o servidor, vamos **enviar apenas o link do arquivo** para o serviço de inteligência artificial. Assim, o próprio serviço de IA baixa e processa o arquivo diretamente, sem sobrecarregar o servidor.
 
----
+**Benefícios:**
+- PDFs de até **50MB** poderão ser processados (antes era 15MB)
+- Processamento mais rápido (menos etapas)
+- Servidor não precisa carregar o arquivo na memória
 
-## Vantagens da Migração
+## O que será alterado
 
-| Aspecto | Lovable AI Gateway (Atual) | API Direta Gemini (Novo) |
-|---------|---------------------------|-------------------------|
-| Rate Limits | Opacos/compartilhados | **15 RPM, 1.500 req/dia** (Free Tier) |
-| Monitoramento | Não disponível | **Google AI Studio Console** |
-| Custo | Potencial cobrança não transparente | **Gratuito** até os limites |
-| Modelos | gemini-3-flash/pro | **gemini-2.0-flash** (recomendado) ou **gemini-1.5-pro** |
+### 1. Função de processamento de documentos
+- Ao receber um PDF, gerar um link temporário (válido por 5 minutos)
+- Enviar esse link diretamente para o Gemini processar
+- Remover o código que baixa e converte o arquivo
 
----
+### 2. Atualização dos limites no painel Admin
+- Aumentar o limite de PDFs de 15MB para 50MB
+- Manter validação para outros formatos
 
-## Mudanças Técnicas
-
-### 1. Modelos Disponíveis na API Direta
-A API direta do Google AI não usa os mesmos nomes de modelo que o gateway Lovable. Os modelos equivalentes são:
-
-- **Fast Mode**: `gemini-2.0-flash` (substitui `google/gemini-3-flash-preview`)
-- **Deep Mode**: `gemini-1.5-pro` (substitui `google/gemini-3-pro-preview`)
-
-### 2. Google Search Grounding
-A API direta do Gemini também suporta Google Search como ferramenta, então o fallback para busca web continuará funcionando.
-
-### 3. Streaming
-A SDK oficial do Google (`@google/generative-ai`) suporta streaming nativo via `generateContentStream()`.
+### 3. Mensagens de erro mais claras
+- Se o PDF for maior que 50MB, orientar a dividir o documento
 
 ---
 
-## Arquivos a Modificar
+## Detalhes Técnicos
 
-### `supabase/functions/clara-chat/index.ts`
-
-**Alterações principais:**
-
-1. **Remover chamada ao Lovable AI Gateway** (linhas 693-701)
-2. **Usar SDK Google Generative AI** que já está importada para chat completion
-3. **Atualizar MODEL_MAP** com nomes de modelo corretos para a API direta
-4. **Adaptar streaming** para usar o formato nativo da SDK do Google
-5. **Remover tratamento de erros 402** (não aplicável na API direta)
-
----
-
-## Detalhes da Implementação
-
-### Atualização do MODEL_MAP (linha 11-14)
+### Mudanças no arquivo `supabase/functions/documents/index.ts`
 
 ```text
-Antes:
-  fast: "google/gemini-3-flash-preview"
-  deep: "google/gemini-3-pro-preview"
+┌─────────────────────────────────────────────────────────────┐
+│ ANTES (método atual)                                        │
+├─────────────────────────────────────────────────────────────┤
+│ 1. Download do PDF para memória do servidor                 │
+│ 2. Converter bytes para base64 (dobra o uso de memória)     │
+│ 3. Enviar base64 para Gemini                                │
+│ 4. LIMITE: ~15MB (memória estoura com arquivos maiores)     │
+└─────────────────────────────────────────────────────────────┘
 
-Depois:
-  fast: "gemini-2.0-flash"
-  deep: "gemini-1.5-pro"
+┌─────────────────────────────────────────────────────────────┐
+│ DEPOIS (novo método)                                        │
+├─────────────────────────────────────────────────────────────┤
+│ 1. Gerar URL assinada do arquivo no Storage                 │
+│ 2. Enviar URL diretamente para Gemini                       │
+│ 3. Gemini acessa e processa o arquivo                       │
+│ 4. LIMITE: ~50MB (sem uso de memória do servidor)           │
+└─────────────────────────────────────────────────────────────┘
 ```
 
-### Nova Lógica de Chat (substituir linhas 674-719)
+### Código principal a ser modificado
 
-1. Criar modelo generativo com a SDK já importada
-2. Configurar Google Search como ferramenta quando necessário
-3. Usar `generateContentStream()` para streaming nativo
-4. Processar chunks do stream e emitir eventos SSE no formato atual
+**Gerar URL assinada:**
+```typescript
+const { data: signedUrlData } = await supabase.storage
+  .from("knowledge-base")
+  .createSignedUrl(filePath, 300); // 5 minutos
 
-### Tratamento de Rate Limits
+const signedUrl = signedUrlData?.signedUrl;
+```
 
-- **Erro 429 da API do Google**: Continua sendo tratado
-- **Erro 402 (Payment Required)**: Removido (não existe na API gratuita do Google)
+**Enviar URL para o Gemini (em vez de base64):**
+```typescript
+const result = await model.generateContent([
+  {
+    fileData: {
+      mimeType: "application/pdf",
+      fileUri: signedUrl  // URL em vez de base64
+    }
+  },
+  { text: "Extraia TODO o texto deste documento..." }
+]);
+```
 
----
+### Mudanças no arquivo `src/pages/Admin.tsx`
 
-## Limites do Free Tier do Gemini (Garantidos)
+- Atualizar `MAX_PDF_SIZE` de 15MB para 50MB
+- Ajustar mensagens de validação
 
-| Modelo | RPM | TPM | RPD |
-|--------|-----|-----|-----|
-| gemini-2.0-flash | 15 | 1.000.000 | 1.500 |
-| gemini-1.5-pro | 2 | 32.000 | 50 |
+### Compatibilidade
 
-**Nota**: O modo "Deep" (gemini-1.5-pro) tem limites muito mais baixos. Se o uso intensivo do modo profundo for esperado, considere usar `gemini-2.0-flash` para ambos os modos.
-
----
-
-## Monitoramento
-
-Após a migração, você poderá monitorar o uso em:
-**https://aistudio.google.com** → Seção "Get API Key" → Ver uso por projeto
-
----
-
-## Risco e Rollback
-
-- **Risco baixo**: A SDK já está em uso para embeddings, então a integração é comprovada
-- **Rollback**: Basta reverter as mudanças no arquivo se necessário
-- **Testes**: Executarei os testes existentes da Edge Function para validar
+- **TXT e DOCX**: Continuam funcionando como antes (já são leves)
+- **PDFs**: Passam a usar o novo método via URL
+- **Fallback**: Se a URL assinada falhar, tentar o método antigo como backup
 
 ---
 
-## Resumo das Tarefas
+## Resumo das Alterações
 
-1. Atualizar `MODEL_MAP` com nomes de modelo da API direta
-2. Substituir fetch ao Lovable Gateway por chamada à SDK do Google
-3. Adaptar lógica de streaming para formato nativo da SDK
-4. Manter suporte a Google Search Grounding
-5. Remover tratamento de erro 402 (não aplicável)
-6. Testar função com modo fast e deep
+| Arquivo | Mudança |
+|---------|---------|
+| `supabase/functions/documents/index.ts` | Processar PDF via URL assinada em vez de base64 |
+| `src/pages/Admin.tsx` | Aumentar limite de PDF para 50MB |
 
+## Resultado Esperado
+Após a implementação, você poderá fazer upload de PDFs de até 50MB sem erros de memória ou timeout.
