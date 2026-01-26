@@ -13,6 +13,22 @@ const MODEL_MAP: Record<string, { model: string; temperature: number; max_tokens
   "deep": { model: "google/gemini-3-pro-preview", temperature: 0.3, max_tokens: 8192 },
 };
 
+// Web search grounding configuration
+const WEB_SEARCH_CONFIG = {
+  // Minimum chunks required to skip web search
+  minChunksForLocalOnly: 3,
+  // Minimum RRF score to consider local results sufficient
+  minRRFScoreThreshold: 0.015,
+  // Trusted domains for web search (will be prioritized)
+  trustedDomains: [
+    "prefeitura.rio",
+    "leismunicipais.com.br",
+    "gov.br",
+    "tcm.rj.gov.br",
+    "camara.rj.gov.br"
+  ]
+};
+
 // Rate limiting configuration
 const RATE_LIMIT_CONFIG = {
   maxRequests: 15, // 15 requests per window
@@ -584,10 +600,25 @@ serve(async (req) => {
     });
     
     // Ordenar e pegar top 12
-    const finalChunks = Array.from(chunkScores.values())
-      .sort((a, b) => b.score - a.score)
+    const sortedChunks = Array.from(chunkScores.values())
+      .sort((a, b) => b.score - a.score);
+    
+    const finalChunks = sortedChunks
       .slice(0, 12)
       .map(item => item.chunk);
+    
+    // Calculate average RRF score for top results to determine if web search is needed
+    const topScores = sortedChunks.slice(0, 5).map(item => item.score);
+    const avgTopScore = topScores.length > 0 
+      ? topScores.reduce((a, b) => a + b, 0) / topScores.length 
+      : 0;
+    
+    // Determine if we need web search fallback
+    const needsWebSearch = 
+      finalChunks.length < WEB_SEARCH_CONFIG.minChunksForLocalOnly ||
+      avgTopScore < WEB_SEARCH_CONFIG.minRRFScoreThreshold;
+    
+    console.log(`[clara-chat] RAG results: ${finalChunks.length} chunks, avgScore: ${avgTopScore.toFixed(4)}, needsWebSearch: ${needsWebSearch}`);
     
     // Buscar títulos dos documentos
     const documentIds = [...new Set(finalChunks.map(c => c.document_id))];
@@ -614,6 +645,14 @@ serve(async (req) => {
     }));
     
     // Prompt do usuário com contexto
+    const webSearchInstruction = needsWebSearch 
+      ? `\n\n## Instrução Adicional - Busca Web Ativada
+      
+A base local não contém informação suficiente sobre este tema. Use a ferramenta de busca do Google para encontrar informações atualizadas.
+PRIORIZE fontes oficiais: ${WEB_SEARCH_CONFIG.trustedDomains.join(", ")}.
+SEMPRE inclua o disclaimer de busca web ao final da resposta.`
+      : "";
+
     const userPrompt = `## Contexto da Base de Conhecimento
 
 ${context || "Nenhum documento relevante encontrado na base de conhecimento."}
@@ -630,7 +669,26 @@ ${message}
 
 Responda à pergunta do usuário com base no contexto fornecido. Se o contexto não contiver informação suficiente, use seu conhecimento geral sobre o SEI e sistemas administrativos, mas indique claramente quando estiver fazendo isso.
 
-Sempre cite as fontes quando usar informação do contexto [Nome do Documento].`;
+Sempre cite as fontes quando usar informação do contexto [Nome do Documento].${webSearchInstruction}`;
+
+    // Build request body - add google_search tool when web search is needed
+    const requestBody: Record<string, unknown> = {
+      model: MODEL_MAP[mode]?.model || MODEL_MAP["fast"].model,
+      messages: [
+        { role: "system", content: CLARA_SYSTEM_PROMPT },
+        ...chatHistory,
+        { role: "user", content: userPrompt }
+      ],
+      stream: true,
+      temperature: MODEL_MAP[mode]?.temperature || MODEL_MAP["fast"].temperature,
+      max_tokens: MODEL_MAP[mode]?.max_tokens || MODEL_MAP["fast"].max_tokens,
+    };
+
+    // Enable Google Search grounding when local RAG is insufficient
+    if (needsWebSearch) {
+      requestBody.tools = [{ google_search: {} }];
+      console.log("[clara-chat] Google Search grounding enabled for this request");
+    }
 
     // Use Lovable AI Gateway for chat completion (OpenAI-compatible API)
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
@@ -639,17 +697,7 @@ Sempre cite as fontes quando usar informação do contexto [Nome do Documento].`
         "Authorization": `Bearer ${LOVABLE_API_KEY}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({
-        model: MODEL_MAP[mode]?.model || MODEL_MAP["fast"].model,
-        messages: [
-          { role: "system", content: CLARA_SYSTEM_PROMPT },
-          ...chatHistory,
-          { role: "user", content: userPrompt }
-        ],
-        stream: true,
-        temperature: MODEL_MAP[mode]?.temperature || MODEL_MAP["fast"].temperature,
-        max_tokens: MODEL_MAP[mode]?.max_tokens || MODEL_MAP["fast"].max_tokens,
-      }),
+      body: JSON.stringify(requestBody),
     });
 
     if (!response.ok) {
@@ -681,11 +729,17 @@ Sempre cite as fontes quando usar informação do contexto [Nome do Documento].`
       throw new Error("No response body from AI gateway");
     }
 
+    // Track web sources from grounding metadata
+    const webSources: string[] = [];
+
     const stream = new ReadableStream({
       async start(controller) {
         try {
-          // Enviar evento de início
-          controller.enqueue(encoder.encode(`event: thinking\ndata: ${JSON.stringify({ status: "searching", step: "Buscando na base de conhecimento..." })}\n\n`));
+          // Enviar evento de início - customize message based on web search
+          const thinkingStep = needsWebSearch 
+            ? "Buscando na web e base de conhecimento..." 
+            : "Buscando na base de conhecimento...";
+          controller.enqueue(encoder.encode(`event: thinking\ndata: ${JSON.stringify({ status: "searching", step: thinkingStep })}\n\n`));
           
           const decoder = new TextDecoder();
           let buffer = "";
@@ -715,6 +769,19 @@ Sempre cite as fontes quando usar informação do contexto [Nome do Documento].`
                 if (content) {
                   controller.enqueue(encoder.encode(`event: delta\ndata: ${JSON.stringify({ content })}\n\n`));
                 }
+                
+                // Extract grounding metadata if present (web search sources)
+                const groundingMeta = parsed.choices?.[0]?.groundingMetadata || parsed.groundingMetadata;
+                if (groundingMeta?.groundingChunks) {
+                  for (const chunk of groundingMeta.groundingChunks) {
+                    if (chunk.web?.uri && chunk.web?.title) {
+                      const webSource = `${chunk.web.title} - ${chunk.web.uri}`;
+                      if (!webSources.includes(webSource)) {
+                        webSources.push(webSource);
+                      }
+                    }
+                  }
+                }
               } catch {
                 // Incomplete JSON, put it back and wait for more data
                 buffer = line + "\n" + buffer;
@@ -738,13 +805,32 @@ Sempre cite as fontes quando usar informação do contexto [Nome do Documento].`
                 if (content) {
                   controller.enqueue(encoder.encode(`event: delta\ndata: ${JSON.stringify({ content })}\n\n`));
                 }
+                
+                // Extract grounding metadata from final chunks
+                const groundingMeta = parsed.choices?.[0]?.groundingMetadata || parsed.groundingMetadata;
+                if (groundingMeta?.groundingChunks) {
+                  for (const chunk of groundingMeta.groundingChunks) {
+                    if (chunk.web?.uri && chunk.web?.title) {
+                      const webSource = `${chunk.web.title} - ${chunk.web.uri}`;
+                      if (!webSources.includes(webSource)) {
+                        webSources.push(webSource);
+                      }
+                    }
+                  }
+                }
               } catch { /* ignore partial leftovers */ }
             }
           }
           
-          // Enviar fontes locais
-          if (localSources.length > 0) {
-            controller.enqueue(encoder.encode(`event: sources\ndata: ${JSON.stringify({ local: localSources })}\n\n`));
+          // Enviar fontes (local + web)
+          const sourcesPayload: { local: string[]; web?: string[] } = { local: localSources };
+          if (webSources.length > 0) {
+            sourcesPayload.web = webSources;
+            console.log(`[clara-chat] Web sources found: ${webSources.length}`);
+          }
+          
+          if (localSources.length > 0 || webSources.length > 0) {
+            controller.enqueue(encoder.encode(`event: sources\ndata: ${JSON.stringify(sourcesPayload)}\n\n`));
           }
           
           // Enviar evento de conclusão
