@@ -1,7 +1,9 @@
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, FileText, AlertTriangle } from "lucide-react";
+import { X, FileText, AlertTriangle, MessageSquare, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { supabase } from "@/integrations/supabase/client";
 
 interface QueryAnalytics {
   id: string;
@@ -9,6 +11,7 @@ interface QueryAnalytics {
   assistant_response: string;
   sources_cited: string[];
   created_at: string;
+  session_fingerprint?: string | null;
 }
 
 interface ResponseFeedback {
@@ -19,6 +22,14 @@ interface ResponseFeedback {
   feedback_text: string | null;
   created_at: string;
   query?: QueryAnalytics;
+}
+
+interface SessionContext {
+  id: string;
+  user_query: string;
+  assistant_response: string;
+  created_at: string;
+  isCurrent: boolean;
 }
 
 interface FeedbackDetailModalProps {
@@ -39,6 +50,48 @@ const getCategoryLabel = (category: string | null): string => {
 };
 
 export function FeedbackDetailModal({ feedback, onClose }: FeedbackDetailModalProps) {
+  const [sessionContext, setSessionContext] = useState<SessionContext[]>([]);
+  const [isLoadingContext, setIsLoadingContext] = useState(false);
+
+  // Fetch session context when modal opens
+  useEffect(() => {
+    if (!feedback?.query?.session_fingerprint) {
+      setSessionContext([]);
+      return;
+    }
+
+    const fetchSessionContext = async () => {
+      setIsLoadingContext(true);
+      try {
+        const { data, error } = await supabase
+          .from("query_analytics")
+          .select("id, user_query, assistant_response, created_at")
+          .eq("session_fingerprint", feedback.query!.session_fingerprint!)
+          .order("created_at", { ascending: true })
+          .limit(10);
+
+        if (error) throw error;
+
+        const context: SessionContext[] = (data || []).map((item) => ({
+          id: item.id,
+          user_query: item.user_query,
+          assistant_response: item.assistant_response,
+          created_at: item.created_at,
+          isCurrent: item.id === feedback.query_id,
+        }));
+
+        setSessionContext(context);
+      } catch (err) {
+        console.error("[FeedbackDetailModal] Error fetching session context:", err);
+        setSessionContext([]);
+      } finally {
+        setIsLoadingContext(false);
+      }
+    };
+
+    fetchSessionContext();
+  }, [feedback]);
+
   if (!feedback) return null;
 
   const formatDate = (dateString: string) => {
@@ -46,6 +99,13 @@ export function FeedbackDetailModal({ feedback, onClose }: FeedbackDetailModalPr
       day: "2-digit",
       month: "long",
       year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  };
+
+  const formatTime = (dateString: string) => {
+    return new Date(dateString).toLocaleTimeString("pt-BR", {
       hour: "2-digit",
       minute: "2-digit",
     });
@@ -70,7 +130,7 @@ export function FeedbackDetailModal({ feedback, onClose }: FeedbackDetailModalPr
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 20 }}
             transition={{ duration: 0.2 }}
-            className="fixed inset-4 z-50 mx-auto max-w-2xl max-h-[90vh] overflow-auto my-auto"
+            className="fixed inset-4 z-50 mx-auto max-w-3xl max-h-[90vh] overflow-auto my-auto"
             style={{ top: "5%", bottom: "5%" }}
           >
             <div className="bg-card border border-border rounded-xl shadow-xl">
@@ -121,6 +181,55 @@ export function FeedbackDetailModal({ feedback, onClose }: FeedbackDetailModalPr
                     </div>
                   )}
                 </div>
+
+                {/* Session Context */}
+                {sessionContext.length > 1 && (
+                  <div className="space-y-3">
+                    <h4 className="text-sm font-semibold text-foreground flex items-center gap-2">
+                      <MessageSquare className="w-4 h-4 text-primary" />
+                      Contexto da Sessão ({sessionContext.length} interações)
+                    </h4>
+                    <div className="bg-muted/20 rounded-lg p-4 space-y-3 max-h-[200px] overflow-y-auto">
+                      {isLoadingContext ? (
+                        <div className="flex items-center justify-center py-4">
+                          <Loader2 className="w-5 h-5 text-primary animate-spin" />
+                        </div>
+                      ) : (
+                        sessionContext.map((item, index) => (
+                          <div
+                            key={item.id}
+                            className={`flex items-start gap-2 text-xs ${
+                              item.isCurrent
+                                ? "bg-destructive/10 border border-destructive/20 rounded-lg p-2 -mx-2"
+                                : ""
+                            }`}
+                          >
+                            <span className="text-muted-foreground font-mono w-5 text-right flex-shrink-0">
+                              {index + 1}.
+                            </span>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-foreground truncate">
+                                <span className="font-medium">P:</span> {item.user_query}
+                              </p>
+                              <p className="text-muted-foreground truncate mt-0.5">
+                                <span className="font-medium">R:</span>{" "}
+                                {item.assistant_response.substring(0, 100)}...
+                              </p>
+                            </div>
+                            <span className="text-muted-foreground/60 text-[10px] flex-shrink-0">
+                              {formatTime(item.created_at)}
+                            </span>
+                            {item.isCurrent && (
+                              <Badge variant="destructive" className="text-[10px] px-1 py-0">
+                                Esta
+                              </Badge>
+                            )}
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                )}
 
                 {/* User Query */}
                 <div className="space-y-2">
