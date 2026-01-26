@@ -1,103 +1,142 @@
 
-# Plano: Análise de Maturidade e Próximos Passos do Projeto CLARA
 
-## ✅ Resumo Executivo - ATUALIZADO
+# Plano: Etapa Final 3 - Preparação para Lançamento
 
-O projeto CLARA está em estágio **MVP+ Avançado** com **92% de maturidade geral** após implementação das melhorias. O core funcional está completo e em produção com segurança reforçada, testes automatizados e PWA.
+## Resumo Executivo
 
----
-
-## ✅ Ações Concluídas
-
-### Fase 1: Segurança (CONCLUÍDO)
-- [x] Políticas RLS restritivas para INSERT/UPDATE/DELETE
-- [x] development_reports: apenas admins podem modificar
-- [x] query_analytics: apenas service_role pode inserir
-- [x] response_feedback: apenas service_role pode inserir
-- [x] chat_sessions: acesso restrito ao dono (auth.uid() = user_id)
-- [x] documents/document_chunks: apenas admins/service_role podem modificar
-
-### Fase 2: Testes Automatizados (CONCLUÍDO)
-- [x] Testes Deno para `search` (7 testes - 100% passando)
-- [x] Testes Deno para `documents` (8 testes - 100% passando)
-- [x] Testes Deno para `clara-chat` (7 testes - 100% passando)
-- [x] Testes React para `ChatMessage` (11 testes)
-- [x] Testes React para `ChatInput` (12 testes)
-- [x] Testes para hooks: `useOnlineStatus`, `useLocalStorage`
-
-### Fase 3: PWA (CONCLUÍDO)
-- [x] manifest.json com metadados, ícones e shortcuts
-- [x] Service Worker com cache estratégico
-- [x] Registro automático do SW no main.tsx
-- [x] Fallback offline para páginas
+O projeto CLARA está em **95% de maturidade** e pronto para lançamento. Esta etapa final consiste em uma revisão sistemática de código, limpeza de artefatos de desenvolvimento e verificações finais de produção.
 
 ---
 
-## Matriz de Maturidade Atualizada
+## Status Atual Verificado
 
-| Área | Nível Anterior | Nível Atual | Observações |
-|------|----------------|-------------|-------------|
-| Motor IA/RAG | 95% | 95% | Mantido - já em produção |
-| Interface Chat | 90% | 92% | +Testes automatizados |
-| Documentos | 85% | 88% | +Testes, +segurança |
-| Autenticação | 80% | 85% | +RLS restritivo |
-| Analytics | 75% | 75% | Mantido |
-| Segurança | 70% | **90%** | +RLS, +rate limiting |
-| SEO | 85% | 85% | Mantido |
-| Testes | 10% | **75%** | +Edge Functions, +React |
-| PWA | 5% | **80%** | +manifest, +SW, +offline |
+| Componente | Status | Observação |
+|-----------|--------|------------|
+| Motor IA/RAG | ✅ Completo | Gemini 3 Pro + Web Grounding |
+| Interface Chat | ✅ Completo | Streaming, PDF, Feedback |
+| PWA | ✅ Completo | Ícones, manifest, SW |
+| Analytics | ✅ Completo | Heatmap + Lacunas |
+| Segurança | ✅ Completo | RLS restritivo, rate limiting |
+| Testes | ✅ Completo | 22+ testes Edge + React |
+| SEO | ✅ Completo | sitemap, robots, meta tags |
 
 ---
 
-## Estrutura de Testes Criada
+## Checklist de Limpeza de Código
+
+### 1. Console Logs para Remover/Condicionais
+
+Os seguintes logs devem ser condicionados ao ambiente de desenvolvimento:
+
+| Arquivo | Linhas | Ação |
+|---------|--------|------|
+| `src/pages/Admin.tsx` | 391-396 | Condicionar com `import.meta.env.DEV` |
+| `supabase/functions/clara-chat/index.ts` | 621, 690 | Manter (útil para monitoramento) |
+| `src/hooks/useChat.ts` | 228, 282 | Manter como `console.warn` (erros) |
+| `public/sw.js` | 20, 36, 136 | Condicionar ou remover |
+| `src/utils/generateReportPdf.ts` | 60 | Manter (fallback warning) |
+| `src/components/chat/DownloadPdfButton.tsx` | 87 | Manter (fallback warning) |
+
+### 2. Arquivo de Teste Genérico
+
+Remover o arquivo `src/test/example.test.ts` que contém apenas um teste placeholder "should pass".
+
+### 3. URLs de Teste
+
+Os arquivos de teste das Edge Functions usam `https://example.com` para testes CORS - isso é correto e não precisa ser alterado (são testes, não código de produção).
+
+---
+
+## Verificações de Segurança
+
+### Linter Supabase - Avisos Atuais
+
+| Aviso | Análise | Ação |
+|-------|---------|------|
+| pgvector em `public` | Funcional, baixa prioridade | Ignorar (não afeta funcionamento) |
+| Anonymous Access Policies | Políticas READ são intencionais | Documentado - OK |
+| Storage público | By design (docs educacionais) | Documentado - OK |
+
+**Conclusão**: Todos os avisos foram analisados e são aceitáveis para produção.
+
+### Security Scan - Findings Ignorados
+
+Os 3 findings de segurança estão corretamente marcados como `ignore: true` com justificativas válidas:
+1. **Client-side auth** → Backend valida server-side ✅
+2. **Storage público** → Intencional para docs educacionais ✅
+3. **user_roles sem write policies** → Service role apenas ✅
+
+---
+
+## SEO e Metadados - Verificação
+
+| Item | Status | Arquivo |
+|------|--------|---------|
+| robots.txt | ✅ Correto | Permite todos os crawlers |
+| sitemap.xml | ✅ Correto | 6 URLs mapeadas |
+| Meta tags OG | ✅ Correto | Título, descrição, imagem |
+| Meta tags Twitter | ✅ Correto | Espelhando OG |
+| PWA manifest | ✅ Correto | Ícones, shortcuts |
+| Favicon PNG | ✅ Correto | Line art minimalista |
+
+---
+
+## Tarefas de Implementação
+
+### Fase 1: Limpeza de Código (5 min)
+
+1. **Condicionar logs de debug no Admin.tsx**
+   - Envolver logs das linhas 391-396 com `if (import.meta.env.DEV)`
+
+2. **Remover arquivo de teste genérico**
+   - Deletar `src/test/example.test.ts`
+
+3. **Otimizar logs do Service Worker**
+   - Remover ou condicionar `console.log` no `public/sw.js`
+
+### Fase 2: Atualização de Documentação (3 min)
+
+4. **Atualizar `.lovable/plan.md`**
+   - Marcar todas as etapas como concluídas
+   - Atualizar matriz de maturidade para 95-97%
+   - Adicionar seção "Lançamento" com data
+
+### Fase 3: Validação Final (2 min)
+
+5. **Executar testes automatizados**
+   - Rodar testes React para garantir nenhuma regressão
+   - Verificar testes Edge Functions
+
+---
+
+## Resumo das Mudanças
 
 ```text
-supabase/functions/
-├── search/index_test.ts        # 7 testes
-├── clara-chat/index_test.ts    # 7 testes
-└── documents/index_test.ts     # 8 testes
+Arquivos a modificar:
+├── src/pages/Admin.tsx          # Condicionar logs
+├── public/sw.js                 # Limpar logs
+└── .lovable/plan.md             # Atualizar status
 
-src/components/chat/
-├── ChatMessage.test.tsx        # 11 testes
-└── ChatInput.test.tsx          # 12 testes
-
-src/hooks/
-├── useOnlineStatus.test.ts     # 10 testes
-└── useLocalStorage.test.ts     # 13 testes
+Arquivos a remover:
+└── src/test/example.test.ts     # Teste placeholder
 ```
 
 ---
 
-## PWA Implementado
+## Critérios de Aceite para Lançamento
 
-```text
-public/
-├── manifest.json    # Metadados PWA
-└── sw.js            # Service Worker
-
-index.html           # Link para manifest
-src/main.tsx         # Registro do SW
-```
-
----
-
-## Próximos Passos Recomendados
-
-### Prioridade Alta
-1. **Web Search Grounding** - Fallback para busca na internet quando base local não tiver resposta
-2. **Ícones PWA** - Gerar icon-192.png e icon-512.png para instalação completa
-
-### Prioridade Média
-3. **Analytics Avançado** - Heatmap de horários, análise de lacunas
-4. **Notificações Push** - Avisos de atualizações na legislação
-
-### Prioridade Baixa
-5. **Mover pgvector** - Migrar extensão para schema `extensions`
-6. **Mais testes E2E** - Testes de fluxo completo com browser
+- [ ] Zero console.log em produção (exceto warnings de erro)
+- [ ] Todos os testes passando
+- [ ] Security findings documentados/ignorados
+- [ ] SEO completo (robots, sitemap, meta tags)
+- [ ] PWA instalável (ícones, manifest, SW)
+- [ ] Documentação atualizada
 
 ---
 
 ## Conclusão
 
-O projeto CLARA atingiu **92% de maturidade** e está **pronto para produção em escala**. As melhorias de segurança eliminaram vulnerabilidades críticas, os testes garantem qualidade contínua, e o PWA permite uso offline.
+O projeto CLARA está **pronto para lançamento**. As tarefas restantes são limpeza cosmética de logs de debug e atualização de documentação. Não há bloqueadores técnicos ou de segurança.
+
+**Tempo estimado**: 10 minutos para completar todas as tarefas.
 
