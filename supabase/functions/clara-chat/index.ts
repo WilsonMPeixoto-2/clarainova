@@ -13,12 +13,6 @@ const MODEL_MAP: Record<string, { model: string; temperature: number; max_tokens
   "deep": { model: "gemini-1.5-pro", temperature: 0.3, max_tokens: 8192 },
 };
 
-// Fallback model configuration for Lovable AI Gateway
-const LOVABLE_MODEL_MAP: Record<string, string> = {
-  "fast": "google/gemini-3-flash-preview",
-  "deep": "google/gemini-3-pro-preview",
-};
-
 // Web search grounding configuration
 const WEB_SEARCH_CONFIG = {
   // Minimum chunks required to skip web search
@@ -712,76 +706,28 @@ Sempre cite as fontes quando usar informação do contexto [Nome do Documento].$
 
     console.log(`[clara-chat] Using direct Gemini API with model: ${modelConfig.model}, webSearch: ${needsWebSearch}`);
 
-    // Try Gemini API first, fallback to Lovable AI Gateway on rate limit
-    let useGeminiSDK = true;
-    // deno-lint-ignore no-explicit-any
-    let geminiResult: any = null;
-    let lovableResponse: Response | null = null;
-
+    // Generate content with streaming
+    let result;
     try {
-      geminiResult = await chatModel.generateContentStream({
+      result = await chatModel.generateContentStream({
         contents,
         systemInstruction: CLARA_SYSTEM_PROMPT,
       });
     } catch (error: unknown) {
       const err = error as { status?: number; message?: string };
       if (err.status === 429 || (err.message && err.message.includes("429"))) {
-        console.log("[clara-chat] Gemini rate limit hit, falling back to Lovable AI Gateway");
-        useGeminiSDK = false;
-        
-        // Fallback to Lovable AI Gateway
-        const lovableModel = LOVABLE_MODEL_MAP[mode] || LOVABLE_MODEL_MAP["fast"];
-        const requestBody: Record<string, unknown> = {
-          model: lovableModel,
-          messages: [
-            { role: "system", content: CLARA_SYSTEM_PROMPT },
-            ...chatHistory,
-            { role: "user", content: userPrompt }
-          ],
-          stream: true,
-          temperature: modelConfig.temperature,
-          max_tokens: modelConfig.max_tokens,
-        };
-        
-        if (needsWebSearch) {
-          requestBody.tools = [{ google_search: {} }];
-        }
-        
-        lovableResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-          method: "POST",
-          headers: {
-            "Authorization": `Bearer ${LOVABLE_API_KEY}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(requestBody),
-        });
-        
-        if (!lovableResponse.ok) {
-          if (lovableResponse.status === 429) {
-            return new Response(
-              JSON.stringify({ error: "Limite de requisições excedido em ambas as APIs. Tente novamente em alguns minutos." }),
-              { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-            );
-          }
-          if (lovableResponse.status === 402) {
-            return new Response(
-              JSON.stringify({ error: "Créditos de IA esgotados. Entre em contato com o administrador." }),
-              { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-            );
-          }
-          const errorText = await lovableResponse.text();
-          console.error("Lovable AI Gateway error:", lovableResponse.status, errorText);
-          throw new Error(`AI gateway error: ${lovableResponse.status}`);
-        }
-      } else {
-        throw error;
+        return new Response(
+          JSON.stringify({ error: "Limite de requisições da IA excedido. Tente novamente em alguns segundos." }),
+          { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
       }
+      throw error;
     }
 
     // Coletar fontes locais
     const localSources = documents?.map(d => d.title) || [];
     
-    // Create SSE stream
+    // Create SSE stream from Google SDK stream
     const encoder = new TextEncoder();
     
     // Track web sources from grounding metadata
@@ -796,75 +742,24 @@ Sempre cite as fontes quando usar informação do contexto [Nome do Documento].$
             : "Buscando na base de conhecimento...";
           controller.enqueue(encoder.encode(`event: thinking\ndata: ${JSON.stringify({ status: "searching", step: thinkingStep })}\n\n`));
           
-          if (useGeminiSDK && geminiResult) {
-            // Process Gemini SDK streaming response
-            for await (const chunk of geminiResult.stream) {
-              const text = chunk.text();
-              if (text) {
-                controller.enqueue(encoder.encode(`event: delta\ndata: ${JSON.stringify({ content: text })}\n\n`));
-              }
-              
-              // Extract grounding metadata if present (web search sources)
-              // Note: SDK has a typo - it's "groundingChuncks" not "groundingChunks"
-              // deno-lint-ignore no-explicit-any
-              const groundingMeta = (chunk.candidates?.[0] as any)?.groundingMetadata;
-              if (groundingMeta?.groundingChuncks) {
-                for (const grChunk of groundingMeta.groundingChuncks) {
-                  if (grChunk.web?.uri && grChunk.web?.title) {
-                    const webSource = `${grChunk.web.title} - ${grChunk.web.uri}`;
-                    if (!webSources.includes(webSource)) {
-                      webSources.push(webSource);
-                    }
-                  }
-                }
-              }
+          // Process streaming response
+          for await (const chunk of result.stream) {
+            const text = chunk.text();
+            if (text) {
+              controller.enqueue(encoder.encode(`event: delta\ndata: ${JSON.stringify({ content: text })}\n\n`));
             }
-          } else if (lovableResponse?.body) {
-            // Process Lovable AI Gateway streaming response (OpenAI format)
-            const reader = lovableResponse.body.getReader();
-            const decoder = new TextDecoder();
-            let buffer = "";
             
-            while (true) {
-              const { done, value } = await reader.read();
-              if (done) break;
-              
-              buffer += decoder.decode(value, { stream: true });
-              
-              let newlineIndex: number;
-              while ((newlineIndex = buffer.indexOf("\n")) !== -1) {
-                let line = buffer.slice(0, newlineIndex);
-                buffer = buffer.slice(newlineIndex + 1);
-                
-                if (line.endsWith("\r")) line = line.slice(0, -1);
-                if (line.startsWith(":") || line.trim() === "") continue;
-                if (!line.startsWith("data: ")) continue;
-                
-                const jsonStr = line.slice(6).trim();
-                if (jsonStr === "[DONE]") continue;
-                
-                try {
-                  const parsed = JSON.parse(jsonStr);
-                  const content = parsed.choices?.[0]?.delta?.content as string | undefined;
-                  if (content) {
-                    controller.enqueue(encoder.encode(`event: delta\ndata: ${JSON.stringify({ content })}\n\n`));
+            // Extract grounding metadata if present (web search sources)
+            // Note: SDK has a typo - it's "groundingChuncks" not "groundingChunks"
+            // deno-lint-ignore no-explicit-any
+            const groundingMeta = (chunk.candidates?.[0] as any)?.groundingMetadata;
+            if (groundingMeta?.groundingChuncks) {
+              for (const grChunk of groundingMeta.groundingChuncks) {
+                if (grChunk.web?.uri && grChunk.web?.title) {
+                  const webSource = `${grChunk.web.title} - ${grChunk.web.uri}`;
+                  if (!webSources.includes(webSource)) {
+                    webSources.push(webSource);
                   }
-                  
-                  // Extract grounding metadata from Lovable AI
-                  const groundingMeta = parsed.choices?.[0]?.groundingMetadata || parsed.groundingMetadata;
-                  if (groundingMeta?.groundingChunks) {
-                    for (const chunk of groundingMeta.groundingChunks) {
-                      if (chunk.web?.uri && chunk.web?.title) {
-                        const webSource = `${chunk.web.title} - ${chunk.web.uri}`;
-                        if (!webSources.includes(webSource)) {
-                          webSources.push(webSource);
-                        }
-                      }
-                    }
-                  }
-                } catch {
-                  buffer = line + "\n" + buffer;
-                  break;
                 }
               }
             }
@@ -890,15 +785,6 @@ Sempre cite as fontes quando usar informação do contexto [Nome do Documento].$
           controller.enqueue(encoder.encode(`event: error\ndata: ${JSON.stringify({ message: errorMessage })}\n\n`));
           controller.close();
         }
-      }
-    });
-    
-    return new Response(stream, {
-      headers: {
-        ...corsHeaders,
-        "Content-Type": "text/event-stream",
-        "Cache-Control": "no-cache",
-        "Connection": "keep-alive"
       }
     });
     
