@@ -216,8 +216,8 @@ const Admin = () => {
       'text/plain',
     ];
 
-    // Size limits by file type (PDF limited due to base64 memory constraints in edge function)
-    const MAX_PDF_SIZE = 15 * 1024 * 1024; // 15MB limit for PDFs
+    // Size limits by file type (PDFs now processed via URL, so can be larger)
+    const MAX_PDF_SIZE = 50 * 1024 * 1024; // 50MB limit for PDFs (processed via signed URL)
     const MAX_OTHER_SIZE = 50 * 1024 * 1024; // 50MB limit for DOCX/TXT
     
     const validFiles = Array.from(files).filter(file => {

@@ -275,15 +275,15 @@ serve(async (req) => {
       // Extract text based on file type
       let contentText: string;
       
-      // File size limit for processing (15MB for PDF due to base64 expansion)
-      const MAX_PDF_SIZE = 15 * 1024 * 1024; // 15MB
+      // File size limit for processing
+      const MAX_PDF_SIZE = 50 * 1024 * 1024; // 50MB (processed via signed URL)
       const MAX_DOCX_SIZE = 50 * 1024 * 1024; // 50MB
       
       if (isTXT) {
         contentText = await fileData.text();
         console.log(`[documents] TXT extracted: ${contentText.length} characters`);
       } else if (isPDF) {
-        // Check file size to prevent memory issues
+        // Check file size
         if (fileData.size > MAX_PDF_SIZE) {
           console.error(`[documents] PDF too large: ${Math.round(fileData.size / 1024 / 1024)}MB (max ${MAX_PDF_SIZE / 1024 / 1024}MB)`);
           return new Response(
@@ -297,30 +297,31 @@ serve(async (req) => {
           );
         }
         
-        // Extract text from PDF using Gemini (compatible with Deno)
+        // Extract text from PDF using Gemini via signed URL (avoids memory issues)
         try {
-          const arrayBuffer = await fileData.arrayBuffer();
+          console.log(`[documents] PDF size: ${Math.round(fileData.size / 1024)}KB, generating signed URL for Gemini...`);
           
-          // Use chunked base64 encoding to reduce peak memory usage
-          const uint8Array = new Uint8Array(arrayBuffer);
-          const CHUNK_SIZE_B64 = 32768; // 32KB chunks for base64 encoding
-          let base64Data = '';
+          // Generate a signed URL for Gemini to access the PDF directly
+          const { data: signedUrlData, error: signedUrlError } = await supabase.storage
+            .from("knowledge-base")
+            .createSignedUrl(filePath, 300); // 5 minutes validity
           
-          for (let i = 0; i < uint8Array.length; i += CHUNK_SIZE_B64) {
-            const chunk = uint8Array.slice(i, i + CHUNK_SIZE_B64);
-            base64Data += btoa(String.fromCharCode.apply(null, [...chunk]));
+          if (signedUrlError || !signedUrlData?.signedUrl) {
+            console.error(`[documents] Failed to create signed URL:`, signedUrlError);
+            throw new Error("Falha ao gerar URL de acesso para o PDF");
           }
           
-          console.log(`[documents] PDF size: ${Math.round(arrayBuffer.byteLength / 1024)}KB, extracting with Gemini...`);
+          const signedUrl = signedUrlData.signedUrl;
+          console.log(`[documents] Signed URL generated, sending to Gemini...`);
           
           const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
           const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
           
           const result = await model.generateContent([
             {
-              inlineData: {
+              fileData: {
                 mimeType: "application/pdf",
-                data: base64Data
+                fileUri: signedUrl
               }
             },
             {
@@ -338,7 +339,7 @@ Responda APENAS com o texto extraído do documento.`
           ]);
           
           contentText = result.response.text();
-          console.log(`[documents] PDF extracted via Gemini: ${contentText.length} characters`);
+          console.log(`[documents] PDF extracted via Gemini (URL method): ${contentText.length} characters`);
           
           if (!contentText || contentText.trim().length < 50) {
             throw new Error("Texto extraído muito curto - PDF pode estar escaneado ou corrompido");
@@ -346,18 +347,6 @@ Responda APENAS com o texto extraído do documento.`
         } catch (pdfError) {
           console.error("Erro ao extrair PDF:", pdfError);
           const errorMessage = pdfError instanceof Error ? pdfError.message : "Erro desconhecido";
-          
-          // Check for specific error types
-          if (errorMessage.includes("memory") || errorMessage.includes("Memory")) {
-            return new Response(
-              JSON.stringify({ 
-                error: "PDF muito grande para processar. Por favor, divida o documento em partes menores (máximo 15MB).",
-                code: "MEMORY_EXCEEDED",
-                details: errorMessage
-              }),
-              { status: 413, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-            );
-          }
           
           return new Response(
             JSON.stringify({ 
