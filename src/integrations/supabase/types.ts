@@ -14,6 +14,30 @@ export type Database = {
   }
   public: {
     Tables: {
+      api_usage_stats: {
+        Row: {
+          created_at: string
+          id: string
+          mode: string
+          model: string
+          provider: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          mode: string
+          model: string
+          provider: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          mode?: string
+          model?: string
+          provider?: string
+        }
+        Relationships: []
+      }
       chat_sessions: {
         Row: {
           created_at: string
@@ -301,6 +325,24 @@ export type Database = {
         Returns: number
       }
       cleanup_rate_limits: { Args: never; Returns: number }
+      get_api_usage_stats: {
+        Args: { p_days?: number }
+        Returns: {
+          date: string
+          mode: string
+          model: string
+          provider: string
+          total_count: number
+        }[]
+      }
+      get_api_usage_summary: {
+        Args: { p_days?: number }
+        Returns: {
+          percentage: number
+          provider: string
+          total_count: number
+        }[]
+      }
       get_chat_storage_stats: {
         Args: never
         Returns: {

@@ -742,6 +742,18 @@ Sempre cite as fontes quando usar informação do contexto [Nome do Documento].$
     // Track web sources from grounding metadata
     const webSources: string[] = [];
 
+    // Helper function to log API usage (fire and forget)
+    const logApiUsage = async (provider: "gemini" | "lovable", model: string, modeUsed: string) => {
+      try {
+        await supabase
+          .from("api_usage_stats")
+          .insert({ provider, model, mode: modeUsed });
+        console.log(`[clara-chat] Logged API usage: ${provider}/${model} (${modeUsed})`);
+      } catch (err) {
+        console.warn("[clara-chat] Failed to log API usage:", err);
+      }
+    };
+
     // If we need to use fallback, use Lovable AI Gateway
     if (useFallback) {
       const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
@@ -852,6 +864,9 @@ Sempre cite as fontes quando usar informação do contexto [Nome do Documento].$
               controller.enqueue(encoder.encode(`event: sources\ndata: ${JSON.stringify({ local: localSources })}\n\n`));
             }
             
+            // Log API usage (fire and forget)
+            logApiUsage("lovable", activeModelName, mode);
+            
             controller.enqueue(encoder.encode(`event: done\ndata: {}\n\n`));
             controller.close();
           } catch (error) {
@@ -919,6 +934,9 @@ Sempre cite as fontes quando usar informação do contexto [Nome do Documento].$
           if (localSources.length > 0 || webSources.length > 0) {
             controller.enqueue(encoder.encode(`event: sources\ndata: ${JSON.stringify(sourcesPayload)}\n\n`));
           }
+          
+          // Log API usage (fire and forget)
+          logApiUsage("gemini", activeModelName, mode);
           
           // Enviar evento de conclusão
           controller.enqueue(encoder.encode(`event: done\ndata: {}\n\n`));
