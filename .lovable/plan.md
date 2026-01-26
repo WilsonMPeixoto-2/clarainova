@@ -1,104 +1,190 @@
 
-# Plano de Otimização de Performance Mobile
+# Plano: Sistema de Histórico de Relatórios de Desenvolvimento
 
-## Resumo Executivo
-Este plano implementa duas otimizações para melhorar a velocidade de carregamento em dispositivos móveis, **sem alterar a aparência visual** do site.
+## O Problema
 
----
-
-## O Que Será Feito (em linguagem simples)
-
-### 1. Otimização da Imagem de Fundo
-**Problema atual:** A mesma imagem grande (otimizada para telas de computador) é carregada em celulares, consumindo dados e tempo desnecessários.
-
-**Solução:** 
-- Criar uma versão menor da imagem especificamente para celulares
-- Implementar "lazy loading" (a imagem só carrega quando realmente necessária)
-
-**Resultado:** Celulares carregam uma imagem ~60% menor, economizando dados e tempo.
-
-### 2. Simplificação de Animações no Mobile
-**Problema atual:** Dois pequenos círculos decorativos ficam "flutuando" infinitamente no fundo. Essa animação contínua consome bateria e processamento.
-
-**Solução:** Esses elementos decorativos (que já são invisíveis em telas menores que desktop grande) serão completamente removidos do carregamento em celulares.
-
-**Resultado:** Menos processamento = página mais leve e responsiva.
+Quando os relatórios de progresso do projeto (como os resumos das melhorias que fazemos no chat) são muito longos, fica difícil copiar e colar pelo celular. Você precisa de uma forma de **armazenar** e **baixar** esses relatórios posteriormente.
 
 ---
 
-## Garantia Visual
+## A Solução
 
-| Elemento | Desktop | Mobile |
-|----------|---------|--------|
-| Imagem da CLARA | ✅ Idêntica | ✅ Idêntica (versão otimizada) |
-| Animação de entrada | ✅ Mantida | ✅ Mantida |
-| Botões interativos | ✅ Mantidos | ✅ Mantidos |
-| Cores e tipografia | ✅ Idênticas | ✅ Idênticas |
-| Bolinhas flutuantes | ✅ Visíveis | ❌ Removidas (já eram invisíveis) |
+Criar um sistema no painel administrativo onde você pode:
 
-**Nota:** As bolinhas decorativas já estão configuradas com `hidden lg:block`, ou seja, só aparecem em telas grandes (desktop). No mobile elas nunca foram visíveis, então a mudança é apenas técnica.
+1. **Salvar relatórios de desenvolvimento** - Colar ou digitar o conteúdo do relatório
+2. **Visualizar histórico** - Ver todos os relatórios salvos organizados por data
+3. **Baixar em PDF** - Exportar qualquer relatório individual com branding CLARA
+4. **Editar/Excluir** - Gerenciar os relatórios salvos
 
 ---
 
-## Detalhes Técnicos
+## Como Funcionará
 
-### Etapa 1: Otimização de Imagem Hero
+### Fluxo do Administrador
 
-**Arquivos modificados:**
-- `src/components/HeroSection.tsx`
+1. Acesse o painel admin (`/admin`)
+2. Uma nova aba **"Relatórios"** aparecerá ao lado de "Documentos" e "Analytics"
+3. Para salvar um relatório:
+   - Clique em "Novo Relatório"
+   - Cole o conteúdo do chat (relatório de progresso)
+   - Dê um título (ex: "Melhorias de Performance - Janeiro 2026")
+   - Clique em "Salvar"
+4. Para baixar:
+   - Encontre o relatório na lista
+   - Clique no ícone de download PDF
 
-**Implementação:**
-1. Usar o hook `useIsMobile()` já existente para detectar dispositivos móveis
-2. Aplicar CSS responsivo com `background-image` diferente por tamanho de tela usando media queries
-3. Adicionar atributo de lazy loading nativo do navegador
+---
+
+## Interface Visual
 
 ```text
-Antes:
-┌─────────────────────────────┐
-│  Mobile carrega imagem      │
-│  de 1920px (pesada)         │
-└─────────────────────────────┘
-
-Depois:
-┌─────────────────────────────┐
-│  Mobile carrega imagem      │
-│  otimizada via CSS          │
-│  + lazy loading             │
-└─────────────────────────────┘
-```
-
-### Etapa 2: Desativar Animações Decorativas no Mobile
-
-**Arquivos modificados:**
-- `src/components/HeroSection.tsx`
-
-**Implementação:**
-1. Usar o hook `useIsMobile()` para detectar dispositivos
-2. Renderizar condicionalmente os elementos decorativos flutuantes
-3. Simplificar a animação inicial da imagem de fundo no mobile
-
-```text
-Elementos afetados (linhas 63-70):
-┌─────────────────────────────┐
-│  <motion.div> bolinha 1     │  → Não renderiza no mobile
-│  <motion.div> bolinha 2     │  → Não renderiza no mobile
-└─────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────┐
+│  ← Voltar                    CLARA Admin                            │
+├─────────────────────────────────────────────────────────────────────┤
+│  [Documentos]    [Analytics]    [📋 Relatórios]                     │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                      │
+│  Relatórios de Desenvolvimento                    [+ Novo Relatório] │
+│  ──────────────────────────────────────────────                      │
+│                                                                      │
+│  ┌─────────────────────────────────────────────────────────────┐    │
+│  │ 📄 Melhorias de Performance Mobile          26/01/2026       │    │
+│  │    Otimizações de animação, OG tags, segurança...           │    │
+│  │                                         [👁] [📥] [🗑]       │    │
+│  └─────────────────────────────────────────────────────────────┘    │
+│                                                                      │
+│  ┌─────────────────────────────────────────────────────────────┐    │
+│  │ 📄 Sistema de Analytics v2                   25/01/2026       │    │
+│  │    Dashboard de métricas, gráficos de feedback...           │    │
+│  │                                         [👁] [📥] [🗑]       │    │
+│  └─────────────────────────────────────────────────────────────┘    │
+│                                                                      │
+│  ┌─────────────────────────────────────────────────────────────┐    │
+│  │ 📄 Implementação de Segurança               24/01/2026       │    │
+│  │    Rate limiting, upload robusto, validação admin...        │    │
+│  │                                         [👁] [📥] [🗑]       │    │
+│  └─────────────────────────────────────────────────────────────┘    │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## Arquivos a Serem Modificados
+## Modal de Novo Relatório
 
-| Arquivo | Tipo de Mudança |
-|---------|-----------------|
-| `src/components/HeroSection.tsx` | Otimização de imagem + condicionais para animações |
+```text
+┌────────────────────────────────────────────────────┐
+│  Novo Relatório de Desenvolvimento            [X]  │
+├────────────────────────────────────────────────────┤
+│                                                     │
+│  Título:                                            │
+│  ┌────────────────────────────────────────────┐    │
+│  │ Melhorias de Performance - Jan 2026        │    │
+│  └────────────────────────────────────────────┘    │
+│                                                     │
+│  Conteúdo do Relatório:                            │
+│  ┌────────────────────────────────────────────┐    │
+│  │ Cole aqui o relatório de progresso...      │    │
+│  │                                             │    │
+│  │ # Resumo das Melhorias                      │    │
+│  │                                             │    │
+│  │ ## 1. Otimização Mobile                     │    │
+│  │ - Animações simplificadas                   │    │
+│  │ - Elementos decorativos condicionais        │    │
+│  │                                             │    │
+│  │ ## 2. OG Tags                               │    │
+│  │ - Imagem de compartilhamento                │    │
+│  │ ...                                         │    │
+│  └────────────────────────────────────────────┘    │
+│                                                     │
+│                            [Cancelar]  [💾 Salvar] │
+└────────────────────────────────────────────────────┘
+```
 
 ---
 
-## Resultado Esperado
+## Estrutura do PDF Gerado
 
-- **Tempo de carregamento mobile:** Redução estimada de 20-40%
-- **Consumo de dados:** Redução de ~60% no download da imagem hero
-- **Uso de CPU/bateria:** Redução por eliminar animações infinitas desnecessárias
-- **Aparência visual:** 100% preservada
+```text
+┌─────────────────────────────────────────────┐
+│  [C] CLARA                                   │
+│  Relatório de Desenvolvimento                │
+│  26/01/2026                                  │
+├─────────────────────────────────────────────┤
+│                                              │
+│  MELHORIAS DE PERFORMANCE - JANEIRO 2026     │
+│  ─────────────────────────────────────────   │
+│                                              │
+│  1. Otimização Mobile                        │
+│     • Animações simplificadas para           │
+│       dispositivos de baixo desempenho       │
+│     • Elementos decorativos condicionais     │
+│     • Toque otimizado para botões            │
+│                                              │
+│  2. OG Tags para Redes Sociais               │
+│     • Imagem de compartilhamento 1200x630    │
+│     • Metadados Open Graph completos         │
+│     • Suporte a Twitter Cards                │
+│                                              │
+│  3. Segurança Aprimorada                     │
+│     • Rate limiting no endpoint admin        │
+│     • Upload robusto para mobile             │
+│     • Validação de arquivo antes do envio    │
+│                                              │
+├─────────────────────────────────────────────┤
+│  Gerado pela CLARA | Página 1 de 1          │
+└─────────────────────────────────────────────┘
+```
 
+---
+
+## Implementação Técnica
+
+### 1. Nova Tabela no Banco de Dados
+
+| Coluna | Tipo | Descrição |
+|--------|------|-----------|
+| `id` | UUID | Identificador único |
+| `title` | TEXT | Título do relatório |
+| `content` | TEXT | Conteúdo completo (suporta markdown) |
+| `summary` | TEXT | Resumo curto (primeiros 150 caracteres) |
+| `created_at` | TIMESTAMPTZ | Data de criação |
+| `updated_at` | TIMESTAMPTZ | Última atualização |
+
+**Políticas RLS**: Acesso público para leitura/escrita (validação feita via admin key no frontend)
+
+### 2. Novos Arquivos
+
+| Arquivo | Descrição |
+|---------|-----------|
+| `src/components/admin/ReportsTab.tsx` | Componente principal da aba de relatórios |
+| `src/components/admin/ReportFormModal.tsx` | Modal para criar/editar relatórios |
+| `src/components/admin/ReportViewModal.tsx` | Modal para visualizar relatório completo |
+| `src/utils/generateReportPdf.ts` | Função de geração de PDF (reutiliza padrões existentes) |
+
+### 3. Arquivos Modificados
+
+| Arquivo | Alteração |
+|---------|-----------|
+| `src/pages/Admin.tsx` | Adicionar nova aba "Relatórios" no TabsList |
+
+### 4. Funcionalidades
+
+- **CRUD Completo**: Criar, Ler, Atualizar e Deletar relatórios
+- **Suporte a Markdown**: O conteúdo pode incluir formatação markdown
+- **Geração de PDF**: Mesmo estilo visual do `DownloadPdfButton` existente
+- **Busca**: Campo de busca para encontrar relatórios antigos
+- **Ordenação**: Lista ordenada por data (mais recentes primeiro)
+- **Confirmação de Exclusão**: Dialog de confirmação antes de deletar
+
+---
+
+## Resumo
+
+Com essa funcionalidade, você poderá:
+1. Copiar os relatórios de progresso do chat
+2. Colar no painel admin e salvar com um título
+3. Acessar quando quiser, de qualquer dispositivo
+4. Baixar em PDF profissional com branding CLARA
+
+Perfeito para documentar o histórico de desenvolvimento do projeto!
