@@ -1,6 +1,8 @@
 import { useState, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
+export type ResponseMode = "fast" | "deep";
+
 export interface ChatMessage {
   id: string;
   role: "user" | "assistant";
@@ -76,7 +78,7 @@ export function useChat(options: UseChatOptions = {}) {
     localStorage.removeItem(STORAGE_KEY);
   }, []);
 
-  const sendMessage = useCallback(async (content: string) => {
+  const sendMessage = useCallback(async (content: string, mode: ResponseMode = "fast") => {
     if (!content.trim() || isLoading) return;
 
     const userQueryContent = content.trim();
@@ -131,7 +133,8 @@ export function useChat(options: UseChatOptions = {}) {
           },
           body: JSON.stringify({
             message: content,
-            history: historyForApi.slice(0, -1) // Excluir a mensagem atual
+            history: historyForApi.slice(0, -1), // Excluir a mensagem atual
+            mode: mode,
           }),
           signal: abortControllerRef.current.signal
         }

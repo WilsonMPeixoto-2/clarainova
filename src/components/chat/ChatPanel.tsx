@@ -8,7 +8,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
-import { useChat, ChatMessage as ChatMessageType } from "@/hooks/useChat";
+import { useChat, ChatMessage as ChatMessageType, ResponseMode } from "@/hooks/useChat";
 import { useChatSessions } from "@/hooks/useChatSessions";
 import { useAuth } from "@/contexts/AuthContext";
 import { ChatMessage } from "@/components/chat/ChatMessage";
@@ -136,7 +136,7 @@ export function ChatPanel({ open, onOpenChange, initialQuery }: ChatPanelProps) 
   useEffect(() => {
     if (open && initialQuery && initialQuery !== lastInitialQuery.current) {
       lastInitialQuery.current = initialQuery;
-      sendMessage(initialQuery);
+      sendMessage(initialQuery, "fast");
     }
   }, [open, initialQuery, sendMessage]);
 
@@ -310,7 +310,7 @@ export function ChatPanel({ open, onOpenChange, initialQuery }: ChatPanelProps) 
                         variants={suggestionVariants}
                         whileHover="hover"
                         whileTap="tap"
-                        onClick={() => sendMessage(suggestion)}
+                        onClick={() => sendMessage(suggestion, "fast")}
                         disabled={isLoading}
                         className="text-left px-3 py-2.5 rounded-lg border border-border/60 bg-card/40 text-sm text-foreground/80 hover:bg-card hover:border-primary/30 transition-colors disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-primary/50"
                       >

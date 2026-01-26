@@ -7,6 +7,12 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// Model configuration based on response mode
+const MODEL_MAP: Record<string, { model: string; temperature: number; max_tokens: number }> = {
+  "fast": { model: "google/gemini-3-flash-preview", temperature: 0.5, max_tokens: 4096 },
+  "deep": { model: "google/gemini-3-pro-preview", temperature: 0.3, max_tokens: 8192 },
+};
+
 // Rate limiting configuration
 const RATE_LIMIT_CONFIG = {
   maxRequests: 15, // 15 requests per window
@@ -460,7 +466,7 @@ serve(async (req) => {
       );
     }
 
-    const { message, history = [] } = await req.json();
+    const { message, history = [], mode = "fast" } = await req.json();
     
     if (!message || typeof message !== "string") {
       return new Response(
@@ -602,15 +608,15 @@ Sempre cite as fontes quando usar informação do contexto [Nome do Documento].`
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
+        model: MODEL_MAP[mode]?.model || MODEL_MAP["fast"].model,
         messages: [
           { role: "system", content: CLARA_SYSTEM_PROMPT },
           ...chatHistory,
           { role: "user", content: userPrompt }
         ],
         stream: true,
-        temperature: 0.5,
-        max_tokens: 8192,
+        temperature: MODEL_MAP[mode]?.temperature || MODEL_MAP["fast"].temperature,
+        max_tokens: MODEL_MAP[mode]?.max_tokens || MODEL_MAP["fast"].max_tokens,
       }),
     });
 

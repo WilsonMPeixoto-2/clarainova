@@ -1,15 +1,17 @@
 import { useState, useRef, useEffect, KeyboardEvent } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Send, Loader2, X, Mic, MicOff } from "lucide-react";
+import { Send, Loader2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { ResponseModeSelector, ResponseMode } from "./ResponseModeSelector";
+import { useLocalStorage } from "@/hooks/useLocalStorage";
 
 interface ChatInputProps {
-  onSend: (message: string) => void;
+  onSend: (message: string, mode: ResponseMode) => void;
   isLoading: boolean;
   onCancel?: () => void;
   initialValue?: string;
@@ -18,6 +20,7 @@ interface ChatInputProps {
 export function ChatInput({ onSend, isLoading, onCancel, initialValue = "" }: ChatInputProps) {
   const [value, setValue] = useState(initialValue);
   const [isFocused, setIsFocused] = useState(false);
+  const [mode, setMode] = useLocalStorage<ResponseMode>("clara-response-mode", "fast");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // Auto-resize textarea
@@ -43,7 +46,7 @@ export function ChatInput({ onSend, isLoading, onCancel, initialValue = "" }: Ch
 
   const handleSubmit = () => {
     if (value.trim() && !isLoading) {
-      onSend(value.trim());
+      onSend(value.trim(), mode);
       setValue("");
       if (textareaRef.current) {
         textareaRef.current.style.height = "auto";
@@ -149,33 +152,41 @@ export function ChatInput({ onSend, isLoading, onCancel, initialValue = "" }: Ch
         </AnimatePresence>
       </div>
       
-      {/* Status bar */}
-      <div className="flex items-center justify-between px-4 py-1">
-        <AnimatePresence>
-          {isLoading && (
-            <motion.div 
-              initial={{ opacity: 0, x: -10 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -10 }}
-              className="flex items-center gap-2 text-xs text-muted-foreground" 
-              role="status" 
-              aria-live="polite"
-            >
-              <Loader2 className="w-3 h-3 animate-spin" aria-hidden="true" />
-              <span>CLARA está digitando...</span>
-            </motion.div>
-          )}
-        </AnimatePresence>
+      {/* Status bar with mode selector */}
+      <div className="flex items-center justify-between px-2 py-1.5 gap-2">
+        <ResponseModeSelector
+          mode={mode}
+          onChange={setMode}
+          disabled={isLoading}
+        />
         
-        {!isLoading && (
-          <motion.span 
-            className={`text-xs ml-auto ${isNearLimit ? "text-destructive" : "text-muted-foreground/50"}`}
-            animate={{ scale: isNearLimit ? [1, 1.05, 1] : 1 }}
-            transition={{ duration: 0.3 }}
-          >
-            {charCount}/{maxChars}
-          </motion.span>
-        )}
+        <div className="flex items-center gap-2">
+          <AnimatePresence>
+            {isLoading && (
+              <motion.div 
+                initial={{ opacity: 0, x: -10 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -10 }}
+                className="flex items-center gap-2 text-xs text-muted-foreground" 
+                role="status" 
+                aria-live="polite"
+              >
+                <Loader2 className="w-3 h-3 animate-spin" aria-hidden="true" />
+                <span className="hidden sm:inline">CLARA está digitando...</span>
+              </motion.div>
+            )}
+          </AnimatePresence>
+          
+          {!isLoading && (
+            <motion.span 
+              className={`text-xs ${isNearLimit ? "text-destructive" : "text-muted-foreground/50"}`}
+              animate={{ scale: isNearLimit ? [1, 1.05, 1] : 1 }}
+              transition={{ duration: 0.3 }}
+            >
+              {charCount}/{maxChars}
+            </motion.span>
+          )}
+        </div>
       </div>
       
       <p id="chat-hint" className="sr-only">
