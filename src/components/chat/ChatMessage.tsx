@@ -5,6 +5,7 @@ import type { ChatMessage as ChatMessageType } from "@/hooks/useChat";
 import { CopyButton } from "./CopyButton";
 import { DownloadPdfButton } from "./DownloadPdfButton";
 import { FeedbackButtons } from "./FeedbackButtons";
+import { ApiProviderBadge } from "./ApiProviderBadge";
 import { Button } from "@/components/ui/button";
 
 interface ChatMessageProps {
@@ -401,10 +402,15 @@ export const ChatMessage = memo(function ChatMessage({ message }: ChatMessagePro
         {/* Sources */}
         {!isUser && <SourcesSection sources={message.sources} />}
 
-        {/* Timestamp */}
-        <p className={`text-xs text-muted-foreground/60 mt-1 ${isUser ? "text-right" : ""}`}>
-          {formattedTime}
-        </p>
+        {/* Timestamp and API Provider */}
+        <div className={`flex items-center gap-2 mt-1 ${isUser ? "justify-end" : ""}`}>
+          <p className="text-xs text-muted-foreground/60">
+            {formattedTime}
+          </p>
+          {!isUser && message.apiProvider && !message.isStreaming && (
+            <ApiProviderBadge apiProvider={message.apiProvider} />
+          )}
+        </div>
       </div>
     </motion.div>
   );
