@@ -10,6 +10,75 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "GET, POST, DELETE, OPTIONS",
 };
 
+// Lovable AI Gateway URL
+const LOVABLE_AI_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
+
+// Helper to check if error is a rate limit error
+function isRateLimitError(error: unknown): boolean {
+  if (error instanceof Error) {
+    const message = error.message.toLowerCase();
+    return message.includes("429") || 
+           message.includes("rate limit") || 
+           message.includes("quota") ||
+           message.includes("resource_exhausted");
+  }
+  return false;
+}
+
+// Extract PDF text using Lovable AI as fallback
+async function extractPdfViaLovableAI(signedUrl: string, lovableApiKey: string): Promise<string> {
+  console.log("[documents] Attempting PDF extraction via Lovable AI...");
+  
+  const response = await fetch(LOVABLE_AI_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${lovableApiKey}`,
+    },
+    body: JSON.stringify({
+      model: "google/gemini-2.5-flash",
+      messages: [{
+        role: "user",
+        content: [
+          { 
+            type: "image_url", 
+            image_url: { url: signedUrl } 
+          },
+          { 
+            type: "text", 
+            text: `Extraia TODO o texto deste documento PDF de forma literal e completa. 
+
+Instruções:
+- Preserve a estrutura original (títulos, parágrafos, listas)
+- Mantenha numerações e marcadores
+- Inclua todo o conteúdo textual, sem resumir ou omitir
+- Use quebras de linha para separar seções
+- Não adicione comentários ou explicações, apenas o texto extraído
+
+Responda APENAS com o texto extraído do documento.`
+          }
+        ]
+      }]
+    }),
+  });
+  
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error("[documents] Lovable AI error:", response.status, errorText);
+    throw new Error(`Lovable AI failed: ${response.status} - ${errorText}`);
+  }
+  
+  const data = await response.json();
+  const extractedText = data.choices?.[0]?.message?.content || "";
+  
+  if (!extractedText || extractedText.trim().length < 50) {
+    throw new Error("Texto extraído via Lovable AI muito curto");
+  }
+  
+  console.log(`[documents] PDF extracted via Lovable AI: ${extractedText.length} characters`);
+  return extractedText;
+}
+
 // Tamanho do chunk: 4000 caracteres (preservado do original)
 const CHUNK_SIZE = 4000;
 const CHUNK_OVERLAP = 500;
@@ -115,6 +184,7 @@ serve(async (req) => {
   
   const ADMIN_KEY = Deno.env.get("ADMIN_KEY")?.trim();
   const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
+  const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
 
   const url = new URL(req.url);
   const pathParts = url.pathname.split("/").filter(Boolean);
@@ -298,21 +368,36 @@ serve(async (req) => {
         }
         
         // Extract text from PDF using Gemini via signed URL (avoids memory issues)
+        // With fallback to Lovable AI if Gemini rate limits
+        
+        console.log(`[documents] PDF size: ${Math.round(fileData.size / 1024)}KB, generating signed URL...`);
+        
+        // Generate a signed URL for accessing the PDF directly
+        const { data: signedUrlData, error: signedUrlError } = await supabase.storage
+          .from("knowledge-base")
+          .createSignedUrl(filePath, 600); // 10 minutes validity for fallback attempts
+        
+        if (signedUrlError || !signedUrlData?.signedUrl) {
+          console.error(`[documents] Failed to create signed URL:`, signedUrlError);
+          return new Response(
+            JSON.stringify({ 
+              error: "Falha ao gerar URL de acesso para o PDF",
+              details: signedUrlError?.message
+            }),
+            { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+        
+        const signedUrl = signedUrlData.signedUrl;
+        let usedFallback = false;
+        
+        // Try Gemini first
         try {
-          console.log(`[documents] PDF size: ${Math.round(fileData.size / 1024)}KB, generating signed URL for Gemini...`);
-          
-          // Generate a signed URL for Gemini to access the PDF directly
-          const { data: signedUrlData, error: signedUrlError } = await supabase.storage
-            .from("knowledge-base")
-            .createSignedUrl(filePath, 300); // 5 minutes validity
-          
-          if (signedUrlError || !signedUrlData?.signedUrl) {
-            console.error(`[documents] Failed to create signed URL:`, signedUrlError);
-            throw new Error("Falha ao gerar URL de acesso para o PDF");
+          if (!GEMINI_API_KEY) {
+            throw new Error("GEMINI_API_KEY não configurada - tentando fallback");
           }
           
-          const signedUrl = signedUrlData.signedUrl;
-          console.log(`[documents] Signed URL generated, sending to Gemini...`);
+          console.log(`[documents] Attempting PDF extraction via Gemini...`);
           
           const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
           const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
@@ -339,22 +424,60 @@ Responda APENAS com o texto extraído do documento.`
           ]);
           
           contentText = result.response.text();
-          console.log(`[documents] PDF extracted via Gemini (URL method): ${contentText.length} characters`);
+          console.log(`[documents] PDF extracted via Gemini: ${contentText.length} characters`);
           
           if (!contentText || contentText.trim().length < 50) {
-            throw new Error("Texto extraído muito curto - PDF pode estar escaneado ou corrompido");
+            throw new Error("Texto extraído muito curto - tentando fallback");
           }
-        } catch (pdfError) {
-          console.error("Erro ao extrair PDF:", pdfError);
-          const errorMessage = pdfError instanceof Error ? pdfError.message : "Erro desconhecido";
+        } catch (geminiError) {
+          console.error("[documents] Gemini extraction failed:", geminiError);
           
-          return new Response(
-            JSON.stringify({ 
-              error: "Erro ao processar PDF. Verifique se o arquivo não está corrompido ou protegido.",
-              details: errorMessage
-            }),
-            { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-          );
+          // Check if it's a rate limit error or if we should try fallback
+          if (isRateLimitError(geminiError) || !GEMINI_API_KEY) {
+            console.log("[documents] Attempting fallback to Lovable AI...");
+            
+            if (!LOVABLE_API_KEY) {
+              return new Response(
+                JSON.stringify({ 
+                  error: "Cota do Gemini esgotada e LOVABLE_API_KEY não configurada",
+                  details: "Aguarde o reset da cota ou configure uma chave alternativa"
+                }),
+                { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+              );
+            }
+            
+            try {
+              contentText = await extractPdfViaLovableAI(signedUrl, LOVABLE_API_KEY);
+              usedFallback = true;
+              console.log(`[documents] PDF extracted via Lovable AI fallback: ${contentText.length} characters`);
+            } catch (fallbackError) {
+              console.error("[documents] Lovable AI fallback also failed:", fallbackError);
+              const errorMessage = fallbackError instanceof Error ? fallbackError.message : "Erro desconhecido";
+              
+              return new Response(
+                JSON.stringify({ 
+                  error: "Erro ao processar PDF. Ambos os provedores falharam.",
+                  details: errorMessage
+                }),
+                { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+              );
+            }
+          } else {
+            // Non-rate-limit error from Gemini
+            const errorMessage = geminiError instanceof Error ? geminiError.message : "Erro desconhecido";
+            
+            return new Response(
+              JSON.stringify({ 
+                error: "Erro ao processar PDF. Verifique se o arquivo não está corrompido ou protegido.",
+                details: errorMessage
+              }),
+              { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+            );
+          }
+        }
+        
+        if (usedFallback) {
+          console.log("[documents] Successfully processed PDF using Lovable AI fallback");
         }
       } else if (isDOCX) {
         // Extract text from DOCX
