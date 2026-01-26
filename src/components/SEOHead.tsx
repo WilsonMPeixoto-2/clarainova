@@ -20,6 +20,10 @@ export function SEOHead({
   googleVerification,
 }: SEOHeadProps) {
   useEffect(() => {
+    // Get the base URL for absolute paths
+    const baseUrl = window.location.origin;
+    const absoluteImageUrl = image.startsWith("http") ? image : `${baseUrl}${image}`;
+    
     // Update document title
     document.title = title.includes("CLARA") ? title : `${title} | CLARA`;
 
@@ -46,18 +50,33 @@ export function SEOHead({
       link.setAttribute("href", href);
     };
 
+    // Basic SEO
     updateMeta("description", description);
     updateMeta("keywords", keywords.join(", "));
+    updateMeta("author", "CLARA");
+    
+    // Open Graph (Facebook, LinkedIn, WhatsApp)
     updateMeta("og:title", title, true);
     updateMeta("og:description", description, true);
     updateMeta("og:type", type, true);
-    updateMeta("og:image", image, true);
+    updateMeta("og:image", absoluteImageUrl, true);
+    updateMeta("og:image:width", "1200", true);
+    updateMeta("og:image:height", "630", true);
+    updateMeta("og:image:alt", "CLARA - Consultora de Legislação e Apoio a Rotinas Administrativas", true);
+    updateMeta("og:url", baseUrl, true);
+    updateMeta("og:site_name", "CLARA", true);
+    updateMeta("og:locale", "pt_BR", true);
+    
+    // Twitter Card
     updateMeta("twitter:card", "summary_large_image");
     updateMeta("twitter:title", title);
     updateMeta("twitter:description", description);
+    updateMeta("twitter:image", absoluteImageUrl);
+    updateMeta("twitter:image:alt", "CLARA - Inteligência Administrativa");
 
     // Add privacy policy link for Google verification
-    updateLink("privacy-policy", "/privacidade");
+    updateLink("privacy-policy", "/privacidade.html");
+    updateLink("canonical", baseUrl);
 
     // Add Google site verification if provided
     if (googleVerification) {
