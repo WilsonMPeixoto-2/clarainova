@@ -100,33 +100,77 @@ export type Database = {
         }
         Relationships: []
       }
+      document_access_log: {
+        Row: {
+          access_type: string
+          accessed_by: string | null
+          created_at: string
+          document_id: string | null
+          id: string
+          ip_address: string | null
+          user_agent: string | null
+        }
+        Insert: {
+          access_type?: string
+          accessed_by?: string | null
+          created_at?: string
+          document_id?: string | null
+          id?: string
+          ip_address?: string | null
+          user_agent?: string | null
+        }
+        Update: {
+          access_type?: string
+          accessed_by?: string | null
+          created_at?: string
+          document_id?: string | null
+          id?: string
+          ip_address?: string | null
+          user_agent?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "document_access_log_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "documents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       document_chunks: {
         Row: {
           chunk_index: number
           content: string
+          content_hash: string | null
           created_at: string
           document_id: string
           embedding: string | null
           id: string
           metadata: Json | null
+          search_vector: unknown
         }
         Insert: {
           chunk_index: number
           content: string
+          content_hash?: string | null
           created_at?: string
           document_id: string
           embedding?: string | null
           id?: string
           metadata?: Json | null
+          search_vector?: unknown
         }
         Update: {
           chunk_index?: number
           content?: string
+          content_hash?: string | null
           created_at?: string
           document_id?: string
           embedding?: string | null
           id?: string
           metadata?: Json | null
+          search_vector?: unknown
         }
         Relationships: [
           {
@@ -140,34 +184,49 @@ export type Database = {
       }
       document_jobs: {
         Row: {
+          completed_at: string | null
           created_at: string
           document_id: string
           error: string | null
           id: string
+          last_error_at: string | null
+          max_retries: number | null
           next_page: number
           pages_per_batch: number
+          retry_count: number | null
+          started_at: string | null
           status: string
           total_pages: number | null
           updated_at: string
         }
         Insert: {
+          completed_at?: string | null
           created_at?: string
           document_id: string
           error?: string | null
           id?: string
+          last_error_at?: string | null
+          max_retries?: number | null
           next_page?: number
           pages_per_batch?: number
+          retry_count?: number | null
+          started_at?: string | null
           status?: string
           total_pages?: number | null
           updated_at?: string
         }
         Update: {
+          completed_at?: string | null
           created_at?: string
           document_id?: string
           error?: string | null
           id?: string
+          last_error_at?: string | null
+          max_retries?: number | null
           next_page?: number
           pages_per_batch?: number
+          retry_count?: number | null
+          started_at?: string | null
           status?: string
           total_pages?: number | null
           updated_at?: string
@@ -185,36 +244,51 @@ export type Database = {
       documents: {
         Row: {
           category: string
+          chunk_count: number | null
+          content_hash: string | null
           content_text: string | null
           created_at: string
           error_reason: string | null
           file_path: string | null
           id: string
+          processed_at: string | null
+          source_file_name: string | null
           status: string
           title: string
           updated_at: string
+          version: number | null
         }
         Insert: {
           category?: string
+          chunk_count?: number | null
+          content_hash?: string | null
           content_text?: string | null
           created_at?: string
           error_reason?: string | null
           file_path?: string | null
           id?: string
+          processed_at?: string | null
+          source_file_name?: string | null
           status?: string
           title: string
           updated_at?: string
+          version?: number | null
         }
         Update: {
           category?: string
+          chunk_count?: number | null
+          content_hash?: string | null
           content_text?: string | null
           created_at?: string
           error_reason?: string | null
           file_path?: string | null
           id?: string
+          processed_at?: string | null
+          source_file_name?: string | null
           status?: string
           title?: string
           updated_at?: string
+          version?: number | null
         }
         Relationships: []
       }
@@ -409,6 +483,36 @@ export type Database = {
         }
         Returns: boolean
       }
+      hybrid_search_chunks: {
+        Args: {
+          keyword_weight?: number
+          match_count?: number
+          match_threshold?: number
+          query_embedding: string
+          query_text: string
+          vector_weight?: number
+        }
+        Returns: {
+          chunk_index: number
+          combined_score: number
+          content: string
+          document_id: string
+          id: string
+          metadata: Json
+          similarity: number
+          text_rank: number
+        }[]
+      }
+      log_document_access: {
+        Args: {
+          p_access_type?: string
+          p_accessed_by?: string
+          p_document_id: string
+          p_ip_address?: string
+          p_user_agent?: string
+        }
+        Returns: string
+      }
       search_document_chunks: {
         Args: {
           match_count?: number
@@ -423,6 +527,10 @@ export type Database = {
           metadata: Json
           similarity: number
         }[]
+      }
+      upsert_document_chunks: {
+        Args: { p_chunks: Json; p_document_id: string }
+        Returns: number
       }
     }
     Enums: {

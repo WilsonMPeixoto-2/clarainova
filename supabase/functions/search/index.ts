@@ -200,70 +200,99 @@ serve(async (req) => {
     const embeddingResult = await embeddingModel.embedContent(query);
     const queryEmbedding = embeddingResult.embedding.values;
     
-    // Busca semântica via pgvector
-    const { data: semanticChunks, error: searchError } = await supabase.rpc(
-      "search_document_chunks",
+    // Try hybrid search first (uses ts_vector + vector similarity)
+    let finalResults: any[] = [];
+    
+    const { data: hybridResults, error: hybridError } = await supabase.rpc(
+      "hybrid_search_chunks",
       {
+        query_text: query,
         query_embedding: JSON.stringify(queryEmbedding),
         match_threshold: 0.3,
-        match_count: 15
+        match_count: safeLimit,
+        keyword_weight: 0.4,
+        vector_weight: 0.6
       }
     );
     
-    if (searchError) {
-      console.error("Erro na busca semântica:", searchError);
-    }
-    
-    // Busca por keywords em todos os chunks
-    const { data: allChunks } = await supabase
-      .from("document_chunks")
-      .select("id, content, document_id, metadata, chunk_index");
-    
-    // Aplicar scoring por keywords
-    const keywordScoredChunks = (allChunks || [])
-      .map(chunk => ({
-        ...chunk,
-        keywordScore: scoreChunkByKeywords(chunk.content, expandedTerms, query)
-      }))
-      .filter(chunk => chunk.keywordScore > 0)
-      .sort((a, b) => b.keywordScore - a.keywordScore)
-      .slice(0, 15);
-    
-    // Reciprocal Rank Fusion
-    const chunkScores = new Map<string, { chunk: any; score: number; semanticRank?: number; keywordRank?: number }>();
-    const k = 60;
-    
-    // Adicionar scores da busca semântica
-    (semanticChunks || []).forEach((chunk: any, index: number) => {
-      const rrfScore = 1 / (k + index + 1);
-      chunkScores.set(chunk.id, { 
-        chunk: { ...chunk, similarity: chunk.similarity },
-        score: rrfScore,
-        semanticRank: index + 1
-      });
-    });
-    
-    // Adicionar/combinar scores da busca por keywords
-    keywordScoredChunks.forEach((chunk, index) => {
-      const rrfScore = 1 / (k + index + 1);
-      const existing = chunkScores.get(chunk.id);
-      if (existing) {
-        existing.score += rrfScore;
-        existing.keywordRank = index + 1;
-        existing.chunk.keywordScore = chunk.keywordScore;
-      } else {
-        chunkScores.set(chunk.id, { 
-          chunk: { ...chunk, keywordScore: chunk.keywordScore },
-          score: rrfScore,
-          keywordRank: index + 1
-        });
+    if (!hybridError && hybridResults?.length > 0) {
+      console.log(`[search] Hybrid search returned ${hybridResults.length} results`);
+      finalResults = hybridResults.map((r: any, index: number) => ({
+        chunk: r,
+        score: r.combined_score,
+        semanticRank: index + 1,
+        keywordRank: r.text_rank > 0 ? index + 1 : null
+      }));
+    } else {
+      // Fallback to original RRF approach if hybrid search fails
+      console.log(`[search] Falling back to RRF search. Hybrid error: ${hybridError?.message || 'no results'}`);
+      
+      // Busca semântica via pgvector
+      const { data: semanticChunks, error: searchError } = await supabase.rpc(
+        "search_document_chunks",
+        {
+          query_embedding: JSON.stringify(queryEmbedding),
+          match_threshold: 0.3,
+          match_count: 15
+        }
+      );
+      
+      if (searchError) {
+        console.error("Erro na busca semântica:", searchError);
       }
-    });
-    
-    // Ordenar e pegar top N
-    const finalResults = Array.from(chunkScores.values())
-      .sort((a, b) => b.score - a.score)
-      .slice(0, safeLimit);
+      
+      // Busca por keywords em todos os chunks (limited for performance)
+      const { data: allChunks } = await supabase
+        .from("document_chunks")
+        .select("id, content, document_id, metadata, chunk_index")
+        .limit(2000);
+      
+      // Aplicar scoring por keywords
+      const keywordScoredChunks = (allChunks || [])
+        .map(chunk => ({
+          ...chunk,
+          keywordScore: scoreChunkByKeywords(chunk.content, expandedTerms, query)
+        }))
+        .filter(chunk => chunk.keywordScore > 0)
+        .sort((a, b) => b.keywordScore - a.keywordScore)
+        .slice(0, 15);
+      
+      // Reciprocal Rank Fusion
+      const chunkScores = new Map<string, { chunk: any; score: number; semanticRank?: number; keywordRank?: number }>();
+      const k = 60;
+      
+      // Adicionar scores da busca semântica
+      (semanticChunks || []).forEach((chunk: any, index: number) => {
+        const rrfScore = 1 / (k + index + 1);
+        chunkScores.set(chunk.id, { 
+          chunk: { ...chunk, similarity: chunk.similarity },
+          score: rrfScore,
+          semanticRank: index + 1
+        });
+      });
+      
+      // Adicionar/combinar scores da busca por keywords
+      keywordScoredChunks.forEach((chunk, index) => {
+        const rrfScore = 1 / (k + index + 1);
+        const existing = chunkScores.get(chunk.id);
+        if (existing) {
+          existing.score += rrfScore;
+          existing.keywordRank = index + 1;
+          existing.chunk.keywordScore = chunk.keywordScore;
+        } else {
+          chunkScores.set(chunk.id, { 
+            chunk: { ...chunk, keywordScore: chunk.keywordScore },
+            score: rrfScore,
+            keywordRank: index + 1
+          });
+        }
+      });
+      
+      // Ordenar e pegar top N
+      finalResults = Array.from(chunkScores.values())
+        .sort((a, b) => b.score - a.score)
+        .slice(0, safeLimit);
+    }
     
     // Buscar títulos dos documentos
     const documentIds = [...new Set(finalResults.map(r => r.chunk.document_id))];
