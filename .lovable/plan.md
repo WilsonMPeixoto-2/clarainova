@@ -1,281 +1,409 @@
 
+# Plano: Observabilidade, Separação Upload/Ingestão e Limites de Base64
 
-# Plano: Extração Determinística de PDFs (Rota 1)
+## Contexto Atual
 
-## Diagnóstico Confirmado
+O sistema atual mistura **upload**, **extração**, **chunking** e **embeddings** no mesmo request, dificultando diagnósticos. Quando falha, retorna apenas "Erro ao processar PDF" sem indicar qual etapa ou provedor falhou.
 
-A análise está correta. O problema estrutural é usar LLM como extrator "literal completo" de PDFs grandes:
+### Problemas Identificados
 
-| Causa | Problema | Impacto |
-|-------|----------|---------|
-| **A** | LLM não consegue devolver 200+ páginas em uma resposta | Truncamento, timeout, erro 500 |
-| **B** | `data:application/pdf;base64` via `image_url` não é suportado | Formato incompatível, 400/415 |
-| **C** | Base64 de 13MB PDF = ~18MB em JSON | Limite de request size, memória |
+| Problema | Impacto |
+|----------|---------|
+| Sem correlation ID | Impossível rastrear request específico nos logs |
+| Sem tempos por etapa | Não sabe se timeout foi na extração ou embedding |
+| Erro genérico | "Falha ao processar PDF" sem saber se foi Gemini, Lovable ou pdfjs |
+| Upload + Ingestão acoplados | Se ingestão falha, perde o upload |
+| Base64 sem limite explícito | PDFs grandes viram payloads impossíveis para AI |
 
-## Solução: Extração Determinística + Processamento Incremental
+---
+
+## 1. Observabilidade Completa
+
+### 1.1 Estrutura de Debug
+
+Adicionar ao início de cada Edge Function:
 
 ```text
-FLUXO ATUAL (frágil)
-┌─────────────────────────────────────────────────────────────┐
-│ PDF → Base64 → LLM "extraia tudo" → Erro (timeout/truncado) │
-└─────────────────────────────────────────────────────────────┘
-
-NOVO FLUXO (robusto)
-┌─────────────────────────────────────────────────────────────┐
-│ PDF → pdfjs-serverless → Extração por página              │
-│   ↓                                                         │
-│ Processamento incremental (10 páginas por execução)         │
-│   ↓                                                         │
-│ Chunks salvos → Embeddings (best-effort, tolerante a 429)   │
-└─────────────────────────────────────────────────────────────┘
+REQUEST FLOW
+┌─────────────────────────────────────────────────────────────────┐
+│ request_id: 8f42b1c3-5d9e-4a7b-b2e1-9c3f4d5a6e7b              │
+│                                                                 │
+│ [1] upload_storage    → ✓ 1,234ms                              │
+│ [2] download_storage  → ✓ 456ms                                │
+│ [3] extract_text      → ✓ 2,100ms (pdfjs-serverless)           │
+│ [4] chunk_text        → ✓ 89ms (42 chunks)                     │
+│ [5] generate_embed    → ✗ 429 @ 3,500ms (gemini/quota)         │
+│                                                                 │
+│ RESPONSE: partial_success (chunks saved, embeddings skipped)    │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
-## Mudanças a Implementar
+### 1.2 Interface de Debug
 
-### 1. Nova Tabela: `document_jobs` (Fila de Processamento)
+```typescript
+interface DebugInfo {
+  request_id: string;
+  timings: {
+    total_ms: number;
+    download_storage_ms?: number;
+    extract_ms?: number;
+    chunk_ms?: number;
+    embed_ms?: number;
+    db_insert_ms?: number;
+  };
+  provider?: {
+    name: "pdfjs-serverless" | "lovable-ai" | "gemini-base64";
+    http_status?: number;
+    error_body_trunc?: string;  // primeiros 2KB
+    elapsed_ms: number;
+  };
+  steps_completed: string[];
+  steps_failed: string[];
+}
+```
 
-Permite processar PDFs grandes em fatias sem estourar timeout.
+### 1.3 Implementação em `documents/index.ts`
+
+```typescript
+// No início do handler
+const requestId = crypto.randomUUID();
+const debug: DebugInfo = {
+  request_id: requestId,
+  timings: { total_ms: 0 },
+  steps_completed: [],
+  steps_failed: [],
+};
+const startTime = Date.now();
+
+// Helper para medir tempo de cada etapa
+async function measureStep<T>(
+  name: string, 
+  fn: () => Promise<T>
+): Promise<T> {
+  const stepStart = Date.now();
+  try {
+    const result = await fn();
+    debug.timings[`${name}_ms`] = Date.now() - stepStart;
+    debug.steps_completed.push(name);
+    console.log(`[${requestId}] ✓ ${name}: ${debug.timings[`${name}_ms`]}ms`);
+    return result;
+  } catch (error) {
+    debug.timings[`${name}_ms`] = Date.now() - stepStart;
+    debug.steps_failed.push(name);
+    console.error(`[${requestId}] ✗ ${name}: ${error}`);
+    throw error;
+  }
+}
+
+// Uso:
+const fileData = await measureStep("download_storage", () =>
+  supabase.storage.from("knowledge-base").download(filePath)
+);
+```
+
+### 1.4 Retorno de Erro com Debug
+
+```typescript
+// Em qualquer catch
+return new Response(
+  JSON.stringify({
+    success: false,
+    error: "Falha ao processar documento",
+    debug: {
+      request_id: requestId,
+      timings: { ...debug.timings, total_ms: Date.now() - startTime },
+      provider: lastProvider,
+      steps_completed: debug.steps_completed,
+      steps_failed: debug.steps_failed,
+    },
+  }),
+  { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+);
+```
+
+---
+
+## 2. Separação Upload/Ingestão
+
+### 2.1 Novo Fluxo
+
+```text
+ANTES (acoplado)
+┌────────────────────────────────────────────────────────────────┐
+│ Admin clica "Upload"                                           │
+│   ↓                                                            │
+│ admin_get_upload_url → Storage PUT → documents POST            │
+│   ↓                                                            │
+│ Download + Extração + Chunking + Embeddings (mesmo request)    │
+│   ↓                                                            │
+│ Se falhar em qualquer etapa: PERDE TUDO                        │
+└────────────────────────────────────────────────────────────────┘
+
+DEPOIS (desacoplado)
+┌────────────────────────────────────────────────────────────────┐
+│ [FASE 1: UPLOAD]                                               │
+│ admin_get_upload_url → Storage PUT                             │
+│   ↓                                                            │
+│ documents POST (mode=upload-only)                              │
+│   → Cria registro com status="UPLOADED"                        │
+│   → NÃO processa texto/chunks/embeddings                       │
+│   → Retorna document_id                                        │
+│                                                                │
+│ [FASE 2: INGESTÃO - separada]                                  │
+│ documents POST (mode=process, document_id=xxx)                 │
+│   → Download do Storage                                        │
+│   → Extração + Chunking + Embeddings                           │
+│   → Atualiza status="READY" ou status="FAILED"                 │
+│                                                                │
+│ [BENEFÍCIO]                                                    │
+│ Se ingestão falhar: arquivo continua no Storage                │
+│ Admin pode clicar "Reprocessar" sem re-upload                  │
+└────────────────────────────────────────────────────────────────┘
+```
+
+### 2.2 Alterações no Schema
+
+Adicionar coluna `status` na tabela `documents`:
 
 ```sql
-CREATE TABLE public.document_jobs (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  document_id UUID NOT NULL REFERENCES public.documents(id) ON DELETE CASCADE,
-  status TEXT NOT NULL DEFAULT 'pending',
-  -- Status: pending, processing, completed, failed
-  next_page INTEGER NOT NULL DEFAULT 1,
-  total_pages INTEGER,
-  pages_per_batch INTEGER NOT NULL DEFAULT 10,
-  error TEXT,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
-);
+ALTER TABLE public.documents 
+ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'uploaded';
 
-CREATE INDEX idx_document_jobs_status ON public.document_jobs(status);
-CREATE INDEX idx_document_jobs_document_id ON public.document_jobs(document_id);
+-- Valores: 'uploaded', 'processing', 'ready', 'failed'
+-- Adicionar índice para queries de status
+CREATE INDEX IF NOT EXISTS idx_documents_status ON public.documents(status);
 ```
 
-### 2. Edge Function `documents/index.ts` (Reescrita Completa)
+### 2.3 Alterações em `documents/index.ts`
 
-**Mudanças principais:**
-
-a) **Importar `pdfjs-serverless`**: Biblioteca compatível com Deno para extração determinística
-
-b) **Nova função `extractPdfText`**: Extração página por página sem depender de LLM
-
-c) **Processamento incremental**: Para PDFs grandes, processa 10 páginas por execução
-
-d) **LLM apenas para embeddings e fallback**: Não mais como extrator primário
-
-**Código-chave:**
+**Nova rota: `POST /documents` com `mode=upload-only`**
 
 ```typescript
-// Importação compatível com Deno
-import { getDocument } from "https://esm.sh/pdfjs-serverless@0.6.0";
-
-const PAGES_PER_BATCH = 10;
-
-// Extração determinística (sem LLM)
-async function extractPdfText(
-  fileData: Blob, 
-  startPage: number = 1, 
-  endPage?: number
-): Promise<{ pages: string[], totalPages: number }> {
-  const arrayBuffer = await fileData.arrayBuffer();
-  const data = new Uint8Array(arrayBuffer);
-  
-  const doc = await getDocument({ data }).promise;
-  const totalPages = doc.numPages;
-  const actualEndPage = Math.min(endPage || totalPages, totalPages);
-  
-  const pages: string[] = [];
-  
-  for (let i = startPage; i <= actualEndPage; i++) {
-    const page = await doc.getPage(i);
-    const textContent = await page.getTextContent();
-    const text = textContent.items
-      .map((item: any) => item.str)
-      .join(" ")
-      .replace(/\s+/g, " ")
-      .trim();
-    pages.push(text);
-    console.log(`[documents] Page ${i}/${totalPages}: ${text.length} chars`);
-  }
-  
-  return { pages, totalPages };
-}
-```
-
-**Fluxo de processamento:**
-
-```typescript
-// POST /documents - Inicia processamento
-if (isPDF) {
-  // 1. Extrair primeiras páginas para preview
-  const { pages, totalPages } = await extractPdfText(fileData, 1, PAGES_PER_BATCH);
-  
-  // 2. Criar documento com texto parcial
-  const partialText = pages.join("\n\n--- Página ---\n\n");
-  const document = await createDocument(title, category, filePath, partialText);
-  
-  // 3. Se houver mais páginas, criar job para processamento em background
-  if (totalPages > PAGES_PER_BATCH) {
-    await createDocumentJob(document.id, PAGES_PER_BATCH + 1, totalPages);
-    return { 
-      success: true, 
-      document,
-      status: "processing",
-      message: `Processando ${totalPages} páginas em background...`
-    };
-  }
-  
-  // 4. PDF pequeno: processar chunks e embeddings imediatamente
-  await processChunksAndEmbeddings(document.id, partialText);
-  return { success: true, document, status: "completed" };
-}
-```
-
-### 3. Nova Rota: `POST /documents/process-job` (Worker)
-
-Processa próximo lote de páginas de um job pendente:
-
-```typescript
-// POST /documents/process-job
-if (req.method === "POST" && url.pathname.endsWith("/process-job")) {
-  // 1. Buscar próximo job pendente
-  const { data: job } = await supabase
-    .from("document_jobs")
-    .select("*")
-    .eq("status", "pending")
-    .order("created_at")
-    .limit(1)
+if (req.method === "POST" && body.mode === "upload-only") {
+  // Apenas cria registro, não processa
+  const { data: document, error } = await supabase
+    .from("documents")
+    .insert({
+      title: body.title,
+      category: body.category || "manual",
+      file_path: body.filePath,
+      status: "uploaded",
+      content_text: null,  // Vazio até processar
+    })
+    .select()
     .single();
-  
-  if (!job) return { message: "Nenhum job pendente" };
-  
-  // 2. Atualizar status para processing
-  await supabase.from("document_jobs")
-    .update({ status: "processing" })
-    .eq("id", job.id);
-  
-  // 3. Baixar PDF e extrair próximo lote
-  const document = await getDocument(job.document_id);
-  const { data: fileData } = await supabase.storage
-    .from("knowledge-base")
-    .download(document.file_path);
-  
-  const endPage = Math.min(job.next_page + job.pages_per_batch - 1, job.total_pages);
-  const { pages } = await extractPdfText(fileData, job.next_page, endPage);
-  
-  // 4. Append texto extraído ao documento
-  const newText = pages.join("\n\n--- Página ---\n\n");
-  await appendDocumentText(job.document_id, newText);
-  
-  // 5. Atualizar job (próximo lote ou concluído)
-  if (endPage >= job.total_pages) {
-    await supabase.from("document_jobs")
-      .update({ status: "completed", next_page: endPage + 1 })
-      .eq("id", job.id);
-    
-    // 6. Processar chunks e embeddings do documento completo
-    await processChunksAndEmbeddings(job.document_id);
-  } else {
-    await supabase.from("document_jobs")
-      .update({ status: "pending", next_page: endPage + 1 })
-      .eq("id", job.id);
-  }
-  
-  return { processed: endPage - job.next_page + 1, remaining: job.total_pages - endPage };
+
+  return new Response(
+    JSON.stringify({
+      success: true,
+      document_id: document.id,
+      status: "uploaded",
+      message: "Arquivo salvo. Clique em 'Processar' para extrair conteúdo.",
+    }),
+    { headers: corsHeaders }
+  );
 }
 ```
 
-### 4. Frontend: Polling de Status no Admin
-
-Atualizar `Admin.tsx` para mostrar progresso:
+**Nova rota: `POST /documents/process`**
 
 ```typescript
-// Após upload, fazer polling do status
-const pollJobStatus = async (documentId: string) => {
-  const interval = setInterval(async () => {
-    const { data: job } = await supabase
-      .from("document_jobs")
-      .select("*")
-      .eq("document_id", documentId)
-      .single();
+if (req.method === "POST" && lastPart === "process") {
+  const { document_id } = body;
+  
+  // Atualiza status para processing
+  await supabase
+    .from("documents")
+    .update({ status: "processing" })
+    .eq("id", document_id);
+
+  try {
+    // Download, extração, chunking, embeddings...
+    // (código existente movido para cá)
     
-    if (job?.status === "completed") {
-      clearInterval(interval);
-      toast.success("Documento processado com sucesso!");
-    } else if (job?.status === "failed") {
-      clearInterval(interval);
-      toast.error(`Erro: ${job.error}`);
-    } else {
-      const progress = Math.round((job.next_page / job.total_pages) * 100);
-      setUploadProgress(progress);
-    }
-  }, 3000);
+    await supabase
+      .from("documents")
+      .update({ status: "ready", content_text: extractedText })
+      .eq("id", document_id);
+      
+    return { success: true, status: "ready" };
+  } catch (error) {
+    await supabase
+      .from("documents")
+      .update({ status: "failed", error_reason: error.message })
+      .eq("id", document_id);
+      
+    return { success: false, debug: {...} };
+  }
+}
+```
+
+### 2.4 Alterações no Admin.tsx
+
+Adicionar botão "Processar" para documentos com `status="uploaded"` ou `status="failed"`:
+
+```tsx
+{/* Botão Processar/Reprocessar */}
+{(doc.status === 'uploaded' || doc.status === 'failed') && (
+  <Button
+    variant="outline"
+    size="sm"
+    onClick={() => handleProcessDocument(doc.id)}
+    disabled={isProcessing}
+  >
+    <RefreshCw className="w-4 h-4 mr-1" />
+    {doc.status === 'failed' ? 'Reprocessar' : 'Processar'}
+  </Button>
+)}
+
+{/* Badge de status */}
+<Badge variant={getStatusVariant(doc.status)}>
+  {doc.status === 'uploaded' && 'Aguardando'}
+  {doc.status === 'processing' && 'Processando...'}
+  {doc.status === 'ready' && 'Pronto'}
+  {doc.status === 'failed' && 'Falhou'}
+</Badge>
+```
+
+---
+
+## 3. Limites de Base64 para IA
+
+### 3.1 Regras de Tamanho
+
+```text
+MATRIZ DE DECISÃO
+┌────────────────────┬─────────────────────┬────────────────────────┐
+│ Tamanho PDF        │ Método Extração     │ Fallback OCR           │
+├────────────────────┼─────────────────────┼────────────────────────┤
+│ < 4 MB             │ pdfjs-serverless    │ Lovable AI (base64)    │
+│ 4-20 MB            │ pdfjs-serverless    │ Gemini (base64 chunked)│
+│ > 20 MB            │ pdfjs-serverless    │ NÃO usar base64        │
+└────────────────────┴─────────────────────┴────────────────────────┘
+```
+
+### 3.2 Constantes de Limite
+
+```typescript
+// Limites claros no topo do arquivo
+const LIMITS = {
+  // Base64 cresce ~33%, então 4MB PDF → ~5.3MB base64
+  MAX_BASE64_OCR_MB: 4,
+  
+  // Limite absoluto para qualquer operação com LLM
+  MAX_LLM_PAYLOAD_MB: 15,
+  
+  // Alerta para PDFs que vão demorar
+  LARGE_PDF_THRESHOLD_MB: 20,
 };
 ```
 
-### 5. Fallback Inteligente (LLM para OCR)
-
-Para PDFs com texto "invisível" (imagens/scans), usar LLM como fallback:
+### 3.3 Guard no Fallback OCR
 
 ```typescript
-async function extractPdfTextWithFallback(fileData: Blob) {
-  try {
-    // Tentar extração determinística primeiro
-    const { pages, totalPages } = await extractPdfText(fileData);
-    const totalText = pages.join(" ");
-    
-    // Se texto muito curto, pode ser PDF de imagens
-    if (totalText.length < 100 && totalPages > 0) {
-      console.log("[documents] Texto muito curto, tentando OCR via LLM...");
-      // Fallback para LLM apenas para OCR de PDFs-imagem
-      return await extractPdfViaLovableAIBase64(fileData, LOVABLE_API_KEY);
-    }
-    
-    return totalText;
-  } catch (e) {
-    console.error("[documents] pdfjs-serverless failed:", e);
-    // Fallback para LLM em caso de erro na biblioteca
-    return await extractPdfViaLovableAIBase64(fileData, LOVABLE_API_KEY);
+async function extractPdfViaOcrFallback(fileBlob: Blob, apiKey: string): Promise<string> {
+  const sizeMB = fileBlob.size / (1024 * 1024);
+  
+  // Hard block para PDFs grandes demais
+  if (sizeMB > LIMITS.MAX_LLM_PAYLOAD_MB) {
+    throw new Error(
+      `PDF muito grande para OCR (${sizeMB.toFixed(1)}MB). ` +
+      `Limite: ${LIMITS.MAX_LLM_PAYLOAD_MB}MB. ` +
+      `Use um PDF com texto selecionável ou divida em partes menores.`
+    );
   }
+  
+  // Warning para PDFs no limite
+  if (sizeMB > LIMITS.MAX_BASE64_OCR_MB) {
+    console.warn(
+      `[documents] ⚠️ PDF grande para OCR: ${sizeMB.toFixed(1)}MB. ` +
+      `Pode causar timeout ou erro de memória.`
+    );
+  }
+  
+  // Continua com OCR...
 }
 ```
 
-## Resumo das Alterações
+---
 
-| Arquivo/Recurso | Mudança |
-|-----------------|---------|
-| **Migração SQL** | Criar tabela `document_jobs` para fila de processamento |
-| **`documents/index.ts`** | Substituir LLM por `pdfjs-serverless` como extrator primário |
-| **`documents/index.ts`** | Adicionar rota `/process-job` para worker incremental |
-| **`documents/index.ts`** | LLM vira fallback apenas para OCR de PDFs-imagem |
-| **`Admin.tsx`** | Polling de status para PDFs grandes em processamento |
+## Resumo de Arquivos a Modificar
 
-## Resultado Esperado
+| Arquivo | Alteração |
+|---------|-----------|
+| **Migração SQL** | Adicionar coluna `status` e `error_reason` em `documents` |
+| **`documents/index.ts`** | Correlation ID, timings, debug info, separação upload/process, limites base64 |
+| **`Admin.tsx`** | Botão "Processar/Reprocessar", badge de status, exibição de debug em erros |
+| **`types.ts`** | Será atualizado automaticamente após migração |
 
-| Cenário | Antes | Depois |
-|---------|-------|--------|
-| PDF 10 páginas | Timeout/Truncado | Processado em 2-3s |
-| PDF 200 páginas | Erro 500 | Processado em ~20-30s (incremental) |
-| PDF-imagem (scan) | Erro | OCR via LLM fallback |
-| Cota Gemini esgotada | Falha total | Chunks salvos sem embeddings |
+---
 
-## Vantagens da Abordagem
+## Benefícios Esperados
 
-1. **Determinística**: Extração por biblioteca é previsível (sem variação de tokens)
-2. **Incremental**: PDFs grandes processados em fatias de 10 páginas
-3. **Tolerante a falhas**: Jobs podem ser retomados de onde pararam
-4. **Eficiente**: Sem payload base64 gigante para gateway
-5. **Fallback inteligente**: LLM usado apenas quando necessário (OCR)
+| Problema Atual | Solução | Resultado |
+|----------------|---------|-----------|
+| "Erro 500" sem contexto | Correlation ID + timings | Sabe exatamente onde falhou e quanto tempo levou |
+| Upload perdido se ingestão falha | Separação em 2 fases | Arquivo sempre preservado, pode reprocessar |
+| Base64 gigante explode | Limite de 4-15MB | Erro claro antes de tentar, não timeout misterioso |
+| Logs genéricos | `debug.provider` com HTTP status | Sabe se foi Gemini 429 ou Lovable 500 |
+
+---
 
 ## Ordem de Implementação
 
-1. Criar migração SQL para `document_jobs`
-2. Reescrever `documents/index.ts` com `pdfjs-serverless`
-3. Adicionar rota `/process-job`
-4. Atualizar `Admin.tsx` com polling de progresso
-5. Testar com PDF pequeno (< 10 páginas)
-6. Testar com PDF grande (200+ páginas)
+1. **Migração SQL**: Adicionar `status` e `error_reason` em `documents`
+2. **Observabilidade**: Implementar `requestId`, `measureStep`, `debug` em `documents/index.ts`
+3. **Separação Upload/Ingestão**: Novas rotas `upload-only` e `process`
+4. **Limites Base64**: Guards com constantes claras
+5. **Admin.tsx**: UI para status e botão reprocessar
+6. **Testes**: Upload de PDF grande, simulação de falha, reprocessamento
 
+---
+
+## Seção Técnica: Estrutura de Resposta
+
+```typescript
+// Resposta de sucesso com debug
+{
+  "success": true,
+  "status": "ready",
+  "document": { "id": "...", "title": "..." },
+  "debug": {
+    "request_id": "8f42b1c3-...",
+    "timings": {
+      "total_ms": 4500,
+      "download_storage_ms": 456,
+      "extract_ms": 2100,
+      "chunk_ms": 89,
+      "embed_ms": 1800,
+      "db_insert_ms": 55
+    },
+    "steps_completed": ["download_storage", "extract", "chunk", "embed", "db_insert"],
+    "steps_failed": []
+  }
+}
+
+// Resposta de erro com debug
+{
+  "success": false,
+  "error": "Falha na geração de embeddings",
+  "debug": {
+    "request_id": "8f42b1c3-...",
+    "timings": {
+      "total_ms": 3600,
+      "download_storage_ms": 456,
+      "extract_ms": 2100,
+      "chunk_ms": 89,
+      "embed_ms": 900
+    },
+    "provider": {
+      "name": "gemini-embedding",
+      "http_status": 429,
+      "error_body_trunc": "RESOURCE_EXHAUSTED: Quota exceeded...",
+      "elapsed_ms": 900
+    },
+    "steps_completed": ["download_storage", "extract", "chunk"],
+    "steps_failed": ["embed"]
+  }
+}
+```
