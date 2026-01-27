@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Upload, FileText, Trash2, RefreshCw, Lock, Check, X, AlertCircle, BarChart3, ClipboardList, Eye, EyeOff, Loader2, Play, RotateCcw } from 'lucide-react';
+import { ArrowLeft, Upload, FileText, Trash2, RefreshCw, Lock, Check, X, AlertCircle, BarChart3, ClipboardList, Eye, EyeOff, Loader2, Play, RotateCcw, FileWarning } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -11,6 +11,8 @@ import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { AnalyticsTab } from '@/components/admin/AnalyticsTab';
 import { ReportsTab } from '@/components/admin/ReportsTab';
+import { extractPdfTextClient, extractTxtContent, isPdfFile, isTxtFile, isDocxFile } from '@/utils/extractPdfText';
+import { loadPdfDocument, renderPagesAsImages, getPageBatches, type PageImage } from '@/utils/renderPdfPages';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -83,6 +85,8 @@ function getStatusBadge(status?: string, errorReason?: string | null) {
       return { variant: 'secondary' as const, label: 'Processando...', className: 'bg-blue-500/20 text-blue-400' };
     case 'ready':
       return { variant: 'secondary' as const, label: 'Pronto', className: 'bg-green-500/20 text-green-400' };
+    case 'chunks_ok_embed_pending':
+      return { variant: 'secondary' as const, label: 'Embeddings Pendentes', className: 'bg-orange-500/20 text-orange-400', tooltip: 'Texto processado, embeddings falharam por limite de API' };
     case 'failed':
       return { variant: 'destructive' as const, label: 'Falhou', className: 'bg-destructive/20 text-destructive', tooltip: errorReason };
     default:
@@ -103,10 +107,16 @@ const Admin = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
+  const [extractionPhase, setExtractionPhase] = useState<'idle' | 'extracting' | 'uploading' | 'processing'>('idle');
   
   const [isDragOver, setIsDragOver] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [documentToDelete, setDocumentToDelete] = useState<Document | null>(null);
+  
+  // OCR Dialog state
+  const [showOcrDialog, setShowOcrDialog] = useState(false);
+  const [ocrFile, setOcrFile] = useState<File | null>(null);
+  const [ocrProcessing, setOcrProcessing] = useState(false);
   
   // Track documents being processed
   const [processingDocs, setProcessingDocs] = useState<Set<string>>(new Set());
@@ -406,7 +416,7 @@ const Admin = () => {
       debugLog(`[Admin] Checking file: ${file.name}, type: ${file.type}, size: ${Math.round(file.size / 1024 / 1024)}MB`);
       
       const isValidType = allowedTypes.includes(file.type) || file.name.endsWith('.txt') || file.name.endsWith('.pdf') || file.name.endsWith('.docx');
-      const isPDF = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
+      const isPDF = isPdfFile(file);
       const maxSize = isPDF ? MAX_PDF_SIZE : MAX_OTHER_SIZE;
       const isValidSize = file.size <= maxSize;
       
@@ -441,6 +451,7 @@ const Admin = () => {
 
     setIsUploading(true);
     setUploadProgress(5);
+    setExtractionPhase('idle');
 
     const totalFiles = validFiles.length;
     let completedFiles = 0;
@@ -455,9 +466,138 @@ const Admin = () => {
           throw new Error('Chave de administrador ausente.');
         }
 
-        // STEP 1: Get signed upload URL
-        debugLog(`[Admin] Getting signed upload URL for ${file.name}...`);
-        setUploadProgress(Math.round(((completedFiles + 0.1) / totalFiles) * 100));
+        let fullText: string = '';
+        let metadata: { originalFilename: string; totalPages: number; extractedAt: string; extractionMethod: string } | null = null;
+
+        // ============================================
+        // STEP 1: CLIENT-SIDE TEXT EXTRACTION
+        // ============================================
+        if (isPdfFile(file)) {
+          setExtractionPhase('extracting');
+          debugLog(`[Admin] Extracting PDF text client-side: ${file.name}`);
+          
+          try {
+            const result = await extractPdfTextClient(file, (progress) => {
+              setUploadProgress(Math.round(((completedFiles + (progress / 100) * 0.4) / totalFiles) * 100));
+            });
+            
+            debugLog(`[Admin] PDF extraction result: ${result.totalPages} pages, ${result.avgCharsPerPage.toFixed(0)} avg chars/page, needsOcr: ${result.needsOcr}`);
+            
+            if (result.needsOcr) {
+              // PDF is scanned/image-based, show OCR dialog
+              setOcrFile(file);
+              setShowOcrDialog(true);
+              setIsUploading(false);
+              setUploadProgress(0);
+              setExtractionPhase('idle');
+              return; // Stop here, wait for user decision
+            }
+            
+            fullText = result.fullText;
+            metadata = {
+              originalFilename: file.name,
+              totalPages: result.totalPages,
+              extractedAt: new Date().toISOString(),
+              extractionMethod: 'pdfjs-client'
+            };
+          } catch (extractError) {
+            console.error('[Admin] PDF extraction error:', extractError);
+            throw new Error(`Erro ao extrair texto do PDF: ${extractError instanceof Error ? extractError.message : String(extractError)}`);
+          }
+        } else if (isTxtFile(file)) {
+          setExtractionPhase('extracting');
+          debugLog(`[Admin] Reading TXT file: ${file.name}`);
+          fullText = await extractTxtContent(file);
+          metadata = {
+            originalFilename: file.name,
+            totalPages: 1,
+            extractedAt: new Date().toISOString(),
+            extractionMethod: 'txt-client'
+          };
+        } else if (isDocxFile(file)) {
+          // DOCX still needs backend processing (mammoth)
+          setExtractionPhase('uploading');
+          debugLog(`[Admin] DOCX file - using backend extraction: ${file.name}`);
+          
+          // Use old flow for DOCX
+          const signedUrlResponse = await fetch(
+            `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/admin_get_upload_url`,
+            {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'x-admin-key': key,
+                apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+                Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+              },
+              body: JSON.stringify({ 
+                filename: file.name, 
+                contentType: file.type || 'application/octet-stream' 
+              }),
+            }
+          );
+
+          if (!signedUrlResponse.ok) {
+            const errorData = await signedUrlResponse.json();
+            throw new Error(`[${signedUrlResponse.status}] ${errorData.error || 'Falha ao obter URL de upload'}`);
+          }
+
+          const signedUrlData = await signedUrlResponse.json();
+          
+          // Upload file
+          await uploadFileWithRetry(file, signedUrlData.signedUrl);
+          setUploadProgress(Math.round(((completedFiles + 0.6) / totalFiles) * 100));
+          
+          setExtractionPhase('processing');
+          
+          // Process via backend (old flow)
+          const processResponse = await fetch(
+            `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/documents`,
+            {
+              method: 'POST',
+              headers: {
+                'x-admin-key': key,
+                apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+                Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                filePath: signedUrlData.path,
+                title: file.name.replace(/\.[^/.]+$/, ''),
+                category: 'manual',
+                fileType: file.type || signedUrlData.contentType,
+                originalName: file.name,
+              }),
+            }
+          );
+          
+          if (!processResponse.ok) {
+            const errorData = await processResponse.json().catch(() => ({ error: 'Falha ao processar documento.' }));
+            throw new Error(`[${processResponse.status}] ${errorData.error || 'Erro ao processar documento'}`);
+          }
+          
+          const processResult = await processResponse.json();
+          debugLog(`[Admin] DOCX processing result:`, processResult);
+          
+          completedFiles++;
+          setUploadProgress(Math.round((completedFiles / totalFiles) * 100));
+          
+          toast({
+            title: 'Upload concluído',
+            description: `"${file.name}" processado com sucesso.${processResult?.warning ? `\n\nAviso: ${processResult.warning}` : ''}`,
+          });
+          
+          continue; // Skip to next file
+        } else {
+          throw new Error('Tipo de arquivo não suportado');
+        }
+
+        // ============================================
+        // STEP 2: UPLOAD PDF TO STORAGE (optional backup)
+        // ============================================
+        setExtractionPhase('uploading');
+        debugLog(`[Admin] Uploading file to storage: ${file.name}`);
+        setUploadProgress(Math.round(((completedFiles + 0.5) / totalFiles) * 100));
 
         const signedUrlResponse = await fetch(
           `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/admin_get_upload_url`,
@@ -483,125 +623,47 @@ const Admin = () => {
 
         const signedUrlData = await signedUrlResponse.json();
         debugLog(`[Admin] Got signed URL for path: ${signedUrlData.path}`);
-        setUploadProgress(Math.round(((completedFiles + 0.3) / totalFiles) * 100));
 
-        // STEP 2: Upload file via PUT
-        assertIsBlobLike(file, file.name);
+        await uploadFileWithRetry(file, signedUrlData.signedUrl);
+        setUploadProgress(Math.round(((completedFiles + 0.7) / totalFiles) * 100));
+
+        // ============================================
+        // STEP 3: SEND EXTRACTED TEXT TO BACKEND
+        // ============================================
+        setExtractionPhase('processing');
+        debugLog(`[Admin] Sending pre-extracted text to backend: ${fullText.length} chars`);
         
-        const uploadFile = async (fileToUpload: File, signedUrl: string): Promise<Response> => {
-          const isMobile = /mobile|android|iphone|ipad|ipod/i.test(navigator.userAgent);
-          const maxMb = isMobile ? 10 : 50;
-          
-          if (fileToUpload.size > maxMb * 1024 * 1024) {
-            throw new Error(`Arquivo muito grande para este dispositivo (máx ${maxMb}MB).`);
-          }
-
-          const timeoutMs = isMobile ? 120000 : 60000;
-          const isPdf = (fileToUpload.type?.includes("pdf") || fileToUpload.name?.toLowerCase().endsWith(".pdf"));
-          const contentType = fileToUpload.type || (isPdf ? "application/pdf" : "application/octet-stream");
-          const body = isPdf ? await fileToUpload.arrayBuffer() : fileToUpload;
-
-          const controller = new AbortController();
-          const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-
-          try {
-            const uploadRes = await fetch(signedUrl, {
-              method: "PUT",
-              headers: { "Content-Type": contentType },
-              body,
-              signal: controller.signal,
-            });
-
-            clearTimeout(timeoutId);
-
-            if (!uploadRes.ok) {
-              const msg = `Upload falhou: HTTP ${uploadRes.status}`;
-              if (uploadRes.status === 409) {
-                throw new Error(`${msg} (conflito: arquivo já existe)`);
-              }
-              if (uploadRes.status === 403) {
-                throw new Error(`${msg} (permissão/policy do bucket ou URL expirada)`);
-              }
-              throw new Error(msg);
-            }
-
-            return uploadRes;
-          } catch (err: any) {
-            clearTimeout(timeoutId);
-            if (err?.name === "AbortError") {
-              throw new Error("Upload excedeu o tempo limite.");
-            }
-            throw err;
-          }
-        };
-
-        const MAX_RETRIES = 3;
-        const BASE_DELAY = 1000;
-        
-        const uploadWithRetry = async (fileToUpload: File, signedUrl: string): Promise<Response> => {
-          let lastError: Error | null = null;
-          
-          for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
-            try {
-              return await uploadFile(fileToUpload, signedUrl);
-            } catch (error) {
-              lastError = error instanceof Error ? error : new Error(String(error));
-              
-              if (lastError.message.includes("muito grande") || 
-                  lastError.message.includes("não autorizado") ||
-                  lastError.message.includes("conflito") ||
-                  lastError.message.includes("permissão")) {
-                throw lastError;
-              }
-              
-              if (attempt < MAX_RETRIES) {
-                const delay = BASE_DELAY * Math.pow(2, attempt - 1);
-                await new Promise(r => setTimeout(r, delay));
-              }
-            }
-          }
-          
-          throw lastError || new Error("Upload falhou após todas tentativas");
-        };
-
-        await uploadWithRetry(file, signedUrlData.signedUrl);
-        setUploadProgress(Math.round(((completedFiles + 0.6) / totalFiles) * 100));
-
-        // STEP 3: Process document
-        debugLog(`[Admin] Processing document...`);
-        
-        const processResponse = await fetch(
-          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/documents`,
+        const ingestResponse = await fetch(
+          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/documents/ingest-text`,
           {
             method: 'POST',
             headers: {
               'x-admin-key': key,
+              'Content-Type': 'application/json',
               apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
               Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-              'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-              filePath: signedUrlData.path,
               title: file.name.replace(/\.[^/.]+$/, ''),
               category: 'manual',
-              fileType: file.type || signedUrlData.contentType,
-              originalName: file.name,
+              fullText,
+              filePath: signedUrlData.path,
+              metadata
             }),
           }
         );
         
-        setUploadProgress(Math.round(((completedFiles + 0.9) / totalFiles) * 100));
+        setUploadProgress(Math.round(((completedFiles + 0.95) / totalFiles) * 100));
 
-        if (!processResponse.ok) {
-          if (processResponse.status === 401) {
+        if (!ingestResponse.ok) {
+          if (ingestResponse.status === 401) {
             handleAuthExpired();
           }
 
-          const errorData = await processResponse.json().catch(() => ({ error: 'Falha ao processar documento.' }));
+          const errorData = await ingestResponse.json().catch(() => ({ error: 'Falha ao processar documento.' }));
           
-          // Show debug info if available
           if (errorData.debug) {
-            console.error('[Admin] Processing failed with debug:', errorData.debug);
+            console.error('[Admin] Ingestion failed with debug:', errorData.debug);
           }
           
           // Cleanup uploaded file
@@ -609,29 +671,19 @@ const Admin = () => {
             await supabase.storage.from('knowledge-base').remove([signedUrlData.path]);
           } catch {}
           
-          throw new Error(`[${processResponse.status}] ${errorData.error || 'Erro ao processar documento'}`);
+          throw new Error(`[${ingestResponse.status}] ${errorData.error || 'Erro ao processar documento'}`);
         }
 
-        const processResult = await processResponse.json();
-        debugLog(`[Admin] Processing result:`, processResult);
+        const ingestResult = await ingestResponse.json();
+        debugLog(`[Admin] Ingestion result:`, ingestResult);
 
         completedFiles++;
         setUploadProgress(Math.round((completedFiles / totalFiles) * 100));
 
-        // Check if document is being processed in background
-        if (processResult.status === 'processing') {
-          setProcessingDocs(prev => new Set(prev).add(processResult.document.id));
-          
-          toast({
-            title: 'Upload iniciado',
-            description: `"${file.name}" será processado em background (${processResult.document.totalPages} páginas).`,
-          });
-        } else {
-          toast({
-            title: 'Upload concluído',
-            description: `"${file.name}" processado com sucesso.${processResult?.warning ? `\n\nAviso: ${processResult.warning}` : ''}`,
-          });
-        }
+        toast({
+          title: 'Upload concluído',
+          description: `"${file.name}" processado com sucesso.${ingestResult?.warning ? `\n\nAviso: ${ingestResult.warning}` : ''}`,
+        });
 
       } catch (error: any) {
         hasErrors = true;
@@ -655,6 +707,232 @@ const Admin = () => {
 
     setIsUploading(false);
     setUploadProgress(0);
+    setExtractionPhase('idle');
+  };
+
+  // Helper function for file upload with retry
+  const uploadFileWithRetry = async (fileToUpload: File, signedUrl: string): Promise<void> => {
+    const uploadFile = async (file: File, url: string): Promise<Response> => {
+      const isMobile = /mobile|android|iphone|ipad|ipod/i.test(navigator.userAgent);
+      const maxMb = isMobile ? 10 : 50;
+      
+      if (file.size > maxMb * 1024 * 1024) {
+        throw new Error(`Arquivo muito grande para este dispositivo (máx ${maxMb}MB).`);
+      }
+
+      const timeoutMs = isMobile ? 120000 : 60000;
+      const isPdf = isPdfFile(file);
+      const contentType = file.type || (isPdf ? "application/pdf" : "application/octet-stream");
+      const body = isPdf ? await file.arrayBuffer() : file;
+
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+      try {
+        const uploadRes = await fetch(url, {
+          method: "PUT",
+          headers: { "Content-Type": contentType },
+          body,
+          signal: controller.signal,
+        });
+
+        clearTimeout(timeoutId);
+
+        if (!uploadRes.ok) {
+          const msg = `Upload falhou: HTTP ${uploadRes.status}`;
+          if (uploadRes.status === 409) {
+            throw new Error(`${msg} (conflito: arquivo já existe)`);
+          }
+          if (uploadRes.status === 403) {
+            throw new Error(`${msg} (permissão/policy do bucket ou URL expirada)`);
+          }
+          throw new Error(msg);
+        }
+
+        return uploadRes;
+      } catch (err: any) {
+        clearTimeout(timeoutId);
+        if (err?.name === "AbortError") {
+          throw new Error("Upload excedeu o tempo limite.");
+        }
+        throw err;
+      }
+    };
+
+    const MAX_RETRIES = 3;
+    const BASE_DELAY = 1000;
+    let lastError: Error | null = null;
+    
+    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+      try {
+        await uploadFile(fileToUpload, signedUrl);
+        return;
+      } catch (error) {
+        lastError = error instanceof Error ? error : new Error(String(error));
+        
+        if (lastError.message.includes("muito grande") || 
+            lastError.message.includes("não autorizado") ||
+            lastError.message.includes("conflito") ||
+            lastError.message.includes("permissão")) {
+          throw lastError;
+        }
+        
+        if (attempt < MAX_RETRIES) {
+          const delay = BASE_DELAY * Math.pow(2, attempt - 1);
+          await new Promise(r => setTimeout(r, delay));
+        }
+      }
+    }
+    
+    throw lastError || new Error("Upload falhou após todas tentativas");
+  };
+
+  // Handle OCR processing for scanned PDFs
+  const handleOcrUpload = async () => {
+    if (!ocrFile) return;
+    
+    const key = getAdminKey();
+    if (!key) {
+      handleAuthExpired();
+      return;
+    }
+
+    setShowOcrDialog(false);
+    setOcrProcessing(true);
+    setIsUploading(true);
+    setExtractionPhase('extracting');
+    setUploadProgress(5);
+
+    try {
+      // Load PDF and render pages as images
+      const pdf = await loadPdfDocument(ocrFile);
+      const batches = getPageBatches(pdf.numPages, 5);
+      
+      let allExtractedText = '';
+      let processedPages = 0;
+
+      for (const batch of batches) {
+        // Render pages as images
+        const images = await renderPagesAsImages(pdf, batch.start, batch.end, (progress) => {
+          const overallProgress = ((processedPages + (progress / 100) * (batch.end - batch.start + 1)) / pdf.numPages) * 50;
+          setUploadProgress(Math.round(5 + overallProgress));
+        });
+
+        // Send to OCR endpoint
+        const pageImages = images.map(img => ({ pageNum: img.pageNum, dataUrl: img.dataUrl }));
+        
+        const ocrResponse = await fetch(
+          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/documents/ocr-batch`,
+          {
+            method: 'POST',
+            headers: {
+              'x-admin-key': key,
+              'Content-Type': 'application/json',
+              apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+              Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+            },
+            body: JSON.stringify({ pageImages }),
+          }
+        );
+
+        if (!ocrResponse.ok) {
+          const errorData = await ocrResponse.json().catch(() => ({ error: 'Falha no OCR' }));
+          throw new Error(errorData.error || 'Falha no OCR');
+        }
+
+        const ocrResult = await ocrResponse.json();
+        allExtractedText += (allExtractedText ? '\n\n' : '') + ocrResult.extractedText;
+        processedPages += batch.end - batch.start + 1;
+
+        const overallProgress = 5 + (processedPages / pdf.numPages) * 50;
+        setUploadProgress(Math.round(overallProgress));
+      }
+
+      // Now upload the original file
+      setExtractionPhase('uploading');
+      setUploadProgress(60);
+
+      const signedUrlResponse = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/admin_get_upload_url`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-admin-key': key,
+            apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          },
+          body: JSON.stringify({ 
+            filename: ocrFile.name, 
+            contentType: ocrFile.type || 'application/pdf' 
+          }),
+        }
+      );
+
+      if (!signedUrlResponse.ok) {
+        throw new Error('Falha ao obter URL de upload');
+      }
+
+      const signedUrlData = await signedUrlResponse.json();
+      await uploadFileWithRetry(ocrFile, signedUrlData.signedUrl);
+      setUploadProgress(75);
+
+      // Send OCR'd text to backend
+      setExtractionPhase('processing');
+      
+      const ingestResponse = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/documents/ingest-text`,
+        {
+          method: 'POST',
+          headers: {
+            'x-admin-key': key,
+            'Content-Type': 'application/json',
+            apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          },
+          body: JSON.stringify({
+            title: ocrFile.name.replace(/\.[^/.]+$/, ''),
+            category: 'manual',
+            fullText: allExtractedText,
+            filePath: signedUrlData.path,
+            metadata: {
+              originalFilename: ocrFile.name,
+              totalPages: pdf.numPages,
+              extractedAt: new Date().toISOString(),
+              extractionMethod: 'ocr-client'
+            }
+          }),
+        }
+      );
+
+      if (!ingestResponse.ok) {
+        const errorData = await ingestResponse.json().catch(() => ({ error: 'Falha ao processar' }));
+        throw new Error(errorData.error || 'Falha ao processar documento');
+      }
+
+      const ingestResult = await ingestResponse.json();
+      
+      toast({
+        title: 'OCR concluído',
+        description: `"${ocrFile.name}" processado com OCR.${ingestResult?.warning ? `\n\nAviso: ${ingestResult.warning}` : ''}`,
+      });
+
+      await fetchDocuments();
+
+    } catch (error: any) {
+      console.error('[Admin] OCR processing error:', error);
+      toast({
+        title: 'Erro no OCR',
+        description: error.message || 'Erro desconhecido',
+        variant: 'destructive',
+      });
+    } finally {
+      setOcrFile(null);
+      setOcrProcessing(false);
+      setIsUploading(false);
+      setUploadProgress(0);
+      setExtractionPhase('idle');
+    }
   };
 
   const handleDelete = async () => {
@@ -887,12 +1165,15 @@ const Admin = () => {
                     {isUploading ? (
                       <div className="space-y-4">
                         <RefreshCw className="w-12 h-12 text-primary mx-auto animate-spin" />
-                        <p className="text-muted-foreground">Processando documento...</p>
-                        <div className="w-full max-w-xs mx-auto bg-muted rounded-full h-2 overflow-hidden">
-                          <div 
-                            className="h-full bg-primary transition-all duration-300"
-                            style={{ width: `${uploadProgress}%` }}
-                          />
+                        <p className="text-muted-foreground">
+                          {extractionPhase === 'extracting' && 'Extraindo texto do documento...'}
+                          {extractionPhase === 'uploading' && 'Enviando arquivo...'}
+                          {extractionPhase === 'processing' && 'Processando chunks e embeddings...'}
+                          {extractionPhase === 'idle' && 'Preparando...'}
+                        </p>
+                        <div className="w-full max-w-xs mx-auto">
+                          <Progress value={uploadProgress} className="h-2" />
+                          <p className="text-xs text-muted-foreground mt-1 text-center">{uploadProgress}%</p>
                         </div>
                       </div>
                     ) : (
@@ -1083,6 +1364,70 @@ const Admin = () => {
                 className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               >
                 Remover
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        {/* OCR Dialog for Scanned PDFs */}
+        <AlertDialog open={showOcrDialog} onOpenChange={(open) => {
+          if (!open && !ocrProcessing) {
+            setShowOcrDialog(false);
+            setOcrFile(null);
+          }
+        }}>
+          <AlertDialogContent className="glass-card">
+            <AlertDialogHeader>
+              <div className="flex items-center gap-3 mb-2">
+                <div className="w-12 h-12 rounded-lg bg-amber-500/20 flex items-center justify-center">
+                  <FileWarning className="w-6 h-6 text-amber-500" />
+                </div>
+                <div>
+                  <AlertDialogTitle>PDF Escaneado Detectado</AlertDialogTitle>
+                </div>
+              </div>
+              <AlertDialogDescription className="space-y-3">
+                <p>
+                  Este PDF parece ser uma imagem escaneada com pouco texto selecionável
+                  ({ocrFile?.name}).
+                </p>
+                <div className="p-3 rounded-lg bg-muted/50">
+                  <p className="text-sm font-medium text-foreground mb-1">
+                    💡 Recomendação
+                  </p>
+                  <p className="text-sm">
+                    Para melhores resultados, use seu scanner ou software de PDF para gerar 
+                    uma versão com OCR (camada de texto). Isso é mais rápido e preciso.
+                  </p>
+                </div>
+                <p className="text-sm">
+                  Alternativamente, você pode processar via IA (mais lento, pode ter erros).
+                </p>
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel 
+                onClick={() => {
+                  setShowOcrDialog(false);
+                  setOcrFile(null);
+                }}
+                disabled={ocrProcessing}
+              >
+                Cancelar Upload
+              </AlertDialogCancel>
+              <AlertDialogAction 
+                onClick={handleOcrUpload}
+                disabled={ocrProcessing}
+                className="bg-amber-600 hover:bg-amber-700"
+              >
+                {ocrProcessing ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Processando...
+                  </>
+                ) : (
+                  'Processar via IA'
+                )}
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
