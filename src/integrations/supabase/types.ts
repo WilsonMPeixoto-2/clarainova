@@ -187,8 +187,10 @@ export type Database = {
           category: string
           content_text: string | null
           created_at: string
+          error_reason: string | null
           file_path: string | null
           id: string
+          status: string
           title: string
           updated_at: string
         }
@@ -196,8 +198,10 @@ export type Database = {
           category?: string
           content_text?: string | null
           created_at?: string
+          error_reason?: string | null
           file_path?: string | null
           id?: string
+          status?: string
           title: string
           updated_at?: string
         }
@@ -205,8 +209,10 @@ export type Database = {
           category?: string
           content_text?: string | null
           created_at?: string
+          error_reason?: string | null
           file_path?: string | null
           id?: string
+          status?: string
           title?: string
           updated_at?: string
         }
