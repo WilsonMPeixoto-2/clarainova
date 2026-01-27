@@ -1,206 +1,281 @@
 
-# Plano: Correção Definitiva do Upload de PDFs
 
-## Resumo do Problema
+# Plano: Extração Determinística de PDFs (Rota 1)
 
-O erro 400 ao processar PDFs grandes ocorre porque o Gemini SDK com `fileUri` **não aceita URLs externas** (como signed URLs do Supabase). O Gemini espera URLs do Google Cloud Storage ou dados inline em base64.
+## Diagnóstico Confirmado
 
-## Solução Arquitetural
+A análise está correta. O problema estrutural é usar LLM como extrator "literal completo" de PDFs grandes:
 
-Inverter a lógica de extração: usar **Lovable AI como método primário** (suporta URLs externas) e **Gemini com base64 como fallback** (para PDFs menores quando Lovable AI falhar).
+| Causa | Problema | Impacto |
+|-------|----------|---------|
+| **A** | LLM não consegue devolver 200+ páginas em uma resposta | Truncamento, timeout, erro 500 |
+| **B** | `data:application/pdf;base64` via `image_url` não é suportado | Formato incompatível, 400/415 |
+| **C** | Base64 de 13MB PDF = ~18MB em JSON | Limite de request size, memória |
+
+## Solução: Extração Determinística + Processamento Incremental
 
 ```text
+FLUXO ATUAL (frágil)
 ┌─────────────────────────────────────────────────────────────┐
-│ FLUXO ATUAL (com problema)                                  │
-├─────────────────────────────────────────────────────────────┤
-│ PDF → Signed URL → Gemini fileUri → Erro 400                │
+│ PDF → Base64 → LLM "extraia tudo" → Erro (timeout/truncado) │
 └─────────────────────────────────────────────────────────────┘
 
+NOVO FLUXO (robusto)
 ┌─────────────────────────────────────────────────────────────┐
-│ NOVO FLUXO (solução)                                        │
-├─────────────────────────────────────────────────────────────┤
-│ PDF → Lovable AI (URL externa) ✓                            │
+│ PDF → pdfjs-serverless → Extração por página              │
 │   ↓                                                         │
-│ Se falhar → Gemini base64 (<15MB) ✓                         │
+│ Processamento incremental (10 páginas por execução)         │
+│   ↓                                                         │
+│ Chunks salvos → Embeddings (best-effort, tolerante a 429)   │
 └─────────────────────────────────────────────────────────────┘
 ```
 
 ## Mudanças a Implementar
 
-### 1. Edge Function `documents/index.ts` (A Grande Mudança)
+### 1. Nova Tabela: `document_jobs` (Fila de Processamento)
 
-**Arquivo:** `supabase/functions/documents/index.ts`
+Permite processar PDFs grandes em fatias sem estourar timeout.
 
-**Mudanças:**
+```sql
+CREATE TABLE public.document_jobs (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  document_id UUID NOT NULL REFERENCES public.documents(id) ON DELETE CASCADE,
+  status TEXT NOT NULL DEFAULT 'pending',
+  -- Status: pending, processing, completed, failed
+  next_page INTEGER NOT NULL DEFAULT 1,
+  total_pages INTEGER,
+  pages_per_batch INTEGER NOT NULL DEFAULT 10,
+  error TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
 
-a) **Inverter ordem de extração**: Lovable AI primeiro, Gemini depois
+CREATE INDEX idx_document_jobs_status ON public.document_jobs(status);
+CREATE INDEX idx_document_jobs_document_id ON public.document_jobs(document_id);
+```
 
-b) **Nova função `extractPdfViaGeminiBase64`**: Converte PDF para base64 e envia via `inlineData` (funciona!)
+### 2. Edge Function `documents/index.ts` (Reescrita Completa)
 
-c) **Remover uso de `fileUri`**: O parâmetro `fileData.fileUri` não funciona com URLs externas
+**Mudanças principais:**
 
-d) **Limite de 15MB para fallback Gemini**: Base64 dobra o tamanho, então limite conservador
+a) **Importar `pdfjs-serverless`**: Biblioteca compatível com Deno para extração determinística
 
-**Código principal da mudança (linhas 394-477):**
+b) **Nova função `extractPdfText`**: Extração página por página sem depender de LLM
+
+c) **Processamento incremental**: Para PDFs grandes, processa 10 páginas por execução
+
+d) **LLM apenas para embeddings e fallback**: Não mais como extrator primário
+
+**Código-chave:**
 
 ```typescript
-// NOVO: Tentar Lovable AI primeiro (suporta URLs externas)
-try {
-  if (!LOVABLE_API_KEY) {
-    throw new Error("LOVABLE_API_KEY não configurada");
+// Importação compatível com Deno
+import { getDocument } from "https://esm.sh/pdfjs-serverless@0.6.0";
+
+const PAGES_PER_BATCH = 10;
+
+// Extração determinística (sem LLM)
+async function extractPdfText(
+  fileData: Blob, 
+  startPage: number = 1, 
+  endPage?: number
+): Promise<{ pages: string[], totalPages: number }> {
+  const arrayBuffer = await fileData.arrayBuffer();
+  const data = new Uint8Array(arrayBuffer);
+  
+  const doc = await getDocument({ data }).promise;
+  const totalPages = doc.numPages;
+  const actualEndPage = Math.min(endPage || totalPages, totalPages);
+  
+  const pages: string[] = [];
+  
+  for (let i = startPage; i <= actualEndPage; i++) {
+    const page = await doc.getPage(i);
+    const textContent = await page.getTextContent();
+    const text = textContent.items
+      .map((item: any) => item.str)
+      .join(" ")
+      .replace(/\s+/g, " ")
+      .trim();
+    pages.push(text);
+    console.log(`[documents] Page ${i}/${totalPages}: ${text.length} chars`);
   }
   
-  console.log(`[documents] Attempting PDF extraction via Lovable AI (primary)...`);
-  contentText = await extractPdfViaLovableAI(signedUrl, LOVABLE_API_KEY);
-  console.log(`[documents] PDF extracted via Lovable AI: ${contentText.length} characters`);
+  return { pages, totalPages };
+}
+```
+
+**Fluxo de processamento:**
+
+```typescript
+// POST /documents - Inicia processamento
+if (isPDF) {
+  // 1. Extrair primeiras páginas para preview
+  const { pages, totalPages } = await extractPdfText(fileData, 1, PAGES_PER_BATCH);
   
-} catch (lovableError) {
-  console.error("[documents] Lovable AI extraction failed:", lovableError);
+  // 2. Criar documento com texto parcial
+  const partialText = pages.join("\n\n--- Página ---\n\n");
+  const document = await createDocument(title, category, filePath, partialText);
   
-  // Fallback: Gemini com base64 (apenas para PDFs < 15MB)
-  const MAX_BASE64_SIZE = 15 * 1024 * 1024; // 15MB
+  // 3. Se houver mais páginas, criar job para processamento em background
+  if (totalPages > PAGES_PER_BATCH) {
+    await createDocumentJob(document.id, PAGES_PER_BATCH + 1, totalPages);
+    return { 
+      success: true, 
+      document,
+      status: "processing",
+      message: `Processando ${totalPages} páginas em background...`
+    };
+  }
   
-  if (GEMINI_API_KEY && fileData.size <= MAX_BASE64_SIZE) {
-    console.log("[documents] Attempting fallback to Gemini with base64...");
+  // 4. PDF pequeno: processar chunks e embeddings imediatamente
+  await processChunksAndEmbeddings(document.id, partialText);
+  return { success: true, document, status: "completed" };
+}
+```
+
+### 3. Nova Rota: `POST /documents/process-job` (Worker)
+
+Processa próximo lote de páginas de um job pendente:
+
+```typescript
+// POST /documents/process-job
+if (req.method === "POST" && url.pathname.endsWith("/process-job")) {
+  // 1. Buscar próximo job pendente
+  const { data: job } = await supabase
+    .from("document_jobs")
+    .select("*")
+    .eq("status", "pending")
+    .order("created_at")
+    .limit(1)
+    .single();
+  
+  if (!job) return { message: "Nenhum job pendente" };
+  
+  // 2. Atualizar status para processing
+  await supabase.from("document_jobs")
+    .update({ status: "processing" })
+    .eq("id", job.id);
+  
+  // 3. Baixar PDF e extrair próximo lote
+  const document = await getDocument(job.document_id);
+  const { data: fileData } = await supabase.storage
+    .from("knowledge-base")
+    .download(document.file_path);
+  
+  const endPage = Math.min(job.next_page + job.pages_per_batch - 1, job.total_pages);
+  const { pages } = await extractPdfText(fileData, job.next_page, endPage);
+  
+  // 4. Append texto extraído ao documento
+  const newText = pages.join("\n\n--- Página ---\n\n");
+  await appendDocumentText(job.document_id, newText);
+  
+  // 5. Atualizar job (próximo lote ou concluído)
+  if (endPage >= job.total_pages) {
+    await supabase.from("document_jobs")
+      .update({ status: "completed", next_page: endPage + 1 })
+      .eq("id", job.id);
     
-    try {
-      contentText = await extractPdfViaGeminiBase64(fileData, GEMINI_API_KEY);
-      console.log(`[documents] PDF extracted via Gemini base64: ${contentText.length} characters`);
-    } catch (geminiError) {
-      throw new Error(`Falha em ambos provedores: Lovable AI e Gemini`);
-    }
+    // 6. Processar chunks e embeddings do documento completo
+    await processChunksAndEmbeddings(job.document_id);
   } else {
-    throw lovableError;
+    await supabase.from("document_jobs")
+      .update({ status: "pending", next_page: endPage + 1 })
+      .eq("id", job.id);
   }
+  
+  return { processed: endPage - job.next_page + 1, remaining: job.total_pages - endPage };
 }
 ```
 
-**Nova função `extractPdfViaGeminiBase64`:**
+### 4. Frontend: Polling de Status no Admin
+
+Atualizar `Admin.tsx` para mostrar progresso:
 
 ```typescript
-async function extractPdfViaGeminiBase64(
-  fileBlob: Blob, 
-  geminiApiKey: string
-): Promise<string> {
-  console.log("[documents] Converting PDF to base64...");
-  
-  const arrayBuffer = await fileBlob.arrayBuffer();
-  const uint8Array = new Uint8Array(arrayBuffer);
-  
-  // Convert to base64 in chunks (memory efficient)
-  let binaryString = "";
-  for (let i = 0; i < uint8Array.length; i++) {
-    binaryString += String.fromCharCode(uint8Array[i]);
-  }
-  const base64Data = btoa(binaryString);
-  
-  console.log(`[documents] Base64 size: ${Math.round(base64Data.length / 1024)}KB`);
-  
-  const genAI = new GoogleGenerativeAI(geminiApiKey);
-  const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
-  
-  const result = await model.generateContent([
-    {
-      inlineData: {
-        mimeType: "application/pdf",
-        data: base64Data  // ✅ Base64 funciona!
-      }
-    },
-    {
-      text: `Extraia TODO o texto deste documento PDF de forma literal...`
+// Após upload, fazer polling do status
+const pollJobStatus = async (documentId: string) => {
+  const interval = setInterval(async () => {
+    const { data: job } = await supabase
+      .from("document_jobs")
+      .select("*")
+      .eq("document_id", documentId)
+      .single();
+    
+    if (job?.status === "completed") {
+      clearInterval(interval);
+      toast.success("Documento processado com sucesso!");
+    } else if (job?.status === "failed") {
+      clearInterval(interval);
+      toast.error(`Erro: ${job.error}`);
+    } else {
+      const progress = Math.round((job.next_page / job.total_pages) * 100);
+      setUploadProgress(progress);
     }
-  ]);
-  
-  return result.response.text();
-}
-```
-
-### 2. Frontend `Admin.tsx` (Robustez)
-
-**Arquivo:** `src/pages/Admin.tsx`
-
-**Mudanças:**
-
-a) **Retry com Exponential Backoff**: 3 tentativas com delays crescentes (1s, 2s, 4s)
-
-b) **Timeouts diferenciados já existem**: 60s desktop, 120s mobile (já implementado!)
-
-c) **Mensagens de progresso mais claras**: Indicar qual etapa está em andamento
-
-**Função de upload com retry (linhas 327-386):**
-
-```typescript
-// Retry com exponential backoff
-const MAX_RETRIES = 3;
-const BASE_DELAY = 1000; // 1 segundo
-
-const uploadWithRetry = async (
-  fileToUpload: File, 
-  signedUrl: string
-): Promise<Response> => {
-  let lastError: Error | null = null;
-  
-  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
-    try {
-      debugLog(`[Admin] Upload attempt ${attempt}/${MAX_RETRIES}`);
-      return await uploadFile(fileToUpload, signedUrl);
-    } catch (error) {
-      lastError = error instanceof Error ? error : new Error(String(error));
-      
-      // Não fazer retry para erros definitivos
-      if (lastError.message.includes("muito grande") || 
-          lastError.message.includes("não autorizado")) {
-        throw lastError;
-      }
-      
-      if (attempt < MAX_RETRIES) {
-        const delay = BASE_DELAY * Math.pow(2, attempt - 1);
-        debugLog(`[Admin] Retry in ${delay}ms...`);
-        await new Promise(r => setTimeout(r, delay));
-      }
-    }
-  }
-  
-  throw lastError || new Error("Upload falhou após todas tentativas");
+  }, 3000);
 };
 ```
 
-### 3. Limpeza de Código Legado
+### 5. Fallback Inteligente (LLM para OCR)
 
-**Remover:**
-- Uso de `fileData.fileUri` no Gemini (não funciona com URLs externas)
-- Qualquer referência a `pdf-parse` ou `pdfjs` (não usadas, mas garantir limpeza)
+Para PDFs com texto "invisível" (imagens/scans), usar LLM como fallback:
+
+```typescript
+async function extractPdfTextWithFallback(fileData: Blob) {
+  try {
+    // Tentar extração determinística primeiro
+    const { pages, totalPages } = await extractPdfText(fileData);
+    const totalText = pages.join(" ");
+    
+    // Se texto muito curto, pode ser PDF de imagens
+    if (totalText.length < 100 && totalPages > 0) {
+      console.log("[documents] Texto muito curto, tentando OCR via LLM...");
+      // Fallback para LLM apenas para OCR de PDFs-imagem
+      return await extractPdfViaLovableAIBase64(fileData, LOVABLE_API_KEY);
+    }
+    
+    return totalText;
+  } catch (e) {
+    console.error("[documents] pdfjs-serverless failed:", e);
+    // Fallback para LLM em caso de erro na biblioteca
+    return await extractPdfViaLovableAIBase64(fileData, LOVABLE_API_KEY);
+  }
+}
+```
 
 ## Resumo das Alterações
 
-| Arquivo | Mudança |
-|---------|---------|
-| `supabase/functions/documents/index.ts` | Inverter lógica: Lovable AI primário, Gemini base64 fallback |
-| `src/pages/Admin.tsx` | Adicionar retry com exponential backoff (3 tentativas) |
+| Arquivo/Recurso | Mudança |
+|-----------------|---------|
+| **Migração SQL** | Criar tabela `document_jobs` para fila de processamento |
+| **`documents/index.ts`** | Substituir LLM por `pdfjs-serverless` como extrator primário |
+| **`documents/index.ts`** | Adicionar rota `/process-job` para worker incremental |
+| **`documents/index.ts`** | LLM vira fallback apenas para OCR de PDFs-imagem |
+| **`Admin.tsx`** | Polling de status para PDFs grandes em processamento |
 
 ## Resultado Esperado
 
-1. **PDFs de qualquer tamanho (até 50MB)**: Processados via Lovable AI
-2. **Fallback robusto**: Se Lovable AI falhar, Gemini com base64 para PDFs < 15MB
-3. **Retry automático**: 3 tentativas com delays crescentes para falhas de rede
-4. **Sem dependência de cota Gemini**: Lovable AI como primário não tem limite de cota restritivo
+| Cenário | Antes | Depois |
+|---------|-------|--------|
+| PDF 10 páginas | Timeout/Truncado | Processado em 2-3s |
+| PDF 200 páginas | Erro 500 | Processado em ~20-30s (incremental) |
+| PDF-imagem (scan) | Erro | OCR via LLM fallback |
+| Cota Gemini esgotada | Falha total | Chunks salvos sem embeddings |
 
-## Detalhes Técnicos
+## Vantagens da Abordagem
 
-### Por que Gemini `fileUri` não funciona?
+1. **Determinística**: Extração por biblioteca é previsível (sem variação de tokens)
+2. **Incremental**: PDFs grandes processados em fatias de 10 páginas
+3. **Tolerante a falhas**: Jobs podem ser retomados de onde pararam
+4. **Eficiente**: Sem payload base64 gigante para gateway
+5. **Fallback inteligente**: LLM usado apenas quando necessário (OCR)
 
-O parâmetro `fileUri` do Gemini SDK espera URLs de:
-- Google Cloud Storage (`gs://bucket/file.pdf`)
-- File API do Gemini (upload prévio via API)
+## Ordem de Implementação
 
-URLs externas (como signed URLs do Supabase) são rejeitadas com erro 400.
+1. Criar migração SQL para `document_jobs`
+2. Reescrever `documents/index.ts` com `pdfjs-serverless`
+3. Adicionar rota `/process-job`
+4. Atualizar `Admin.tsx` com polling de progresso
+5. Testar com PDF pequeno (< 10 páginas)
+6. Testar com PDF grande (200+ páginas)
 
-### Por que `inlineData` com base64 funciona?
-
-O parâmetro `inlineData.data` aceita dados base64 diretamente, sem depender de URLs. Limitação: o tamanho do payload aumenta ~33% devido à codificação base64.
-
-### Limite de 15MB para Gemini base64
-
-- Payload base64 = 1.33x tamanho original
-- 15MB original = ~20MB em base64
-- Limite seguro para Edge Functions Deno
