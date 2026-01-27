@@ -22,10 +22,17 @@ export default defineConfig(({ mode }) => ({
   optimizeDeps: {
     include: ["react", "react-dom", "framer-motion"],
     exclude: [],
+    esbuildOptions: {
+      target: "esnext",
+    },
   },
   build: {
+    target: "esnext",
     commonjsOptions: {
       include: [/node_modules/],
     },
+  },
+  esbuild: {
+    target: "esnext",
   },
 }));
