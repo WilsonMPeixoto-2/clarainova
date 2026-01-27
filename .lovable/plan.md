@@ -1,409 +1,564 @@
 
-# Plano: Observabilidade, Separação Upload/Ingestão e Limites de Base64
+# Plano: Extração de PDF no Cliente + Backend Leve para Texto
 
-## Contexto Atual
+## Contexto do Problema
 
-O sistema atual mistura **upload**, **extração**, **chunking** e **embeddings** no mesmo request, dificultando diagnósticos. Quando falha, retorna apenas "Erro ao processar PDF" sem indicar qual etapa ou provedor falhou.
+O sistema atual envia PDFs inteiros para o backend (Edge Function), que tenta:
+1. Baixar do Storage
+2. Extrair texto com `pdfjs-serverless`
+3. Fallback para OCR via LLM se texto for insuficiente
+4. Chunking + Embeddings
 
-### Problemas Identificados
+Isso causa:
+- **Timeouts** em PDFs grandes
+- **Erros de memória** na Edge Function
+- **Complexidade desnecessária** para PDFs com texto nativo (maioria dos manuais/leis)
+- **Custos de LLM** para OCR quando não é necessário
 
-| Problema | Impacto |
-|----------|---------|
-| Sem correlation ID | Impossível rastrear request específico nos logs |
-| Sem tempos por etapa | Não sabe se timeout foi na extração ou embedding |
-| Erro genérico | "Falha ao processar PDF" sem saber se foi Gemini, Lovable ou pdfjs |
-| Upload + Ingestão acoplados | Se ingestão falha, perde o upload |
-| Base64 sem limite explícito | PDFs grandes viram payloads impossíveis para AI |
+## Nova Arquitetura
+
+```text
+ANTES (backend pesado)
+┌──────────────────────────────────────────────────────────────────┐
+│  Browser                        Edge Function                    │
+│  ────────                       ─────────────                    │
+│  [Upload PDF] ──────────────────> [Download]                     │
+│                                   [pdfjs-serverless]             │
+│                                   [OCR LLM fallback]             │
+│                                   [Chunk]                        │
+│                                   [Embed]                        │
+│                                   [Save DB]                      │
+│                                                                  │
+│  PROBLEMA: Edge Function faz tudo, timeout/memória em PDFs >15MB │
+└──────────────────────────────────────────────────────────────────┘
+
+DEPOIS (cliente extrai, backend leve)
+┌──────────────────────────────────────────────────────────────────┐
+│  Browser (Admin.tsx)            Edge Function                    │
+│  ───────────────────            ─────────────                    │
+│  [Load PDF]                                                      │
+│  [PDF.js extract] ──> fullText                                   │
+│  [Detect needs_ocr?]                                             │
+│    │                                                             │
+│    ├─ Se texto ok ──────────────> [Receive text only]            │
+│    │  (POST /ingest-text)         [Chunk]                        │
+│    │                              [Embed]                        │
+│    │                              [Save DB]                      │
+│    │                                                             │
+│    └─ Se needs_ocr ─────────────> [Render pages as images]       │
+│       (Upload PDF + flag)         [OCR em batches (3-5 pgs)]     │
+│                                   [Chunk]                        │
+│                                   [Embed]                        │
+│                                   [Save DB]                      │
+│                                                                  │
+│  BENEFÍCIO: Backend recebe texto pronto, 90% menos trabalho      │
+└──────────────────────────────────────────────────────────────────┘
+```
 
 ---
 
-## 1. Observabilidade Completa
+## 1. Adicionar PDF.js no Frontend
 
-### 1.1 Estrutura de Debug
+### 1.1 Instalar dependência
 
-Adicionar ao início de cada Edge Function:
-
-```text
-REQUEST FLOW
-┌─────────────────────────────────────────────────────────────────┐
-│ request_id: 8f42b1c3-5d9e-4a7b-b2e1-9c3f4d5a6e7b              │
-│                                                                 │
-│ [1] upload_storage    → ✓ 1,234ms                              │
-│ [2] download_storage  → ✓ 456ms                                │
-│ [3] extract_text      → ✓ 2,100ms (pdfjs-serverless)           │
-│ [4] chunk_text        → ✓ 89ms (42 chunks)                     │
-│ [5] generate_embed    → ✗ 429 @ 3,500ms (gemini/quota)         │
-│                                                                 │
-│ RESPONSE: partial_success (chunks saved, embeddings skipped)    │
-└─────────────────────────────────────────────────────────────────┘
+```bash
+npm install pdfjs-dist
 ```
 
-### 1.2 Interface de Debug
+O pacote `pdfjs-dist` inclui o worker necessário para extração em background thread.
+
+### 1.2 Criar utilitário de extração
+
+**Novo arquivo: `src/utils/extractPdfText.ts`**
 
 ```typescript
-interface DebugInfo {
-  request_id: string;
-  timings: {
-    total_ms: number;
-    download_storage_ms?: number;
-    extract_ms?: number;
-    chunk_ms?: number;
-    embed_ms?: number;
-    db_insert_ms?: number;
-  };
-  provider?: {
-    name: "pdfjs-serverless" | "lovable-ai" | "gemini-base64";
-    http_status?: number;
-    error_body_trunc?: string;  // primeiros 2KB
-    elapsed_ms: number;
-  };
-  steps_completed: string[];
-  steps_failed: string[];
+import * as pdfjsLib from 'pdfjs-dist';
+
+// Worker CDN (evita problemas de bundling)
+pdfjsLib.GlobalWorkerOptions.workerSrc = 
+  'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.0.379/pdf.worker.min.mjs';
+
+export interface PdfExtractionResult {
+  fullText: string;
+  pages: string[];
+  totalPages: number;
+  needsOcr: boolean;
+  avgCharsPerPage: number;
 }
-```
 
-### 1.3 Implementação em `documents/index.ts`
-
-```typescript
-// No início do handler
-const requestId = crypto.randomUUID();
-const debug: DebugInfo = {
-  request_id: requestId,
-  timings: { total_ms: 0 },
-  steps_completed: [],
-  steps_failed: [],
-};
-const startTime = Date.now();
-
-// Helper para medir tempo de cada etapa
-async function measureStep<T>(
-  name: string, 
-  fn: () => Promise<T>
-): Promise<T> {
-  const stepStart = Date.now();
-  try {
-    const result = await fn();
-    debug.timings[`${name}_ms`] = Date.now() - stepStart;
-    debug.steps_completed.push(name);
-    console.log(`[${requestId}] ✓ ${name}: ${debug.timings[`${name}_ms`]}ms`);
-    return result;
-  } catch (error) {
-    debug.timings[`${name}_ms`] = Date.now() - stepStart;
-    debug.steps_failed.push(name);
-    console.error(`[${requestId}] ✗ ${name}: ${error}`);
-    throw error;
+export async function extractPdfTextClient(
+  file: File,
+  onProgress?: (percent: number) => void
+): Promise<PdfExtractionResult> {
+  const arrayBuffer = await file.arrayBuffer();
+  const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+  
+  const totalPages = pdf.numPages;
+  const pages: string[] = [];
+  
+  for (let i = 1; i <= totalPages; i++) {
+    const page = await pdf.getPage(i);
+    const textContent = await page.getTextContent();
+    const text = textContent.items
+      .map((item: any) => item.str || '')
+      .join(' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+    pages.push(text);
+    
+    if (onProgress) {
+      onProgress(Math.round((i / totalPages) * 100));
+    }
   }
+  
+  const fullText = pages.join('\n\n--- Página ---\n\n');
+  const totalChars = pages.reduce((sum, p) => sum + p.length, 0);
+  const avgCharsPerPage = totalChars / totalPages;
+  
+  // Heurística: PDFs escaneados têm pouco texto
+  const MIN_CHARS_PER_PAGE = 100;
+  const needsOcr = avgCharsPerPage < MIN_CHARS_PER_PAGE;
+  
+  return {
+    fullText,
+    pages,
+    totalPages,
+    needsOcr,
+    avgCharsPerPage
+  };
 }
-
-// Uso:
-const fileData = await measureStep("download_storage", () =>
-  supabase.storage.from("knowledge-base").download(filePath)
-);
 ```
 
-### 1.4 Retorno de Erro com Debug
+### 1.3 Interface de Progresso
+
+Adicionar estado visual durante extração no `Admin.tsx`:
 
 ```typescript
-// Em qualquer catch
-return new Response(
-  JSON.stringify({
-    success: false,
-    error: "Falha ao processar documento",
-    debug: {
-      request_id: requestId,
-      timings: { ...debug.timings, total_ms: Date.now() - startTime },
-      provider: lastProvider,
-      steps_completed: debug.steps_completed,
-      steps_failed: debug.steps_failed,
-    },
-  }),
-  { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-);
+// Estados adicionais
+const [extractionProgress, setExtractionProgress] = useState(0);
+const [extractionPhase, setExtractionPhase] = useState<'idle' | 'extracting' | 'uploading' | 'processing'>('idle');
 ```
 
 ---
 
-## 2. Separação Upload/Ingestão
+## 2. Novo Endpoint: POST /documents/ingest-text
 
-### 2.1 Novo Fluxo
+O backend recebe apenas o texto já extraído, eliminando a necessidade de processar PDFs.
 
-```text
-ANTES (acoplado)
-┌────────────────────────────────────────────────────────────────┐
-│ Admin clica "Upload"                                           │
-│   ↓                                                            │
-│ admin_get_upload_url → Storage PUT → documents POST            │
-│   ↓                                                            │
-│ Download + Extração + Chunking + Embeddings (mesmo request)    │
-│   ↓                                                            │
-│ Se falhar em qualquer etapa: PERDE TUDO                        │
-└────────────────────────────────────────────────────────────────┘
-
-DEPOIS (desacoplado)
-┌────────────────────────────────────────────────────────────────┐
-│ [FASE 1: UPLOAD]                                               │
-│ admin_get_upload_url → Storage PUT                             │
-│   ↓                                                            │
-│ documents POST (mode=upload-only)                              │
-│   → Cria registro com status="UPLOADED"                        │
-│   → NÃO processa texto/chunks/embeddings                       │
-│   → Retorna document_id                                        │
-│                                                                │
-│ [FASE 2: INGESTÃO - separada]                                  │
-│ documents POST (mode=process, document_id=xxx)                 │
-│   → Download do Storage                                        │
-│   → Extração + Chunking + Embeddings                           │
-│   → Atualiza status="READY" ou status="FAILED"                 │
-│                                                                │
-│ [BENEFÍCIO]                                                    │
-│ Se ingestão falhar: arquivo continua no Storage                │
-│ Admin pode clicar "Reprocessar" sem re-upload                  │
-└────────────────────────────────────────────────────────────────┘
-```
-
-### 2.2 Alterações no Schema
-
-Adicionar coluna `status` na tabela `documents`:
-
-```sql
-ALTER TABLE public.documents 
-ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'uploaded';
-
--- Valores: 'uploaded', 'processing', 'ready', 'failed'
--- Adicionar índice para queries de status
-CREATE INDEX IF NOT EXISTS idx_documents_status ON public.documents(status);
-```
-
-### 2.3 Alterações em `documents/index.ts`
-
-**Nova rota: `POST /documents` com `mode=upload-only`**
+### 2.1 Payload esperado
 
 ```typescript
-if (req.method === "POST" && body.mode === "upload-only") {
-  // Apenas cria registro, não processa
-  const { data: document, error } = await supabase
+interface IngestTextPayload {
+  title: string;
+  category: string;
+  fullText: string;            // Texto extraído no cliente
+  metadata: {
+    originalFilename: string;
+    totalPages: number;
+    extractedAt: string;       // ISO timestamp
+    extractionMethod: 'pdfjs-client' | 'manual';
+  };
+  filePath?: string;           // Opcional: se quiser manter PDF no Storage
+}
+```
+
+### 2.2 Implementação em `documents/index.ts`
+
+```typescript
+// POST /documents/ingest-text - Recebe texto pronto do cliente
+if (req.method === "POST" && lastPart === "ingest-text") {
+  const adminKey = (req.headers.get("x-admin-key") || "").trim();
+  if (!adminKey || !ADMIN_KEY || adminKey !== ADMIN_KEY) {
+    return createDebugResponse(false, 401, { error: "Não autorizado" }, debug, startTime);
+  }
+
+  const body = await req.json();
+  const { title, category, fullText, metadata, filePath } = body;
+
+  if (!fullText || fullText.trim().length < 100) {
+    return createDebugResponse(false, 400, { 
+      error: "Texto muito curto. Mínimo 100 caracteres." 
+    }, debug, startTime);
+  }
+
+  console.log(`[${requestId}] Ingesting pre-extracted text: ${fullText.length} chars`);
+
+  // Criar documento
+  const { data: document, error: docError } = await supabase
     .from("documents")
     .insert({
-      title: body.title,
-      category: body.category || "manual",
-      file_path: body.filePath,
-      status: "uploaded",
-      content_text: null,  // Vazio até processar
+      title: title || metadata?.originalFilename || "Documento sem título",
+      category: category || "manual",
+      file_path: filePath || null,
+      content_text: fullText,
+      status: "processing"
     })
     .select()
     .single();
 
-  return new Response(
-    JSON.stringify({
-      success: true,
-      document_id: document.id,
-      status: "uploaded",
-      message: "Arquivo salvo. Clique em 'Processar' para extrair conteúdo.",
-    }),
-    { headers: corsHeaders }
+  if (docError) throw docError;
+
+  debug.steps_completed.push("db_insert");
+  console.log(`[${requestId}] ✓ db_insert: Document ${document.id}`);
+
+  // Processar chunks e embeddings
+  const { chunksCount, warning } = await processChunksAndEmbeddings(
+    supabase, document.id, fullText, GEMINI_API_KEY, requestId, debug
   );
-}
-```
 
-**Nova rota: `POST /documents/process`**
-
-```typescript
-if (req.method === "POST" && lastPart === "process") {
-  const { document_id } = body;
-  
-  // Atualiza status para processing
+  // Atualizar status
   await supabase
     .from("documents")
-    .update({ status: "processing" })
-    .eq("id", document_id);
+    .update({ status: "ready" })
+    .eq("id", document.id);
 
-  try {
-    // Download, extração, chunking, embeddings...
-    // (código existente movido para cá)
-    
-    await supabase
-      .from("documents")
-      .update({ status: "ready", content_text: extractedText })
-      .eq("id", document_id);
-      
-    return { success: true, status: "ready" };
-  } catch (error) {
-    await supabase
-      .from("documents")
-      .update({ status: "failed", error_reason: error.message })
-      .eq("id", document_id);
-      
-    return { success: false, debug: {...} };
-  }
+  return createDebugResponse(true, 200, {
+    status: "ready",
+    warning,
+    document: { id: document.id, title: document.title, chunk_count: chunksCount }
+  }, debug, startTime);
 }
 ```
 
-### 2.4 Alterações no Admin.tsx
+---
 
-Adicionar botão "Processar" para documentos com `status="uploaded"` ou `status="failed"`:
+## 3. Fallback OCR para PDFs Escaneados
+
+Quando `needsOcr === true`, o sistema oferece duas opções:
+
+### 3.1 Modo A: Usuário fornece PDF com OCR
+
+Muitos scanners modernos geram PDFs com camada de texto OCR. Orientar o usuário:
 
 ```tsx
-{/* Botão Processar/Reprocessar */}
-{(doc.status === 'uploaded' || doc.status === 'failed') && (
+{needsOcr && (
+  <AlertDialog open={showOcrDialog}>
+    <AlertDialogContent>
+      <AlertDialogHeader>
+        <AlertDialogTitle>PDF Escaneado Detectado</AlertDialogTitle>
+        <AlertDialogDescription>
+          Este PDF parece ser uma imagem escaneada com pouco texto selecionável.
+          
+          <strong>Recomendação:</strong> Use seu scanner ou software de PDF para 
+          gerar uma versão com OCR (camada de texto). Isso é mais rápido e preciso.
+        </AlertDialogDescription>
+      </AlertDialogHeader>
+      <AlertDialogFooter>
+        <AlertDialogCancel onClick={() => setShowOcrDialog(false)}>
+          Cancelar Upload
+        </AlertDialogCancel>
+        <AlertDialogAction onClick={() => handleOcrUpload(file)}>
+          Processar via IA (lento)
+        </AlertDialogAction>
+      </AlertDialogFooter>
+    </AlertDialogContent>
+  </AlertDialog>
+)}
+```
+
+### 3.2 Modo B: OCR Incremental via IA
+
+Para PDFs escaneados que o usuário quer processar automaticamente:
+
+1. **Renderizar páginas como imagens** no browser (canvas)
+2. **Enviar em batches** de 3-5 páginas para a Edge Function
+3. **Checkpoint por página** (salvar progresso parcial)
+
+**Novo arquivo: `src/utils/renderPdfPages.ts`**
+
+```typescript
+import * as pdfjsLib from 'pdfjs-dist';
+
+export async function renderPageAsImage(
+  pdf: pdfjsLib.PDFDocumentProxy,
+  pageNum: number,
+  scale: number = 2.0
+): Promise<string> {
+  const page = await pdf.getPage(pageNum);
+  const viewport = page.getViewport({ scale });
+  
+  const canvas = document.createElement('canvas');
+  const context = canvas.getContext('2d')!;
+  canvas.width = viewport.width;
+  canvas.height = viewport.height;
+  
+  await page.render({ canvasContext: context, viewport }).promise;
+  
+  // Converter para base64 JPEG (menor que PNG)
+  return canvas.toDataURL('image/jpeg', 0.85);
+}
+```
+
+**Nova rota: POST /documents/ocr-batch**
+
+```typescript
+// POST /documents/ocr-batch - OCR de batch de imagens
+if (req.method === "POST" && lastPart === "ocr-batch") {
+  const body = await req.json();
+  const { documentId, pageImages, startPage } = body;
+  
+  // pageImages: Array<{ pageNum: number, dataUrl: string }>
+  
+  const extractedTexts: string[] = [];
+  
+  for (const { pageNum, dataUrl } of pageImages) {
+    const response = await fetch(LOVABLE_AI_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+      },
+      body: JSON.stringify({
+        model: "google/gemini-3-flash-preview",
+        messages: [{
+          role: "user",
+          content: [
+            { type: "image_url", image_url: { url: dataUrl } },
+            { type: "text", text: "Extraia TODO o texto desta página. Responda apenas com o texto." }
+          ]
+        }]
+      }),
+    });
+    
+    const data = await response.json();
+    extractedTexts.push(data.choices?.[0]?.message?.content || "");
+  }
+  
+  // Append ao documento existente
+  // ... salvar progresso
+}
+```
+
+---
+
+## 4. Embeddings Assíncronos com Fallback
+
+### 4.1 Novo status: `chunks_ok_embed_pending`
+
+Quando embeddings falham por quota (429), salvar chunks sem embedding:
+
+```typescript
+// Em processChunksAndEmbeddings
+if (isRateLimitError(e)) {
+  // Salvar chunks com embedding=null
+  embeddingsDisabled = true;
+  embeddingsWarning = "Embeddings pendentes (limite de API atingido). Use busca por palavras-chave temporariamente.";
+  
+  // Marcar documento para reprocessamento posterior
+  await supabase
+    .from("documents")
+    .update({ status: "chunks_ok_embed_pending" })
+    .eq("id", documentId);
+}
+```
+
+### 4.2 Botão "Gerar Embeddings" no Admin
+
+```tsx
+{doc.status === 'chunks_ok_embed_pending' && (
   <Button
     variant="outline"
     size="sm"
-    onClick={() => handleProcessDocument(doc.id)}
-    disabled={isProcessing}
+    onClick={() => handleRegenerateEmbeddings(doc.id)}
   >
-    <RefreshCw className="w-4 h-4 mr-1" />
-    {doc.status === 'failed' ? 'Reprocessar' : 'Processar'}
+    <Sparkles className="w-4 h-4 mr-1" />
+    Gerar Embeddings
   </Button>
 )}
+```
 
-{/* Badge de status */}
-<Badge variant={getStatusVariant(doc.status)}>
-  {doc.status === 'uploaded' && 'Aguardando'}
-  {doc.status === 'processing' && 'Processando...'}
-  {doc.status === 'ready' && 'Pronto'}
-  {doc.status === 'failed' && 'Falhou'}
-</Badge>
+### 4.3 Fallback de Keyword na Busca
+
+Atualizar `search/index.ts` para lidar com chunks sem embedding:
+
+```typescript
+// Na busca semântica, filtrar chunks com embedding
+const { data: semanticChunks } = await supabase.rpc(
+  "search_document_chunks",
+  {
+    query_embedding: JSON.stringify(queryEmbedding),
+    match_threshold: 0.3,
+    match_count: 15
+  }
+);
+
+// Busca por keywords em TODOS os chunks (incluindo sem embedding)
+const { data: allChunks } = await supabase
+  .from("document_chunks")
+  .select("id, content, document_id, metadata, chunk_index");
+
+// RRF combina ambos, então chunks sem embedding ainda aparecem via keyword
 ```
 
 ---
 
-## 3. Limites de Base64 para IA
+## 5. Alterações no Admin.tsx
 
-### 3.1 Regras de Tamanho
-
-```text
-MATRIZ DE DECISÃO
-┌────────────────────┬─────────────────────┬────────────────────────┐
-│ Tamanho PDF        │ Método Extração     │ Fallback OCR           │
-├────────────────────┼─────────────────────┼────────────────────────┤
-│ < 4 MB             │ pdfjs-serverless    │ Lovable AI (base64)    │
-│ 4-20 MB            │ pdfjs-serverless    │ Gemini (base64 chunked)│
-│ > 20 MB            │ pdfjs-serverless    │ NÃO usar base64        │
-└────────────────────┴─────────────────────┴────────────────────────┘
-```
-
-### 3.2 Constantes de Limite
+### 5.1 Novo fluxo de upload
 
 ```typescript
-// Limites claros no topo do arquivo
-const LIMITS = {
-  // Base64 cresce ~33%, então 4MB PDF → ~5.3MB base64
-  MAX_BASE64_OCR_MB: 4,
-  
-  // Limite absoluto para qualquer operação com LLM
-  MAX_LLM_PAYLOAD_MB: 15,
-  
-  // Alerta para PDFs que vão demorar
-  LARGE_PDF_THRESHOLD_MB: 20,
+const handleFileUpload = async (files: FileList | null) => {
+  // ... validação existente ...
+
+  for (const file of validFiles) {
+    const isPDF = file.type === 'application/pdf' || file.name.endsWith('.pdf');
+    
+    if (isPDF) {
+      setExtractionPhase('extracting');
+      
+      // STEP 1: Extrair texto no cliente
+      const result = await extractPdfTextClient(file, setExtractionProgress);
+      
+      if (result.needsOcr) {
+        // Mostrar diálogo de OCR
+        setOcrFile(file);
+        setShowOcrDialog(true);
+        continue;
+      }
+      
+      // STEP 2: Upload do PDF para Storage (opcional, para backup)
+      setExtractionPhase('uploading');
+      const signedUrlData = await getSignedUploadUrl(file.name, file.type);
+      await uploadFile(file, signedUrlData.signedUrl);
+      
+      // STEP 3: Enviar texto extraído para backend
+      setExtractionPhase('processing');
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/documents/ingest-text`,
+        {
+          method: 'POST',
+          headers: {
+            'x-admin-key': key,
+            'Content-Type': 'application/json',
+            apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          },
+          body: JSON.stringify({
+            title: file.name.replace(/\.[^/.]+$/, ''),
+            category: 'manual',
+            fullText: result.fullText,
+            filePath: signedUrlData.path,
+            metadata: {
+              originalFilename: file.name,
+              totalPages: result.totalPages,
+              extractedAt: new Date().toISOString(),
+              extractionMethod: 'pdfjs-client'
+            }
+          }),
+        }
+      );
+      
+      // ... tratamento de resposta ...
+    } else {
+      // TXT/DOCX: ler texto no cliente e enviar
+      // ...
+    }
+  }
 };
 ```
 
-### 3.3 Guard no Fallback OCR
+### 5.2 UI de Progresso Melhorada
 
-```typescript
-async function extractPdfViaOcrFallback(fileBlob: Blob, apiKey: string): Promise<string> {
-  const sizeMB = fileBlob.size / (1024 * 1024);
-  
-  // Hard block para PDFs grandes demais
-  if (sizeMB > LIMITS.MAX_LLM_PAYLOAD_MB) {
-    throw new Error(
-      `PDF muito grande para OCR (${sizeMB.toFixed(1)}MB). ` +
-      `Limite: ${LIMITS.MAX_LLM_PAYLOAD_MB}MB. ` +
-      `Use um PDF com texto selecionável ou divida em partes menores.`
-    );
-  }
-  
-  // Warning para PDFs no limite
-  if (sizeMB > LIMITS.MAX_BASE64_OCR_MB) {
-    console.warn(
-      `[documents] ⚠️ PDF grande para OCR: ${sizeMB.toFixed(1)}MB. ` +
-      `Pode causar timeout ou erro de memória.`
-    );
-  }
-  
-  // Continua com OCR...
-}
+```tsx
+{isUploading && (
+  <Card className="border-primary/50">
+    <CardContent className="pt-6">
+      <div className="space-y-2">
+        <div className="flex justify-between text-sm">
+          <span>
+            {extractionPhase === 'extracting' && 'Extraindo texto do PDF...'}
+            {extractionPhase === 'uploading' && 'Enviando arquivo...'}
+            {extractionPhase === 'processing' && 'Processando chunks e embeddings...'}
+          </span>
+          <span>{extractionProgress}%</span>
+        </div>
+        <Progress value={extractionProgress} />
+      </div>
+    </CardContent>
+  </Card>
+)}
 ```
 
 ---
 
-## Resumo de Arquivos a Modificar
+## 6. Resumo de Arquivos a Criar/Modificar
 
-| Arquivo | Alteração |
-|---------|-----------|
-| **Migração SQL** | Adicionar coluna `status` e `error_reason` em `documents` |
-| **`documents/index.ts`** | Correlation ID, timings, debug info, separação upload/process, limites base64 |
-| **`Admin.tsx`** | Botão "Processar/Reprocessar", badge de status, exibição de debug em erros |
-| **`types.ts`** | Será atualizado automaticamente após migração |
+| Arquivo | Ação | Descrição |
+|---------|------|-----------|
+| `package.json` | Modificar | Adicionar `pdfjs-dist` |
+| `src/utils/extractPdfText.ts` | Criar | Utilitário de extração no cliente |
+| `src/utils/renderPdfPages.ts` | Criar | Renderizar páginas como imagens para OCR |
+| `src/pages/Admin.tsx` | Modificar | Novo fluxo com extração cliente-side |
+| `supabase/functions/documents/index.ts` | Modificar | Adicionar rota `/ingest-text`, `/ocr-batch` |
+| `supabase/functions/search/index.ts` | Modificar | Garantir fallback keyword para chunks sem embedding |
 
 ---
 
-## Benefícios Esperados
+## 7. Migração de Dados
+
+Para documentos existentes sem embeddings:
+
+```sql
+-- Identificar documentos com chunks sem embedding
+SELECT d.id, d.title, d.status,
+       COUNT(c.id) as total_chunks,
+       COUNT(c.embedding) as chunks_with_embedding
+FROM documents d
+LEFT JOIN document_chunks c ON c.document_id = d.id
+GROUP BY d.id
+HAVING COUNT(c.embedding) < COUNT(c.id);
+
+-- Atualizar status para reprocessamento
+UPDATE documents
+SET status = 'chunks_ok_embed_pending'
+WHERE id IN (
+  SELECT d.id
+  FROM documents d
+  LEFT JOIN document_chunks c ON c.document_id = d.id
+  GROUP BY d.id
+  HAVING COUNT(c.embedding) < COUNT(c.id)
+);
+```
+
+---
+
+## 8. Benefícios Esperados
 
 | Problema Atual | Solução | Resultado |
 |----------------|---------|-----------|
-| "Erro 500" sem contexto | Correlation ID + timings | Sabe exatamente onde falhou e quanto tempo levou |
-| Upload perdido se ingestão falha | Separação em 2 fases | Arquivo sempre preservado, pode reprocessar |
-| Base64 gigante explode | Limite de 4-15MB | Erro claro antes de tentar, não timeout misterioso |
-| Logs genéricos | `debug.provider` com HTTP status | Sabe se foi Gemini 429 ou Lovable 500 |
+| Edge Function processa PDF inteiro | Extração no browser | Backend leve, só recebe texto |
+| Timeouts em PDFs grandes | Processamento local sem limite | Sem timeouts de rede |
+| OCR para todos os PDFs | Detecção automática de `needsOcr` | OCR só quando necessário |
+| Embeddings falham = tudo falha | Status `chunks_ok_embed_pending` | Chunks salvos, busca por keyword funciona |
+| Sem feedback de progresso | Progress bar por etapa | UX clara do que está acontecendo |
 
 ---
 
-## Ordem de Implementação
+## 9. Ordem de Implementação
 
-1. **Migração SQL**: Adicionar `status` e `error_reason` em `documents`
-2. **Observabilidade**: Implementar `requestId`, `measureStep`, `debug` em `documents/index.ts`
-3. **Separação Upload/Ingestão**: Novas rotas `upload-only` e `process`
-4. **Limites Base64**: Guards com constantes claras
-5. **Admin.tsx**: UI para status e botão reprocessar
-6. **Testes**: Upload de PDF grande, simulação de falha, reprocessamento
+1. **Adicionar pdfjs-dist** e criar `extractPdfText.ts`
+2. **Criar rota /ingest-text** no backend (aceita texto pronto)
+3. **Modificar Admin.tsx** para usar extração cliente-side
+4. **Adicionar status `chunks_ok_embed_pending`** e botão de regenerar
+5. **Implementar OCR incremental** para PDFs escaneados
+6. **Testar** com PDFs de diferentes tamanhos e tipos
 
 ---
 
-## Seção Técnica: Estrutura de Resposta
+## Seção Tecnica: Configuracao PDF.js
+
+O worker do PDF.js precisa ser carregado corretamente:
 
 ```typescript
-// Resposta de sucesso com debug
-{
-  "success": true,
-  "status": "ready",
-  "document": { "id": "...", "title": "..." },
-  "debug": {
-    "request_id": "8f42b1c3-...",
-    "timings": {
-      "total_ms": 4500,
-      "download_storage_ms": 456,
-      "extract_ms": 2100,
-      "chunk_ms": 89,
-      "embed_ms": 1800,
-      "db_insert_ms": 55
-    },
-    "steps_completed": ["download_storage", "extract", "chunk", "embed", "db_insert"],
-    "steps_failed": []
-  }
-}
+// Opção 1: CDN (mais simples, recomendado)
+pdfjsLib.GlobalWorkerOptions.workerSrc = 
+  `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.0.379/pdf.worker.min.mjs`;
 
-// Resposta de erro com debug
-{
-  "success": false,
-  "error": "Falha na geração de embeddings",
-  "debug": {
-    "request_id": "8f42b1c3-...",
-    "timings": {
-      "total_ms": 3600,
-      "download_storage_ms": 456,
-      "extract_ms": 2100,
-      "chunk_ms": 89,
-      "embed_ms": 900
-    },
-    "provider": {
-      "name": "gemini-embedding",
-      "http_status": 429,
-      "error_body_trunc": "RESOURCE_EXHAUSTED: Quota exceeded...",
-      "elapsed_ms": 900
-    },
-    "steps_completed": ["download_storage", "extract", "chunk"],
-    "steps_failed": ["embed"]
-  }
-}
+// Opção 2: Local (requer config do Vite)
+// vite.config.ts:
+// optimizeDeps: {
+//   include: ['pdfjs-dist/build/pdf.worker.mjs'],
+// }
 ```
+
+Para evitar problemas de CORS e bundling, a opção CDN é mais confiável.
