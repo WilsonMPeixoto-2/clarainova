@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Upload, FileText, Trash2, RefreshCw, Lock, Check, X, AlertCircle, BarChart3, ClipboardList, Eye, EyeOff, Loader2 } from 'lucide-react';
+import { ArrowLeft, Upload, FileText, Trash2, RefreshCw, Lock, Check, X, AlertCircle, BarChart3, ClipboardList, Eye, EyeOff, Loader2, Play, RotateCcw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -21,6 +21,12 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 
 interface Document {
   id: string;
@@ -29,6 +35,8 @@ interface Document {
   file_path: string;
   created_at: string;
   chunk_count?: number;
+  status?: string;
+  error_reason?: string | null;
   processing_status?: string | null;
   processing_progress?: number | null;
 }
@@ -66,6 +74,22 @@ function getUploadErrorMessage(status: number, body: string): string {
   return errorMap[status] || `Erro ${status}: ${body || 'Erro desconhecido'}`;
 }
 
+// Get status badge variant and label
+function getStatusBadge(status?: string, errorReason?: string | null) {
+  switch (status) {
+    case 'uploaded':
+      return { variant: 'secondary' as const, label: 'Aguardando', className: 'bg-yellow-500/20 text-yellow-400' };
+    case 'processing':
+      return { variant: 'secondary' as const, label: 'Processando...', className: 'bg-blue-500/20 text-blue-400' };
+    case 'ready':
+      return { variant: 'secondary' as const, label: 'Pronto', className: 'bg-green-500/20 text-green-400' };
+    case 'failed':
+      return { variant: 'destructive' as const, label: 'Falhou', className: 'bg-destructive/20 text-destructive', tooltip: errorReason };
+    default:
+      return { variant: 'secondary' as const, label: 'Desconhecido', className: 'bg-muted text-muted-foreground' };
+  }
+}
+
 const Admin = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -84,7 +108,7 @@ const Admin = () => {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [documentToDelete, setDocumentToDelete] = useState<Document | null>(null);
   
-  // Track documents being processed in background
+  // Track documents being processed
   const [processingDocs, setProcessingDocs] = useState<Set<string>>(new Set());
   const pollingIntervalRef = useRef<number | null>(null);
 
@@ -139,7 +163,6 @@ const Admin = () => {
     const pollAndProcess = async () => {
       const key = getAdminKey();
       
-      // Trigger the worker to process next batch
       try {
         const response = await fetch(
           `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/documents/process-job`,
@@ -160,7 +183,6 @@ const Admin = () => {
           debugLog('[Admin] Worker result:', result);
 
           if (result.status === 'completed') {
-            // Job completed - remove from tracking and refresh
             setProcessingDocs(prev => {
               const next = new Set(prev);
               next.delete(result.documentId);
@@ -174,7 +196,6 @@ const Admin = () => {
             
             await fetchDocuments();
           } else if (result.status === 'processing') {
-            // Still processing - refresh to show progress
             await fetchDocuments();
           }
         }
@@ -183,10 +204,7 @@ const Admin = () => {
       }
     };
 
-    // Poll every 3 seconds while there are processing documents
     pollingIntervalRef.current = window.setInterval(pollAndProcess, 3000);
-    
-    // Initial poll
     pollAndProcess();
 
     return () => {
@@ -278,7 +296,7 @@ const Admin = () => {
       // Track documents that are still processing
       const stillProcessing = new Set<string>();
       docs.forEach((doc: Document) => {
-        if (doc.processing_status === 'pending' || doc.processing_status === 'processing') {
+        if (doc.status === 'processing' || doc.processing_status === 'pending' || doc.processing_status === 'processing') {
           stillProcessing.add(doc.id);
         }
       });
@@ -292,6 +310,78 @@ const Admin = () => {
       });
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  // Process or reprocess a document
+  const handleProcessDocument = async (documentId: string) => {
+    const key = getAdminKey();
+    
+    setProcessingDocs(prev => new Set(prev).add(documentId));
+    
+    toast({
+      title: 'Iniciando processamento...',
+      description: 'O documento será processado em background.',
+    });
+
+    try {
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/documents/process`,
+        {
+          method: 'POST',
+          headers: {
+            'x-admin-key': key,
+            apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ document_id: documentId }),
+        }
+      );
+
+      const result = await response.json();
+      debugLog('[Admin] Process result:', result);
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Erro ao processar documento');
+      }
+
+      if (result.status === 'ready') {
+        setProcessingDocs(prev => {
+          const next = new Set(prev);
+          next.delete(documentId);
+          return next;
+        });
+        
+        toast({
+          title: 'Processamento concluído',
+          description: result.warning || 'Documento processado com sucesso!',
+        });
+      } else if (result.status === 'processing') {
+        toast({
+          title: 'Processando em background',
+          description: result.message || 'O documento está sendo processado...',
+        });
+      }
+
+      await fetchDocuments();
+
+    } catch (error: any) {
+      console.error('[Admin] Process error:', error);
+      
+      setProcessingDocs(prev => {
+        const next = new Set(prev);
+        next.delete(documentId);
+        return next;
+      });
+      
+      toast({
+        title: 'Erro ao processar',
+        description: error.message,
+        variant: 'destructive',
+      });
+      
+      await fetchDocuments();
     }
   };
 
@@ -509,6 +599,11 @@ const Admin = () => {
 
           const errorData = await processResponse.json().catch(() => ({ error: 'Falha ao processar documento.' }));
           
+          // Show debug info if available
+          if (errorData.debug) {
+            console.error('[Admin] Processing failed with debug:', errorData.debug);
+          }
+          
           // Cleanup uploaded file
           try {
             await supabase.storage.from('knowledge-base').remove([signedUrlData.path]);
@@ -705,240 +800,295 @@ const Admin = () => {
 
   // Main admin screen
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="sticky top-0 z-50 glass-card border-b border-border/50">
-        <div className="container mx-auto px-4 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => navigate('/')}
-              className="text-muted-foreground hover:text-foreground"
-            >
-              <ArrowLeft className="w-5 h-5" />
-            </Button>
-            <div>
-              <h1 className="text-lg font-semibold text-primary">Administração</h1>
-              <p className="text-xs text-muted-foreground">Gerenciamento de documentos</p>
+    <TooltipProvider>
+      <div className="min-h-screen bg-background">
+        {/* Header */}
+        <header className="sticky top-0 z-50 glass-card border-b border-border/50">
+          <div className="container mx-auto px-4 h-16 flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => navigate('/')}
+                className="text-muted-foreground hover:text-foreground"
+              >
+                <ArrowLeft className="w-5 h-5" />
+              </Button>
+              <div>
+                <h1 className="text-lg font-semibold text-primary">Administração</h1>
+                <p className="text-xs text-muted-foreground">Gerenciamento de documentos</p>
+              </div>
             </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={fetchDocuments}
+              disabled={isLoading}
+            >
+              <RefreshCw className={`w-4 h-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+              Atualizar
+            </Button>
           </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={fetchDocuments}
-            disabled={isLoading}
-          >
-            <RefreshCw className={`w-4 h-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
-            Atualizar
-          </Button>
-        </div>
-      </header>
+        </header>
 
-      <main className="container mx-auto px-4 py-8">
-        <Tabs defaultValue="documents" className="space-y-6">
-          <TabsList className="grid w-full max-w-lg grid-cols-3">
-            <TabsTrigger value="documents" className="flex items-center gap-2">
-              <FileText className="w-4 h-4" />
-              Documentos
-            </TabsTrigger>
-            <TabsTrigger value="analytics" className="flex items-center gap-2">
-              <BarChart3 className="w-4 h-4" />
-              Analytics
-            </TabsTrigger>
-            <TabsTrigger value="reports" className="flex items-center gap-2">
-              <ClipboardList className="w-4 h-4" />
-              Relatórios
-            </TabsTrigger>
-          </TabsList>
+        <main className="container mx-auto px-4 py-8">
+          <Tabs defaultValue="documents" className="space-y-6">
+            <TabsList className="grid w-full max-w-lg grid-cols-3">
+              <TabsTrigger value="documents" className="flex items-center gap-2">
+                <FileText className="w-4 h-4" />
+                Documentos
+              </TabsTrigger>
+              <TabsTrigger value="analytics" className="flex items-center gap-2">
+                <BarChart3 className="w-4 h-4" />
+                Analytics
+              </TabsTrigger>
+              <TabsTrigger value="reports" className="flex items-center gap-2">
+                <ClipboardList className="w-4 h-4" />
+                Relatórios
+              </TabsTrigger>
+            </TabsList>
 
-          <TabsContent value="documents" className="space-y-8">
-            {/* Upload Area */}
-            <Card className="glass-card">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Upload className="w-5 h-5 text-primary" />
-                  Upload de Documento
-                </CardTitle>
-                <CardDescription>
-                  Arraste e solte arquivos ou clique para selecionar. Formatos aceitos: PDF, DOCX, TXT. <strong>Múltiplos arquivos permitidos.</strong>
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div
-                  onDragOver={handleDragOver}
-                  onDragLeave={handleDragLeave}
-                  onDrop={handleDrop}
-                  className={`
-                    relative border-2 border-dashed rounded-lg p-12 text-center transition-all duration-200
-                    ${isDragOver 
-                      ? 'border-primary bg-primary/10' 
-                      : 'border-border hover:border-primary/50 hover:bg-muted/30'
-                    }
-                    ${isUploading ? 'pointer-events-none opacity-60' : 'cursor-pointer'}
-                  `}
-                  onClick={() => !isUploading && document.getElementById('file-input')?.click()}
-                >
-                  <input
-                    id="file-input"
-                    type="file"
-                    accept=".pdf,.docx,.txt"
-                    multiple
-                    onChange={(e) => handleFileUpload(e.target.files)}
-                    className="hidden"
-                  />
-                  
-                  {isUploading ? (
-                    <div className="space-y-4">
-                      <RefreshCw className="w-12 h-12 text-primary mx-auto animate-spin" />
-                      <p className="text-muted-foreground">Processando documento...</p>
-                      <div className="w-full max-w-xs mx-auto bg-muted rounded-full h-2 overflow-hidden">
-                        <div 
-                          className="h-full bg-primary transition-all duration-300"
-                          style={{ width: `${uploadProgress}%` }}
-                        />
+            <TabsContent value="documents" className="space-y-8">
+              {/* Upload Area */}
+              <Card className="glass-card">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Upload className="w-5 h-5 text-primary" />
+                    Upload de Documento
+                  </CardTitle>
+                  <CardDescription>
+                    Arraste e solte arquivos ou clique para selecionar. Formatos aceitos: PDF, DOCX, TXT. <strong>Múltiplos arquivos permitidos.</strong>
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div
+                    onDragOver={handleDragOver}
+                    onDragLeave={handleDragLeave}
+                    onDrop={handleDrop}
+                    className={`
+                      relative border-2 border-dashed rounded-lg p-12 text-center transition-all duration-200
+                      ${isDragOver 
+                        ? 'border-primary bg-primary/10' 
+                        : 'border-border hover:border-primary/50 hover:bg-muted/30'
+                      }
+                      ${isUploading ? 'pointer-events-none opacity-60' : 'cursor-pointer'}
+                    `}
+                    onClick={() => !isUploading && document.getElementById('file-input')?.click()}
+                  >
+                    <input
+                      id="file-input"
+                      type="file"
+                      accept=".pdf,.docx,.txt"
+                      multiple
+                      onChange={(e) => handleFileUpload(e.target.files)}
+                      className="hidden"
+                    />
+                    
+                    {isUploading ? (
+                      <div className="space-y-4">
+                        <RefreshCw className="w-12 h-12 text-primary mx-auto animate-spin" />
+                        <p className="text-muted-foreground">Processando documento...</p>
+                        <div className="w-full max-w-xs mx-auto bg-muted rounded-full h-2 overflow-hidden">
+                          <div 
+                            className="h-full bg-primary transition-all duration-300"
+                            style={{ width: `${uploadProgress}%` }}
+                          />
+                        </div>
                       </div>
+                    ) : (
+                      <div className="space-y-4">
+                        <Upload className={`w-12 h-12 mx-auto ${isDragOver ? 'text-primary' : 'text-muted-foreground'}`} />
+                        <div>
+                          <p className="text-lg font-medium">
+                            {isDragOver ? 'Solte os arquivos aqui' : 'Arraste arquivos ou clique para selecionar'}
+                          </p>
+                          <p className="text-sm text-muted-foreground mt-1">
+                            PDF, DOCX ou TXT até 50MB cada • Múltiplos arquivos permitidos
+                          </p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Documents List */}
+              <Card className="glass-card">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <FileText className="w-5 h-5 text-primary" />
+                    Base de Conhecimento
+                  </CardTitle>
+                  <CardDescription>
+                    {documents.length} documento{documents.length !== 1 ? 's' : ''} na base
+                    {processingDocs.size > 0 && (
+                      <span className="ml-2 text-yellow-500">
+                        • {processingDocs.size} em processamento
+                      </span>
+                    )}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {isLoading ? (
+                    <div className="flex items-center justify-center py-12">
+                      <RefreshCw className="w-8 h-8 text-primary animate-spin" />
+                    </div>
+                  ) : documents.length === 0 ? (
+                    <div className="text-center py-12">
+                      <AlertCircle className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                      <p className="text-muted-foreground">Nenhum documento na base de conhecimento.</p>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        Faça upload de documentos para começar.
+                      </p>
                     </div>
                   ) : (
-                    <div className="space-y-4">
-                      <Upload className={`w-12 h-12 mx-auto ${isDragOver ? 'text-primary' : 'text-muted-foreground'}`} />
-                      <div>
-                        <p className="text-lg font-medium">
-                          {isDragOver ? 'Solte os arquivos aqui' : 'Arraste arquivos ou clique para selecionar'}
-                        </p>
-                        <p className="text-sm text-muted-foreground mt-1">
-                          PDF, DOCX ou TXT até 50MB cada • Múltiplos arquivos permitidos
-                        </p>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Documents List */}
-            <Card className="glass-card">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <FileText className="w-5 h-5 text-primary" />
-                  Base de Conhecimento
-                </CardTitle>
-                <CardDescription>
-                  {documents.length} documento{documents.length !== 1 ? 's' : ''} na base
-                  {processingDocs.size > 0 && (
-                    <span className="ml-2 text-yellow-500">
-                      • {processingDocs.size} em processamento
-                    </span>
-                  )}
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                {isLoading ? (
-                  <div className="flex items-center justify-center py-12">
-                    <RefreshCw className="w-8 h-8 text-primary animate-spin" />
-                  </div>
-                ) : documents.length === 0 ? (
-                  <div className="text-center py-12">
-                    <AlertCircle className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-                    <p className="text-muted-foreground">Nenhum documento na base de conhecimento.</p>
-                    <p className="text-sm text-muted-foreground mt-1">
-                      Faça upload de documentos para começar.
-                    </p>
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    {documents.map((doc) => (
-                      <div
-                        key={doc.id}
-                        className="flex items-center justify-between p-4 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors"
-                      >
-                        <div className="flex items-center gap-4 flex-1 min-w-0">
-                          <div className="w-10 h-10 rounded-lg bg-primary/20 flex items-center justify-center flex-shrink-0">
-                            {doc.processing_status === 'processing' || doc.processing_status === 'pending' ? (
-                              <Loader2 className="w-5 h-5 text-primary animate-spin" />
-                            ) : (
-                              <FileText className="w-5 h-5 text-primary" />
-                            )}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="font-medium truncate">{doc.title}</p>
-                            <div className="flex items-center gap-3 text-sm text-muted-foreground mt-1">
-                              <Badge variant="secondary" className={getCategoryColor(doc.category)}>
-                                {doc.category}
-                              </Badge>
-                              <span>{formatDate(doc.created_at)}</span>
-                              {doc.chunk_count !== undefined && doc.chunk_count > 0 && (
-                                <span>{doc.chunk_count} chunks</span>
-                              )}
-                            </div>
-                            {/* Processing progress bar */}
-                            {(doc.processing_status === 'processing' || doc.processing_status === 'pending') && (
-                              <div className="mt-2">
-                                <div className="flex items-center gap-2 text-xs text-yellow-500">
-                                  <Loader2 className="w-3 h-3 animate-spin" />
-                                  <span>Processando...</span>
-                                  {doc.processing_progress !== null && (
-                                    <span>{doc.processing_progress}%</span>
-                                  )}
-                                </div>
-                                {doc.processing_progress !== null && (
-                                  <Progress value={doc.processing_progress} className="h-1 mt-1" />
+                    <div className="space-y-3">
+                      {documents.map((doc) => {
+                        const statusBadge = getStatusBadge(doc.status, doc.error_reason);
+                        const isProcessing = processingDocs.has(doc.id) || doc.status === 'processing';
+                        const canProcess = doc.status === 'uploaded' || doc.status === 'failed';
+                        
+                        return (
+                          <div
+                            key={doc.id}
+                            className="flex items-center justify-between p-4 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors"
+                          >
+                            <div className="flex items-center gap-4 flex-1 min-w-0">
+                              <div className="w-10 h-10 rounded-lg bg-primary/20 flex items-center justify-center flex-shrink-0">
+                                {isProcessing ? (
+                                  <Loader2 className="w-5 h-5 text-primary animate-spin" />
+                                ) : (
+                                  <FileText className="w-5 h-5 text-primary" />
                                 )}
                               </div>
-                            )}
+                              <div className="flex-1 min-w-0">
+                                <p className="font-medium truncate">{doc.title}</p>
+                                <div className="flex items-center gap-3 text-sm text-muted-foreground mt-1 flex-wrap">
+                                  <Badge variant="secondary" className={getCategoryColor(doc.category)}>
+                                    {doc.category}
+                                  </Badge>
+                                  
+                                  {/* Status Badge */}
+                                  {statusBadge.tooltip ? (
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <Badge variant={statusBadge.variant} className={statusBadge.className}>
+                                          {statusBadge.label}
+                                        </Badge>
+                                      </TooltipTrigger>
+                                      <TooltipContent className="max-w-xs">
+                                        <p className="text-xs">{statusBadge.tooltip}</p>
+                                      </TooltipContent>
+                                    </Tooltip>
+                                  ) : (
+                                    <Badge variant={statusBadge.variant} className={statusBadge.className}>
+                                      {statusBadge.label}
+                                    </Badge>
+                                  )}
+                                  
+                                  <span>{formatDate(doc.created_at)}</span>
+                                  {doc.chunk_count !== undefined && doc.chunk_count > 0 && (
+                                    <span>{doc.chunk_count} chunks</span>
+                                  )}
+                                </div>
+                                
+                                {/* Processing progress bar */}
+                                {(doc.processing_status === 'processing' || doc.processing_status === 'pending') && (
+                                  <div className="mt-2">
+                                    <div className="flex items-center gap-2 text-xs text-yellow-500">
+                                      <Loader2 className="w-3 h-3 animate-spin" />
+                                      <span>Processando...</span>
+                                      {doc.processing_progress !== null && (
+                                        <span>{doc.processing_progress}%</span>
+                                      )}
+                                    </div>
+                                    {doc.processing_progress !== null && (
+                                      <Progress value={doc.processing_progress} className="h-1 mt-1" />
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                            
+                            <div className="flex items-center gap-2 flex-shrink-0">
+                              {/* Process/Reprocess Button */}
+                              {canProcess && (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => handleProcessDocument(doc.id)}
+                                  disabled={isProcessing}
+                                  className="gap-1"
+                                >
+                                  {doc.status === 'failed' ? (
+                                    <>
+                                      <RotateCcw className="w-4 h-4" />
+                                      Reprocessar
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Play className="w-4 h-4" />
+                                      Processar
+                                    </>
+                                  )}
+                                </Button>
+                              )}
+                              
+                              {/* Delete Button */}
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => {
+                                  setDocumentToDelete(doc);
+                                  setDeleteDialogOpen(true);
+                                }}
+                                className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                                disabled={isProcessing}
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                            </div>
                           </div>
-                        </div>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => {
-                            setDocumentToDelete(doc);
-                            setDeleteDialogOpen(true);
-                          }}
-                          className="text-destructive hover:text-destructive hover:bg-destructive/10 flex-shrink-0"
-                          disabled={doc.processing_status === 'processing'}
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
+                        );
+                      })}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
 
-          <TabsContent value="analytics">
-            <AnalyticsTab />
-          </TabsContent>
+            <TabsContent value="analytics">
+              <AnalyticsTab />
+            </TabsContent>
 
-          <TabsContent value="reports">
-            <ReportsTab />
-          </TabsContent>
-        </Tabs>
-      </main>
+            <TabsContent value="reports">
+              <ReportsTab />
+            </TabsContent>
+          </Tabs>
+        </main>
 
-      {/* Delete Confirmation Dialog */}
-      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-        <AlertDialogContent className="glass-card">
-          <AlertDialogHeader>
-            <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
-            <AlertDialogDescription>
-              Tem certeza que deseja remover "{documentToDelete?.title}"? Esta ação não pode ser desfeita.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleDelete}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
-              Remover
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-    </div>
+        {/* Delete Confirmation Dialog */}
+        <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+          <AlertDialogContent className="glass-card">
+            <AlertDialogHeader>
+              <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
+              <AlertDialogDescription>
+                Tem certeza que deseja remover "{documentToDelete?.title}"? Esta ação não pode ser desfeita.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={handleDelete}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              >
+                Remover
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      </div>
+    </TooltipProvider>
   );
 };
 
