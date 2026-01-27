@@ -11,7 +11,7 @@ import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { AnalyticsTab } from '@/components/admin/AnalyticsTab';
 import { ReportsTab } from '@/components/admin/ReportsTab';
-import { extractPdfTextClient, extractTxtContent, isPdfFile, isTxtFile, isDocxFile } from '@/utils/extractPdfText';
+import { extractPdfTextClient, extractTxtContent, isPdfFile, isTxtFile, isDocxFile, splitTextIntoBatches, calculatePayloadMetrics } from '@/utils/extractPdfText';
 import { loadPdfDocument, renderPagesAsImages, getPageBatches, type PageImage } from '@/utils/renderPdfPages';
 import {
   AlertDialog,
@@ -107,7 +107,8 @@ const Admin = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
-  const [extractionPhase, setExtractionPhase] = useState<'idle' | 'extracting' | 'uploading' | 'processing'>('idle');
+  const [extractionPhase, setExtractionPhase] = useState<'idle' | 'extracting' | 'uploading' | 'processing' | 'batching'>('idle');
+  const [payloadMetrics, setPayloadMetrics] = useState<{ charCount: number; estimatedMB: number; warning: string | null } | null>(null);
   
   const [isDragOver, setIsDragOver] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -452,6 +453,7 @@ const Admin = () => {
     setIsUploading(true);
     setUploadProgress(5);
     setExtractionPhase('idle');
+    setPayloadMetrics(null);
 
     const totalFiles = validFiles.length;
     let completedFiles = 0;
@@ -482,6 +484,19 @@ const Admin = () => {
             });
             
             debugLog(`[Admin] PDF extraction result: ${result.totalPages} pages, ${result.avgCharsPerPage.toFixed(0)} avg chars/page, needsOcr: ${result.needsOcr}`);
+            debugLog(`[Admin] Metrics: ${result.metrics.totalChars} chars, ${result.metrics.estimatedMB}MB, ${result.metrics.emptyPages} empty pages`);
+            
+            // Calculate and display payload metrics
+            const metrics = calculatePayloadMetrics(result.fullText);
+            setPayloadMetrics(metrics);
+            
+            if (metrics.warning) {
+              toast({
+                title: 'Aviso de tamanho',
+                description: metrics.warning,
+                variant: metrics.estimatedMB > 10 ? 'destructive' : 'default',
+              });
+            }
             
             if (result.needsOcr) {
               // PDF is scanned/image-based, show OCR dialog
@@ -490,6 +505,7 @@ const Admin = () => {
               setIsUploading(false);
               setUploadProgress(0);
               setExtractionPhase('idle');
+              setPayloadMetrics(null);
               return; // Stop here, wait for user decision
             }
             
@@ -629,61 +645,176 @@ const Admin = () => {
 
         // ============================================
         // STEP 3: SEND EXTRACTED TEXT TO BACKEND
+        // Use batch ingestion for large texts (> 1MB)
         // ============================================
         setExtractionPhase('processing');
-        debugLog(`[Admin] Sending pre-extracted text to backend: ${fullText.length} chars`);
+        const textBytes = new TextEncoder().encode(fullText).length;
+        const textMB = textBytes / (1024 * 1024);
+        debugLog(`[Admin] Text payload: ${fullText.length} chars, ${textMB.toFixed(2)}MB`);
         
-        const ingestResponse = await fetch(
-          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/documents/ingest-text`,
-          {
-            method: 'POST',
-            headers: {
-              'x-admin-key': key,
-              'Content-Type': 'application/json',
-              apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-              Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-            },
-            body: JSON.stringify({
-              title: file.name.replace(/\.[^/.]+$/, ''),
-              category: 'manual',
-              fullText,
-              filePath: signedUrlData.path,
-              metadata
-            }),
-          }
-        );
+        const BATCH_THRESHOLD_MB = 1; // Use batching above 1MB
         
-        setUploadProgress(Math.round(((completedFiles + 0.95) / totalFiles) * 100));
+        if (textMB > BATCH_THRESHOLD_MB) {
+          // Large text - use batch ingestion
+          setExtractionPhase('batching');
+          debugLog(`[Admin] Using batch ingestion for large text (${textMB.toFixed(2)}MB)`);
+          
+          const batches = splitTextIntoBatches(fullText, 400_000); // ~400KB per batch
+          debugLog(`[Admin] Split into ${batches.length} batches`);
+          
+          // Step 1: Start ingestion
+          const startResponse = await fetch(
+            `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/documents/ingest-start`,
+            {
+              method: 'POST',
+              headers: {
+                'x-admin-key': key,
+                'Content-Type': 'application/json',
+                apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+                Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+              },
+              body: JSON.stringify({
+                title: file.name.replace(/\.[^/.]+$/, ''),
+                category: 'manual',
+                filePath: signedUrlData.path,
+                metadata
+              }),
+            }
+          );
+          
+          if (!startResponse.ok) {
+            const errorData = await startResponse.json().catch(() => ({ error: 'Falha ao iniciar ingestão' }));
+            throw new Error(errorData.error);
+          }
+          
+          const startResult = await startResponse.json();
+          const documentId = startResult.documentId;
+          debugLog(`[Admin] Ingestion started, documentId: ${documentId}`);
+          
+          // Step 2: Send batches
+          for (let i = 0; i < batches.length; i++) {
+            const batchProgress = 0.7 + (i / batches.length) * 0.2; // 70% to 90%
+            setUploadProgress(Math.round(((completedFiles + batchProgress) / totalFiles) * 100));
+            
+            const batchResponse = await fetch(
+              `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/documents/ingest-batch`,
+              {
+                method: 'POST',
+                headers: {
+                  'x-admin-key': key,
+                  'Content-Type': 'application/json',
+                  apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+                  Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+                },
+                body: JSON.stringify({
+                  documentId,
+                  batchText: batches[i],
+                  batchIndex: i + 1,
+                  totalBatches: batches.length
+                }),
+              }
+            );
+            
+            if (!batchResponse.ok) {
+              const errorData = await batchResponse.json().catch(() => ({ error: 'Falha ao enviar batch' }));
+              throw new Error(`Batch ${i + 1}/${batches.length}: ${errorData.error}`);
+            }
+            
+            debugLog(`[Admin] Batch ${i + 1}/${batches.length} sent`);
+          }
+          
+          // Step 3: Finish ingestion
+          setUploadProgress(Math.round(((completedFiles + 0.95) / totalFiles) * 100));
+          
+          const finishResponse = await fetch(
+            `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/documents/ingest-finish`,
+            {
+              method: 'POST',
+              headers: {
+                'x-admin-key': key,
+                'Content-Type': 'application/json',
+                apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+                Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+              },
+              body: JSON.stringify({ documentId }),
+            }
+          );
+          
+          if (!finishResponse.ok) {
+            if (finishResponse.status === 401) {
+              handleAuthExpired();
+            }
+            const errorData = await finishResponse.json().catch(() => ({ error: 'Falha ao finalizar ingestão' }));
+            throw new Error(errorData.error);
+          }
+          
+          const ingestResult = await finishResponse.json();
+          debugLog(`[Admin] Batch ingestion completed:`, ingestResult);
+          
+          completedFiles++;
+          setUploadProgress(Math.round((completedFiles / totalFiles) * 100));
 
-        if (!ingestResponse.ok) {
-          if (ingestResponse.status === 401) {
-            handleAuthExpired();
+          toast({
+            title: 'Upload concluído',
+            description: `"${file.name}" processado em ${batches.length} partes.${ingestResult?.warning ? `\n\nAviso: ${ingestResult.warning}` : ''}`,
+          });
+          
+        } else {
+          // Small text - use single request (original flow)
+          debugLog(`[Admin] Sending pre-extracted text to backend: ${fullText.length} chars`);
+          
+          const ingestResponse = await fetch(
+            `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/documents/ingest-text`,
+            {
+              method: 'POST',
+              headers: {
+                'x-admin-key': key,
+                'Content-Type': 'application/json',
+                apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+                Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+              },
+              body: JSON.stringify({
+                title: file.name.replace(/\.[^/.]+$/, ''),
+                category: 'manual',
+                fullText,
+                filePath: signedUrlData.path,
+                metadata
+              }),
+            }
+          );
+          
+          setUploadProgress(Math.round(((completedFiles + 0.95) / totalFiles) * 100));
+
+          if (!ingestResponse.ok) {
+            if (ingestResponse.status === 401) {
+              handleAuthExpired();
+            }
+
+            const errorData = await ingestResponse.json().catch(() => ({ error: 'Falha ao processar documento.' }));
+            
+            if (errorData.debug) {
+              console.error('[Admin] Ingestion failed with debug:', errorData.debug);
+            }
+            
+            // Cleanup uploaded file
+            try {
+              await supabase.storage.from('knowledge-base').remove([signedUrlData.path]);
+            } catch {}
+            
+            throw new Error(`[${ingestResponse.status}] ${errorData.error || 'Erro ao processar documento'}`);
           }
 
-          const errorData = await ingestResponse.json().catch(() => ({ error: 'Falha ao processar documento.' }));
-          
-          if (errorData.debug) {
-            console.error('[Admin] Ingestion failed with debug:', errorData.debug);
-          }
-          
-          // Cleanup uploaded file
-          try {
-            await supabase.storage.from('knowledge-base').remove([signedUrlData.path]);
-          } catch {}
-          
-          throw new Error(`[${ingestResponse.status}] ${errorData.error || 'Erro ao processar documento'}`);
+          const ingestResult = await ingestResponse.json();
+          debugLog(`[Admin] Ingestion result:`, ingestResult);
+
+          completedFiles++;
+          setUploadProgress(Math.round((completedFiles / totalFiles) * 100));
+
+          toast({
+            title: 'Upload concluído',
+            description: `"${file.name}" processado com sucesso.${ingestResult?.warning ? `\n\nAviso: ${ingestResult.warning}` : ''}`,
+          });
         }
-
-        const ingestResult = await ingestResponse.json();
-        debugLog(`[Admin] Ingestion result:`, ingestResult);
-
-        completedFiles++;
-        setUploadProgress(Math.round((completedFiles / totalFiles) * 100));
-
-        toast({
-          title: 'Upload concluído',
-          description: `"${file.name}" processado com sucesso.${ingestResult?.warning ? `\n\nAviso: ${ingestResult.warning}` : ''}`,
-        });
 
       } catch (error: any) {
         hasErrors = true;
@@ -708,6 +839,7 @@ const Admin = () => {
     setIsUploading(false);
     setUploadProgress(0);
     setExtractionPhase('idle');
+    setPayloadMetrics(null);
   };
 
   // Helper function for file upload with retry
@@ -932,6 +1064,7 @@ const Admin = () => {
       setIsUploading(false);
       setUploadProgress(0);
       setExtractionPhase('idle');
+      setPayloadMetrics(null);
     }
   };
 
@@ -1169,12 +1302,21 @@ const Admin = () => {
                           {extractionPhase === 'extracting' && 'Extraindo texto do documento...'}
                           {extractionPhase === 'uploading' && 'Enviando arquivo...'}
                           {extractionPhase === 'processing' && 'Processando chunks e embeddings...'}
+                          {extractionPhase === 'batching' && 'Enviando em lotes (documento grande)...'}
                           {extractionPhase === 'idle' && 'Preparando...'}
                         </p>
                         <div className="w-full max-w-xs mx-auto">
                           <Progress value={uploadProgress} className="h-2" />
                           <p className="text-xs text-muted-foreground mt-1 text-center">{uploadProgress}%</p>
                         </div>
+                        {payloadMetrics && (
+                          <div className="text-xs text-muted-foreground space-y-1">
+                            <p>{payloadMetrics.charCount.toLocaleString()} caracteres • {payloadMetrics.estimatedMB}MB</p>
+                            {payloadMetrics.warning && (
+                              <p className="text-amber-500">{payloadMetrics.warning}</p>
+                            )}
+                          </div>
+                        )}
                       </div>
                     ) : (
                       <div className="space-y-4">

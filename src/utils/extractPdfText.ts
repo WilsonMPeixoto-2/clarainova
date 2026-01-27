@@ -10,6 +10,65 @@ export interface PdfExtractionResult {
   totalPages: number;
   needsOcr: boolean;
   avgCharsPerPage: number;
+  metrics: {
+    totalChars: number;
+    estimatedMB: number;
+    emptyPages: number;
+    lowContentPages: number;
+  };
+}
+
+// Thresholds for OCR detection - more nuanced to avoid false positives
+const OCR_THRESHOLDS = {
+  MIN_AVG_CHARS_PER_PAGE: 50,        // Average chars per page below this triggers OCR consideration
+  MIN_TOTAL_CHARS_THRESHOLD: 200,    // If total chars < this, likely scanned
+  EMPTY_PAGE_THRESHOLD: 10,          // Pages with < this many chars are "empty"
+  LOW_CONTENT_THRESHOLD: 50,         // Pages with < this many chars are "low content"
+  EMPTY_PAGE_RATIO_TRIGGER: 0.5,     // If > 50% pages are empty, likely scanned
+  TABLE_CONTENT_MIN: 30,             // Tables may have short text per cell but valid content
+};
+
+/**
+ * Improved heuristic to detect if a PDF needs OCR
+ * Avoids false positives for PDFs with tables, forms, or sparse content
+ */
+function detectNeedsOcr(pages: string[], totalPages: number): { needsOcr: boolean; metrics: PdfExtractionResult['metrics'] } {
+  const totalChars = pages.reduce((sum, p) => sum + p.length, 0);
+  const avgCharsPerPage = totalPages > 0 ? totalChars / totalPages : 0;
+  const estimatedMB = (new TextEncoder().encode(pages.join('\n')).length) / (1024 * 1024);
+  
+  // Count empty and low content pages
+  const emptyPages = pages.filter(p => p.length < OCR_THRESHOLDS.EMPTY_PAGE_THRESHOLD).length;
+  const lowContentPages = pages.filter(p => p.length < OCR_THRESHOLDS.LOW_CONTENT_THRESHOLD).length;
+  const emptyPageRatio = totalPages > 0 ? emptyPages / totalPages : 0;
+  
+  const metrics = {
+    totalChars,
+    estimatedMB: Math.round(estimatedMB * 100) / 100,
+    emptyPages,
+    lowContentPages
+  };
+  
+  // Multiple conditions for OCR detection
+  const conditions = {
+    tooLowAverage: avgCharsPerPage < OCR_THRESHOLDS.MIN_AVG_CHARS_PER_PAGE,
+    tooLowTotal: totalChars < OCR_THRESHOLDS.MIN_TOTAL_CHARS_THRESHOLD,
+    tooManyEmptyPages: emptyPageRatio > OCR_THRESHOLDS.EMPTY_PAGE_RATIO_TRIGGER,
+    allPagesEmpty: totalPages > 0 && pages.every(p => p.length < OCR_THRESHOLDS.EMPTY_PAGE_THRESHOLD)
+  };
+  
+  // Refined logic:
+  // - If ALL pages are essentially empty → definitely OCR
+  // - If average is very low AND more than half pages are empty → likely OCR
+  // - If total chars are extremely low for multi-page doc → likely OCR
+  const needsOcr = 
+    conditions.allPagesEmpty ||
+    (conditions.tooLowAverage && conditions.tooManyEmptyPages) ||
+    (totalPages > 3 && conditions.tooLowTotal);
+  
+  console.log(`[extractPdfText] OCR detection: avgChars=${avgCharsPerPage.toFixed(0)}, emptyRatio=${(emptyPageRatio * 100).toFixed(0)}%, totalChars=${totalChars}, needsOcr=${needsOcr}`);
+  
+  return { needsOcr, metrics };
 }
 
 /**
@@ -50,19 +109,16 @@ export async function extractPdfTextClient(
     .map((text, idx) => `--- Página ${idx + 1} ---\n\n${text}`)
     .join('\n\n');
   
-  const totalChars = pages.reduce((sum, p) => sum + p.length, 0);
-  const avgCharsPerPage = totalPages > 0 ? totalChars / totalPages : 0;
-  
-  // Heurística: PDFs escaneados têm pouco texto selecionável
-  const MIN_CHARS_PER_PAGE = 100;
-  const needsOcr = avgCharsPerPage < MIN_CHARS_PER_PAGE;
+  // Use improved heuristic
+  const { needsOcr, metrics } = detectNeedsOcr(pages, totalPages);
   
   return {
     fullText,
     pages,
     totalPages,
     needsOcr,
-    avgCharsPerPage
+    avgCharsPerPage: totalPages > 0 ? metrics.totalChars / totalPages : 0,
+    metrics
   };
 }
 
@@ -95,4 +151,72 @@ export function isDocxFile(file: File): boolean {
     file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
     file.name.toLowerCase().endsWith('.docx')
   );
+}
+
+/**
+ * Split text into batches for incremental upload
+ * Returns batches that are safe to send over the network
+ */
+export function splitTextIntoBatches(
+  fullText: string,
+  batchSizeChars: number = 500_000 // ~500KB per batch
+): string[] {
+  const batches: string[] = [];
+  
+  if (fullText.length <= batchSizeChars) {
+    return [fullText];
+  }
+  
+  let start = 0;
+  while (start < fullText.length) {
+    let end = start + batchSizeChars;
+    
+    // Try to break at a page boundary
+    if (end < fullText.length) {
+      const pageBoundary = fullText.lastIndexOf('--- Página', end);
+      if (pageBoundary > start + batchSizeChars / 2) {
+        end = pageBoundary;
+      }
+    }
+    
+    batches.push(fullText.slice(start, end));
+    start = end;
+  }
+  
+  return batches;
+}
+
+/**
+ * Calculate payload metrics for display
+ */
+export function calculatePayloadMetrics(text: string): {
+  charCount: number;
+  wordCount: number;
+  estimatedMB: number;
+  isLarge: boolean;
+  warning: string | null;
+} {
+  const charCount = text.length;
+  const wordCount = text.split(/\s+/).filter(w => w.length > 0).length;
+  const bytes = new TextEncoder().encode(text).length;
+  const estimatedMB = bytes / (1024 * 1024);
+  
+  // Warnings for large payloads
+  const WARN_MB = 2; // Warn above 2MB
+  const MAX_MB = 10; // Error above 10MB
+  
+  let warning: string | null = null;
+  if (estimatedMB > MAX_MB) {
+    warning = `Texto muito grande (${estimatedMB.toFixed(1)}MB). Máximo recomendado: ${MAX_MB}MB. Considere dividir o documento.`;
+  } else if (estimatedMB > WARN_MB) {
+    warning = `Texto grande (${estimatedMB.toFixed(1)}MB). O processamento pode demorar.`;
+  }
+  
+  return {
+    charCount,
+    wordCount,
+    estimatedMB: Math.round(estimatedMB * 100) / 100,
+    isLarge: estimatedMB > WARN_MB,
+    warning
+  };
 }

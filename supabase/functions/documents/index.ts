@@ -732,7 +732,172 @@ serve(async (req) => {
     }
 
     // =============================================
-    // POST /documents/ingest-text - Receive pre-extracted text from client
+    // POST /documents/ingest-start - Start a batch ingestion session
+    // =============================================
+    if (req.method === "POST" && lastPart === "ingest-start") {
+      const adminKey = (req.headers.get("x-admin-key") || "").trim();
+      if (!adminKey || !ADMIN_KEY || adminKey !== ADMIN_KEY) {
+        return createDebugResponse(false, 401, { error: "Não autorizado" }, debug, startTime);
+      }
+
+      const body = await req.json();
+      const { title, category, filePath, metadata } = body;
+
+      console.log(`[${requestId}] INGEST-START: title="${title}", totalPages=${metadata?.totalPages || '?'}`);
+
+      // Create document record with status 'ingesting'
+      const { data: document, error: docError } = await supabase
+        .from("documents")
+        .insert({
+          title: title || metadata?.originalFilename || "Documento sem título",
+          category: category || "manual",
+          file_path: filePath || null,
+          content_text: "",
+          status: "ingesting"
+        })
+        .select()
+        .single();
+
+      if (docError) throw docError;
+
+      debug.steps_completed.push("db_insert");
+      console.log(`[${requestId}] ✓ db_insert: Document ${document.id} created with status=ingesting`);
+
+      return createDebugResponse(true, 200, {
+        status: "ingesting",
+        documentId: document.id,
+        document: { id: document.id, title: document.title }
+      }, debug, startTime);
+    }
+
+    // =============================================
+    // POST /documents/ingest-batch - Append batch of text to document
+    // =============================================
+    if (req.method === "POST" && lastPart === "ingest-batch") {
+      const adminKey = (req.headers.get("x-admin-key") || "").trim();
+      if (!adminKey || !ADMIN_KEY || adminKey !== ADMIN_KEY) {
+        return createDebugResponse(false, 401, { error: "Não autorizado" }, debug, startTime);
+      }
+
+      const body = await req.json();
+      const { documentId, batchText, batchIndex, totalBatches } = body;
+
+      if (!documentId || batchText === undefined) {
+        return createDebugResponse(false, 400, { 
+          error: "documentId e batchText são obrigatórios" 
+        }, debug, startTime);
+      }
+
+      console.log(`[${requestId}] INGEST-BATCH: doc=${documentId}, batch=${batchIndex}/${totalBatches}, chars=${batchText.length}`);
+
+      // Get current document
+      const { data: doc, error: docError } = await supabase
+        .from("documents")
+        .select("content_text, status")
+        .eq("id", documentId)
+        .single();
+
+      if (docError || !doc) {
+        return createDebugResponse(false, 404, { error: "Documento não encontrado" }, debug, startTime);
+      }
+
+      if (doc.status !== "ingesting") {
+        return createDebugResponse(false, 400, { 
+          error: `Documento não está em modo de ingestão (status: ${doc.status})` 
+        }, debug, startTime);
+      }
+
+      // Append batch text
+      const updatedText = (doc.content_text || "") + batchText;
+      
+      await supabase
+        .from("documents")
+        .update({ 
+          content_text: updatedText, 
+          updated_at: new Date().toISOString() 
+        })
+        .eq("id", documentId);
+
+      debug.steps_completed.push("batch_append");
+
+      return createDebugResponse(true, 200, {
+        status: "batch_received",
+        documentId,
+        batchIndex,
+        totalBatches,
+        totalChars: updatedText.length
+      }, debug, startTime);
+    }
+
+    // =============================================
+    // POST /documents/ingest-finish - Finalize ingestion and process chunks
+    // =============================================
+    if (req.method === "POST" && lastPart === "ingest-finish") {
+      const adminKey = (req.headers.get("x-admin-key") || "").trim();
+      if (!adminKey || !ADMIN_KEY || adminKey !== ADMIN_KEY) {
+        return createDebugResponse(false, 401, { error: "Não autorizado" }, debug, startTime);
+      }
+
+      const body = await req.json();
+      const { documentId } = body;
+
+      if (!documentId) {
+        return createDebugResponse(false, 400, { error: "documentId é obrigatório" }, debug, startTime);
+      }
+
+      console.log(`[${requestId}] INGEST-FINISH: doc=${documentId}`);
+
+      // Get document with full text
+      const { data: doc, error: docError } = await supabase
+        .from("documents")
+        .select("id, title, content_text, status")
+        .eq("id", documentId)
+        .single();
+
+      if (docError || !doc) {
+        return createDebugResponse(false, 404, { error: "Documento não encontrado" }, debug, startTime);
+      }
+
+      if (!doc.content_text || doc.content_text.trim().length < 100) {
+        await supabase
+          .from("documents")
+          .update({ status: "failed", error_reason: "Texto muito curto após ingestão" })
+          .eq("id", documentId);
+
+        return createDebugResponse(false, 400, { 
+          error: "Texto muito curto. Mínimo 100 caracteres." 
+        }, debug, startTime);
+      }
+
+      // Update status to processing
+      await supabase
+        .from("documents")
+        .update({ status: "processing" })
+        .eq("id", documentId);
+
+      // Process chunks and embeddings
+      const { chunksCount, warning } = await processChunksAndEmbeddings(
+        supabase, documentId, doc.content_text, GEMINI_API_KEY, requestId, debug
+      );
+
+      // Determine final status based on embeddings
+      const finalStatus = warning?.includes("Embeddings") ? "chunks_ok_embed_pending" : "ready";
+
+      // Update document status
+      await supabase
+        .from("documents")
+        .update({ status: finalStatus })
+        .eq("id", documentId);
+
+      return createDebugResponse(true, 200, {
+        status: finalStatus,
+        warning,
+        document: { id: doc.id, title: doc.title, chunk_count: chunksCount }
+      }, debug, startTime);
+    }
+
+    // =============================================
+    // POST /documents/ingest-text - Receive pre-extracted text from client (backwards compatible)
     // =============================================
     if (req.method === "POST" && lastPart === "ingest-text") {
       const adminKey = (req.headers.get("x-admin-key") || "").trim();
@@ -749,7 +914,9 @@ serve(async (req) => {
         }, debug, startTime);
       }
 
-      console.log(`[${requestId}] INGEST-TEXT: ${fullText.length} chars, ${metadata?.totalPages || '?'} pages`);
+      const charCount = fullText.length;
+      const mbSize = (new TextEncoder().encode(fullText).length / (1024 * 1024)).toFixed(2);
+      console.log(`[${requestId}] INGEST-TEXT: ${charCount} chars (~${mbSize}MB), ${metadata?.totalPages || '?'} pages`);
 
       // Create document record
       const { data: document, error: docError } = await supabase
@@ -786,7 +953,8 @@ serve(async (req) => {
       return createDebugResponse(true, 200, {
         status: finalStatus,
         warning,
-        document: { id: document.id, title: document.title, chunk_count: chunksCount }
+        document: { id: document.id, title: document.title, chunk_count: chunksCount },
+        metrics: { charCount, mbSize: parseFloat(mbSize) }
       }, debug, startTime);
     }
 
