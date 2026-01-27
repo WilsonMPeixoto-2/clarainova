@@ -732,6 +732,183 @@ serve(async (req) => {
     }
 
     // =============================================
+    // POST /documents/ingest-text - Receive pre-extracted text from client
+    // =============================================
+    if (req.method === "POST" && lastPart === "ingest-text") {
+      const adminKey = (req.headers.get("x-admin-key") || "").trim();
+      if (!adminKey || !ADMIN_KEY || adminKey !== ADMIN_KEY) {
+        return createDebugResponse(false, 401, { error: "Não autorizado" }, debug, startTime);
+      }
+
+      const body = await req.json();
+      const { title, category, fullText, metadata, filePath } = body;
+
+      if (!fullText || fullText.trim().length < 100) {
+        return createDebugResponse(false, 400, { 
+          error: "Texto muito curto. Mínimo 100 caracteres." 
+        }, debug, startTime);
+      }
+
+      console.log(`[${requestId}] INGEST-TEXT: ${fullText.length} chars, ${metadata?.totalPages || '?'} pages`);
+
+      // Create document record
+      const { data: document, error: docError } = await supabase
+        .from("documents")
+        .insert({
+          title: title || metadata?.originalFilename || "Documento sem título",
+          category: category || "manual",
+          file_path: filePath || null,
+          content_text: fullText,
+          status: "processing"
+        })
+        .select()
+        .single();
+
+      if (docError) throw docError;
+
+      debug.steps_completed.push("db_insert");
+      console.log(`[${requestId}] ✓ db_insert: Document ${document.id}`);
+
+      // Process chunks and embeddings
+      const { chunksCount, warning } = await processChunksAndEmbeddings(
+        supabase, document.id, fullText, GEMINI_API_KEY, requestId, debug
+      );
+
+      // Determine final status based on embeddings
+      const finalStatus = warning?.includes("Embeddings") ? "chunks_ok_embed_pending" : "ready";
+
+      // Update document status
+      await supabase
+        .from("documents")
+        .update({ status: finalStatus })
+        .eq("id", document.id);
+
+      return createDebugResponse(true, 200, {
+        status: finalStatus,
+        warning,
+        document: { id: document.id, title: document.title, chunk_count: chunksCount }
+      }, debug, startTime);
+    }
+
+    // =============================================
+    // POST /documents/ocr-batch - OCR for scanned PDF pages
+    // =============================================
+    if (req.method === "POST" && lastPart === "ocr-batch") {
+      const adminKey = (req.headers.get("x-admin-key") || "").trim();
+      if (!adminKey || !ADMIN_KEY || adminKey !== ADMIN_KEY) {
+        return createDebugResponse(false, 401, { error: "Não autorizado" }, debug, startTime);
+      }
+
+      if (!LOVABLE_API_KEY) {
+        return createDebugResponse(false, 500, { 
+          error: "LOVABLE_API_KEY não configurada para OCR" 
+        }, debug, startTime);
+      }
+
+      const body = await req.json();
+      const { documentId, pageImages, appendToExisting } = body;
+
+      if (!pageImages || !Array.isArray(pageImages) || pageImages.length === 0) {
+        return createDebugResponse(false, 400, { 
+          error: "pageImages é obrigatório (array de { pageNum, dataUrl })" 
+        }, debug, startTime);
+      }
+
+      console.log(`[${requestId}] OCR-BATCH: ${pageImages.length} pages for document ${documentId || 'new'}`);
+
+      const extractedTexts: Array<{ pageNum: number; text: string }> = [];
+      const ocrStart = Date.now();
+
+      for (const { pageNum, dataUrl } of pageImages) {
+        const pageStart = Date.now();
+        try {
+          const response = await withTimeout(
+            fetch(LOVABLE_AI_URL, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${LOVABLE_API_KEY}`,
+              },
+              body: JSON.stringify({
+                model: "google/gemini-3-flash-preview",
+                messages: [{
+                  role: "user",
+                  content: [
+                    { type: "image_url", image_url: { url: dataUrl } },
+                    { type: "text", text: "Extraia TODO o texto desta página. Responda APENAS com o texto extraído." }
+                  ]
+                }]
+              }),
+            }),
+            60000,
+            `OCR page ${pageNum}`
+          );
+
+          if (!response.ok) {
+            const errorText = await response.text().catch(() => "");
+            console.error(`[${requestId}] OCR failed for page ${pageNum}: HTTP ${response.status}`);
+            extractedTexts.push({ pageNum, text: `[Erro OCR página ${pageNum}]` });
+            continue;
+          }
+
+          const data = await response.json();
+          const text = data.choices?.[0]?.message?.content || "";
+          extractedTexts.push({ pageNum, text });
+          console.log(`[${requestId}] ✓ OCR page ${pageNum}: ${text.length} chars in ${Date.now() - pageStart}ms`);
+        } catch (ocrError) {
+          console.error(`[${requestId}] OCR error page ${pageNum}:`, ocrError);
+          extractedTexts.push({ pageNum, text: `[Erro OCR página ${pageNum}]` });
+        }
+      }
+
+      debug.timings.extract_ms = Date.now() - ocrStart;
+      debug.steps_completed.push("ocr_batch");
+
+      // Sort by page number and combine
+      extractedTexts.sort((a, b) => a.pageNum - b.pageNum);
+      const combinedText = extractedTexts
+        .map(({ pageNum, text }) => `--- Página ${pageNum} ---\n\n${text}`)
+        .join('\n\n');
+
+      // If documentId provided, append to existing document
+      if (documentId) {
+        const { data: doc, error: docError } = await supabase
+          .from("documents")
+          .select("content_text")
+          .eq("id", documentId)
+          .single();
+
+        if (docError || !doc) {
+          return createDebugResponse(false, 404, { error: "Documento não encontrado" }, debug, startTime);
+        }
+
+        const updatedText = appendToExisting 
+          ? (doc.content_text || "") + "\n\n" + combinedText
+          : combinedText;
+
+        await supabase
+          .from("documents")
+          .update({ content_text: updatedText, updated_at: new Date().toISOString() })
+          .eq("id", documentId);
+
+        return createDebugResponse(true, 200, {
+          status: "ocr_complete",
+          documentId,
+          pagesProcessed: extractedTexts.length,
+          totalChars: combinedText.length
+        }, debug, startTime);
+      }
+
+      // Return extracted text for client to handle
+      return createDebugResponse(true, 200, {
+        status: "ocr_complete",
+        pagesProcessed: extractedTexts.length,
+        extractedText: combinedText,
+        pages: extractedTexts
+      }, debug, startTime);
+    }
+
+    // =============================================
     // POST /documents/process - Process existing document (PHASE 2)
     // =============================================
     if (req.method === "POST" && lastPart === "process") {
