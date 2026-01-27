@@ -4,6 +4,8 @@ import { GoogleGenerativeAI } from "https://esm.sh/@google/generative-ai@0.21.0"
 import { encodeBase64 } from "https://deno.land/std@0.224.0/encoding/base64.ts";
 // @ts-ignore - mammoth for DOCX parsing
 import mammoth from "https://esm.sh/mammoth@1.6.0";
+// @ts-ignore - pdfjs-serverless for deterministic PDF extraction
+import { getDocument } from "https://esm.sh/pdfjs-serverless@0.6.0";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -11,10 +13,11 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "GET, POST, DELETE, OPTIONS",
 };
 
-// Lovable AI Gateway URL
+// Lovable AI Gateway URL (only for OCR fallback now)
 const LOVABLE_AI_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
 
-const AI_TIMEOUT_MS = 120_000; // >=60s (desktop). Keep generous but bounded.
+const AI_TIMEOUT_MS = 120_000;
+const PAGES_PER_BATCH = 10; // Process 10 pages at a time
 
 function safeJsonStringify(x: unknown): string {
   try {
@@ -31,8 +34,6 @@ async function withTimeout<T>(promise: Promise<T>, ms: number, label: string): P
       reject(new Error(`TIMEOUT: ${label} after ${ms}ms`));
     }, ms);
   });
-
-  // Cast keeps Deno/TS from widening Promise.race() to unknown in some libs.
   return (await Promise.race([promise, timeoutPromise])) as T;
 }
 
@@ -42,7 +43,6 @@ async function blobToBase64(fileBlob: Blob): Promise<string> {
   return encodeBase64(uint8Array);
 }
 
-// Helper to check if error is a rate limit error
 function isRateLimitError(error: unknown): boolean {
   if (error instanceof Error) {
     const message = error.message.toLowerCase();
@@ -54,11 +54,57 @@ function isRateLimitError(error: unknown): boolean {
   return false;
 }
 
-// Extract PDF text using Lovable AI Gateway (PRIMARY)
-// IMPORTANT: PDFs cannot be sent as external URLs in `image_url`.
-// The gateway/provider supports PDFs when sent as a data URL with MIME type.
+// =============================================
+// DETERMINISTIC PDF EXTRACTION (pdfjs-serverless)
+// =============================================
+interface PdfExtractionResult {
+  pages: string[];
+  totalPages: number;
+}
+
+async function extractPdfTextDeterministic(
+  fileData: Blob,
+  startPage: number = 1,
+  endPage?: number
+): Promise<PdfExtractionResult> {
+  console.log(`[documents] Extracting PDF pages ${startPage}-${endPage || "end"} via pdfjs-serverless...`);
+  
+  const arrayBuffer = await fileData.arrayBuffer();
+  const data = new Uint8Array(arrayBuffer);
+  
+  const doc = await getDocument({ data }).promise;
+  const totalPages = doc.numPages;
+  const actualEndPage = Math.min(endPage || totalPages, totalPages);
+  
+  console.log(`[documents] PDF has ${totalPages} pages, extracting ${startPage}-${actualEndPage}`);
+  
+  const pages: string[] = [];
+  
+  for (let i = startPage; i <= actualEndPage; i++) {
+    try {
+      const page = await doc.getPage(i);
+      const textContent = await page.getTextContent();
+      const text = textContent.items
+        .map((item: any) => item.str || "")
+        .join(" ")
+        .replace(/\s+/g, " ")
+        .trim();
+      pages.push(text);
+      console.log(`[documents] Page ${i}/${totalPages}: ${text.length} chars`);
+    } catch (pageError) {
+      console.error(`[documents] Error extracting page ${i}:`, pageError);
+      pages.push(""); // Empty page on error
+    }
+  }
+  
+  return { pages, totalPages };
+}
+
+// =============================================
+// LLM FALLBACK FOR OCR (scanned PDFs)
+// =============================================
 async function extractPdfViaLovableAIBase64(fileBlob: Blob, lovableApiKey: string): Promise<string> {
-  console.log("[documents] Attempting PDF extraction via Lovable AI (PRIMARY - base64 data URL)...");
+  console.log("[documents] OCR FALLBACK: Attempting PDF extraction via Lovable AI...");
 
   const base64Data = await blobToBase64(fileBlob);
   const dataUrl = `data:application/pdf;base64,${base64Data}`;
@@ -74,25 +120,19 @@ async function extractPdfViaLovableAIBase64(fileBlob: Blob, lovableApiKey: strin
     },
     signal: controller.signal,
     body: JSON.stringify({
-      // Default for Lovable AI is google/gemini-3-flash-preview; we set explicitly.
       model: "google/gemini-3-flash-preview",
       messages: [
         {
           role: "user",
           content: [
-            {
-              type: "image_url",
-              image_url: { url: dataUrl },
-            },
+            { type: "image_url", image_url: { url: dataUrl } },
             {
               type: "text",
               text: `Extraia TODO o texto deste documento mantendo a estrutura.
-
 Regras:
-- Preserve títulos, parágrafos, tabelas (quando possível) e listas
+- Preserve títulos, parágrafos, tabelas e listas
 - Não resuma e não omita conteúdo
 - Mantenha números/valores/códigos exatamente como no original
-
 Responda APENAS com o texto extraído.`,
             },
           ],
@@ -105,11 +145,7 @@ Responda APENAS com o texto extraído.`,
 
   if (!response.ok) {
     const errorText = await response.text().catch(() => "(no body)");
-    console.error("[documents] Lovable AI error:", response.status, errorText);
-    // Keep raw payload in the error message for debugging (no secrets included).
-    throw new Error(
-      `LovableAI HTTP ${response.status}: ${errorText}`
-    );
+    throw new Error(`LovableAI HTTP ${response.status}: ${errorText}`);
   }
 
   const data = await response.json();
@@ -119,68 +155,16 @@ Responda APENAS com o texto extraído.`,
     throw new Error("Texto extraído via Lovable AI muito curto");
   }
 
-  console.log(`[documents] PDF extracted via Lovable AI: ${extractedText.length} characters`);
+  console.log(`[documents] OCR extracted via Lovable AI: ${extractedText.length} characters`);
   return extractedText;
 }
 
-// Extract PDF text using Gemini with base64 (FALLBACK - for PDFs < 15MB)
-async function extractPdfViaGeminiBase64(fileBlob: Blob, geminiApiKey: string): Promise<string> {
-  const MAX_BASE64_SIZE = 20 * 1024 * 1024; // 20MB limit for base64 encoding
-  
-  if (fileBlob.size > MAX_BASE64_SIZE) {
-    throw new Error(`PDF muito grande para fallback Gemini (${Math.round(fileBlob.size / 1024 / 1024)}MB, max: 15MB)`);
-  }
-  
-  console.log("[documents] Converting PDF to base64 for Gemini fallback...");
-
-  const base64Data = await blobToBase64(fileBlob);
-  
-  console.log(`[documents] Base64 size: ${Math.round(base64Data.length / 1024)}KB`);
-  
-  const genAI = new GoogleGenerativeAI(geminiApiKey);
-  // Requested verification: use gemini-1.5-flash for direct Gemini fallback.
-  const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-  
-  const result = await withTimeout(
-    model.generateContent([
-    {
-      inlineData: {
-        mimeType: "application/pdf",
-        data: base64Data  // Base64 works with Gemini!
-      }
-    },
-    {
-      text: `Extraia TODO o texto deste documento PDF de forma literal e completa. 
-
-Instruções:
-- Preserve a estrutura original (títulos, parágrafos, listas)
-- Mantenha numerações e marcadores
-- Inclua todo o conteúdo textual, sem resumir ou omitir
-- Use quebras de linha para separar seções
-- Não adicione comentários ou explicações, apenas o texto extraído
-
-Responda APENAS com o texto extraído do documento.`
-    }
-  ]),
-    AI_TIMEOUT_MS,
-    "Gemini generateContent (PDF base64)"
-  );
-  
-  const extractedText = result.response.text();
-  
-  if (!extractedText || extractedText.trim().length < 50) {
-    throw new Error("Texto extraído via Gemini base64 muito curto");
-  }
-  
-  console.log(`[documents] PDF extracted via Gemini base64: ${extractedText.length} characters`);
-  return extractedText;
-}
-
-// Tamanho do chunk: 4000 caracteres (preservado do original)
+// =============================================
+// CHUNKING
+// =============================================
 const CHUNK_SIZE = 4000;
 const CHUNK_OVERLAP = 500;
 
-// Dividir texto em chunks com overlap
 function splitIntoChunks(text: string): string[] {
   const chunks: string[] = [];
   let start = 0;
@@ -188,14 +172,11 @@ function splitIntoChunks(text: string): string[] {
   while (start < text.length) {
     let end = start + CHUNK_SIZE;
     
-    // Tentar encontrar um ponto de quebra natural (parágrafo, frase)
     if (end < text.length) {
-      // Procurar parágrafo duplo
       const doubleNewline = text.lastIndexOf("\n\n", end);
       if (doubleNewline > start + CHUNK_SIZE / 2) {
         end = doubleNewline + 2;
       } else {
-        // Procurar fim de frase
         const period = text.lastIndexOf(". ", end);
         if (period > start + CHUNK_SIZE / 2) {
           end = period + 2;
@@ -213,19 +194,16 @@ function splitIntoChunks(text: string): string[] {
   return chunks.filter(chunk => chunk.length > 50);
 }
 
-// Extrair metadados do chunk (título da seção, etc.)
 function extractMetadata(chunk: string, index: number): Record<string, any> {
   const lines = chunk.split("\n");
   const firstLine = lines[0] || "";
   
-  // Detectar se a primeira linha parece um título
   const isTitle = firstLine.length < 100 && 
     (firstLine.startsWith("#") || 
      firstLine === firstLine.toUpperCase() ||
      firstLine.match(/^\d+\.\s/) ||
      firstLine.match(/^[A-Z][^.!?]*$/));
   
-  // Extrair palavras-chave
   const keywords: string[] = [];
   const keywordPatterns = [
     /SEI/gi, /processo/gi, /documento/gi, /assinatura/gi,
@@ -248,29 +226,107 @@ function extractMetadata(chunk: string, index: number): Record<string, any> {
   };
 }
 
-// Rate limiting configuration for admin endpoints (stricter)
+// Rate limiting configuration
 const ADMIN_RATE_LIMIT = {
-  maxRequests: 5,    // 5 attempts per window
-  windowSeconds: 300, // 5 minute window
+  maxRequests: 5,
+  windowSeconds: 300,
 };
 
-// Helper to get client identifier for rate limiting
 function getClientKey(req: Request): string {
   const forwarded = req.headers.get("x-forwarded-for");
   const cfIp = req.headers.get("cf-connecting-ip");
   const realIp = req.headers.get("x-real-ip");
   
-  if (forwarded) {
-    return forwarded.split(",")[0].trim();
-  }
+  if (forwarded) return forwarded.split(",")[0].trim();
   if (cfIp) return cfIp;
   if (realIp) return realIp;
-  
   return "unknown";
 }
 
+// =============================================
+// PROCESS CHUNKS AND EMBEDDINGS
+// =============================================
+async function processChunksAndEmbeddings(
+  supabase: any,
+  documentId: string,
+  contentText: string,
+  geminiApiKey: string | undefined
+): Promise<{ chunksCount: number; warning: string | null }> {
+  const chunks = splitIntoChunks(contentText);
+  console.log(`[documents] Document split into ${chunks.length} chunks`);
+  
+  const chunkRecords: Array<any> = [];
+  let embeddingsWarning: string | null = null;
+  let embeddingModel: any = null;
+
+  if (!geminiApiKey) {
+    embeddingsWarning = "Embeddings não geradas (GEMINI_API_KEY não configurada).";
+  } else {
+    try {
+      const genAI = new GoogleGenerativeAI(geminiApiKey);
+      embeddingModel = genAI.getGenerativeModel({ model: "text-embedding-004" });
+    } catch (e) {
+      embeddingsWarning = `Embeddings desativadas: ${e instanceof Error ? e.message : String(e)}`;
+    }
+  }
+
+  let embeddingsDisabled = !embeddingModel;
+
+  for (let i = 0; i < chunks.length; i++) {
+    const chunk = chunks[i];
+    const metadata = extractMetadata(chunk, i);
+
+    let embeddingJson: string | null = null;
+    if (!embeddingsDisabled && embeddingModel) {
+      try {
+        const embeddingResult = await withTimeout<any>(
+          embeddingModel.embedContent(chunk) as Promise<any>,
+          AI_TIMEOUT_MS,
+          "Gemini embedContent"
+        );
+        const embedding = embeddingResult?.embedding?.values;
+        if (!embedding) throw new Error("Embedding inválido");
+        embeddingJson = JSON.stringify(embedding);
+      } catch (e) {
+        embeddingsDisabled = true;
+        const msg = e instanceof Error ? e.message : String(e);
+        embeddingsWarning = embeddingsWarning || `Embeddings interrompidas: ${msg}`;
+        console.error("[documents] Embedding failed:", e);
+      }
+    }
+
+    chunkRecords.push({
+      document_id: documentId,
+      content: chunk,
+      chunk_index: i,
+      embedding: embeddingJson,
+      metadata,
+    });
+
+    if (!embeddingsDisabled && i % 5 === 0 && i > 0) {
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    }
+  }
+  
+  // Insert chunks in batches
+  const batchSize = 50;
+  for (let i = 0; i < chunkRecords.length; i += batchSize) {
+    const batch = chunkRecords.slice(i, i + batchSize);
+    const { error: chunksError } = await supabase
+      .from("document_chunks")
+      .insert(batch);
+    
+    if (chunksError) {
+      console.error("Error inserting chunks:", chunksError);
+      throw chunksError;
+    }
+  }
+  
+  console.log(`[documents] All ${chunks.length} chunks inserted`);
+  return { chunksCount: chunks.length, warning: embeddingsWarning };
+}
+
 serve(async (req) => {
-  // Handle CORS preflight
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
@@ -285,10 +341,10 @@ serve(async (req) => {
 
   const url = new URL(req.url);
   const pathParts = url.pathname.split("/").filter(Boolean);
-  const documentId = pathParts[pathParts.length - 1];
+  const lastPart = pathParts[pathParts.length - 1];
 
   try {
-    // Rate limiting for POST/DELETE (admin operations)
+    // Rate limiting for POST/DELETE
     if (req.method === "POST" || req.method === "DELETE") {
       const clientKey = getClientKey(req);
       const { data: rateLimitResult, error: rateLimitError } = await supabase.rpc(
@@ -301,35 +357,201 @@ serve(async (req) => {
         }
       );
 
-      if (rateLimitError) {
-        console.error("[documents] Rate limit check error:", rateLimitError);
-      } else if (rateLimitResult && rateLimitResult.length > 0 && !rateLimitResult[0].allowed) {
+      if (!rateLimitError && rateLimitResult?.length > 0 && !rateLimitResult[0].allowed) {
         const resetIn = rateLimitResult[0].reset_in || ADMIN_RATE_LIMIT.windowSeconds;
-        console.log(`[documents] Rate limited: ${clientKey}`);
         return new Response(
-          JSON.stringify({
-            error: `Muitas tentativas. Tente novamente em ${Math.ceil(resetIn / 60)} minutos.`,
-            retryAfter: resetIn,
-          }),
-          {
-            status: 429,
-            headers: {
-              ...corsHeaders,
-              "Content-Type": "application/json",
-              "Retry-After": String(resetIn),
-            },
-          }
+          JSON.stringify({ error: `Muitas tentativas. Tente em ${Math.ceil(resetIn / 60)} min.`, retryAfter: resetIn }),
+          { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json", "Retry-After": String(resetIn) } }
         );
       }
     }
 
     // =============================================
-    // GET /documents - Listar todos os documentos
+    // POST /documents/process-job - WORKER for incremental processing
     // =============================================
-    if (req.method === "GET" && (!documentId || documentId === "documents")) {
-      // Validate admin key for listing documents
-       const adminKey = (req.headers.get("x-admin-key") || "").trim();
-       if (!adminKey || !ADMIN_KEY || adminKey !== ADMIN_KEY) {
+    if (req.method === "POST" && lastPart === "process-job") {
+      const adminKey = (req.headers.get("x-admin-key") || "").trim();
+      if (!adminKey || !ADMIN_KEY || adminKey !== ADMIN_KEY) {
+        return new Response(
+          JSON.stringify({ error: "Não autorizado" }),
+          { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      console.log("[documents] Processing next pending job...");
+
+      // 1. Find next pending job
+      const { data: job, error: jobError } = await supabase
+        .from("document_jobs")
+        .select("*")
+        .eq("status", "pending")
+        .order("created_at")
+        .limit(1)
+        .single();
+
+      if (jobError || !job) {
+        return new Response(
+          JSON.stringify({ message: "Nenhum job pendente", processed: 0 }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      console.log(`[documents] Found job ${job.id} for document ${job.document_id}, pages ${job.next_page}-${job.total_pages}`);
+
+      // 2. Update status to processing
+      await supabase.from("document_jobs").update({ status: "processing" }).eq("id", job.id);
+
+      try {
+        // 3. Get document info
+        const { data: document, error: docError } = await supabase
+          .from("documents")
+          .select("id, file_path, content_text")
+          .eq("id", job.document_id)
+          .single();
+
+        if (docError || !document) {
+          throw new Error("Documento não encontrado");
+        }
+
+        // 4. Download PDF from storage
+        const { data: fileData, error: downloadError } = await supabase.storage
+          .from("knowledge-base")
+          .download(document.file_path);
+
+        if (downloadError || !fileData) {
+          throw new Error(`Falha ao baixar arquivo: ${downloadError?.message}`);
+        }
+
+        // 5. Extract next batch of pages
+        const endPage = Math.min(job.next_page + job.pages_per_batch - 1, job.total_pages);
+        const { pages } = await extractPdfTextDeterministic(fileData, job.next_page, endPage);
+
+        // 6. Append text to document
+        const newText = pages.join("\n\n--- Página ---\n\n");
+        const updatedText = (document.content_text || "") + "\n\n--- Página ---\n\n" + newText;
+        
+        await supabase
+          .from("documents")
+          .update({ content_text: updatedText, updated_at: new Date().toISOString() })
+          .eq("id", job.document_id);
+
+        // 7. Check if completed
+        if (endPage >= job.total_pages) {
+          // Job completed - process chunks and embeddings
+          await supabase.from("document_jobs").update({ 
+            status: "completed", 
+            next_page: endPage + 1 
+          }).eq("id", job.id);
+
+          console.log(`[documents] Job ${job.id} completed. Processing chunks...`);
+          
+          // Get final document text
+          const { data: finalDoc } = await supabase
+            .from("documents")
+            .select("content_text")
+            .eq("id", job.document_id)
+            .single();
+
+          if (finalDoc?.content_text) {
+            await processChunksAndEmbeddings(supabase, job.document_id, finalDoc.content_text, GEMINI_API_KEY);
+          }
+
+          return new Response(
+            JSON.stringify({ 
+              status: "completed",
+              jobId: job.id,
+              documentId: job.document_id,
+              processed: endPage - job.next_page + 1,
+              remaining: 0
+            }),
+            { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        } else {
+          // More pages to process - update job for next iteration
+          await supabase.from("document_jobs").update({ 
+            status: "pending", 
+            next_page: endPage + 1 
+          }).eq("id", job.id);
+
+          return new Response(
+            JSON.stringify({ 
+              status: "processing",
+              jobId: job.id,
+              documentId: job.document_id,
+              processed: endPage - job.next_page + 1,
+              remaining: job.total_pages - endPage,
+              nextPage: endPage + 1
+            }),
+            { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+      } catch (jobProcessError) {
+        console.error("[documents] Job processing error:", jobProcessError);
+        
+        await supabase.from("document_jobs").update({ 
+          status: "failed", 
+          error: jobProcessError instanceof Error ? jobProcessError.message : String(jobProcessError)
+        }).eq("id", job.id);
+
+        return new Response(
+          JSON.stringify({ 
+            error: "Erro ao processar job",
+            details: jobProcessError instanceof Error ? jobProcessError.message : String(jobProcessError)
+          }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+    }
+
+    // =============================================
+    // GET /documents/job-status/:documentId - Check job status
+    // =============================================
+    if (req.method === "GET" && pathParts.includes("job-status")) {
+      const adminKey = (req.headers.get("x-admin-key") || "").trim();
+      if (!adminKey || !ADMIN_KEY || adminKey !== ADMIN_KEY) {
+        return new Response(
+          JSON.stringify({ error: "Não autorizado" }),
+          { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      const documentId = lastPart;
+      
+      const { data: job, error } = await supabase
+        .from("document_jobs")
+        .select("*")
+        .eq("document_id", documentId)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .single();
+
+      if (error || !job) {
+        return new Response(
+          JSON.stringify({ status: "not_found" }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      const progress = job.total_pages ? Math.round((job.next_page / job.total_pages) * 100) : 0;
+
+      return new Response(
+        JSON.stringify({
+          status: job.status,
+          progress,
+          nextPage: job.next_page,
+          totalPages: job.total_pages,
+          error: job.error
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // =============================================
+    // GET /documents - List all documents
+    // =============================================
+    if (req.method === "GET" && (!lastPart || lastPart === "documents")) {
+      const adminKey = (req.headers.get("x-admin-key") || "").trim();
+      if (!adminKey || !ADMIN_KEY || adminKey !== ADMIN_KEY) {
         return new Response(
           JSON.stringify({ error: "Não autorizado" }),
           { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -338,68 +560,63 @@ serve(async (req) => {
       
       const { data: documents, error } = await supabase
         .from("documents")
-        .select(`
-          id,
-          title,
-          category,
-          file_path,
-          created_at,
-          updated_at
-        `)
+        .select("id, title, category, file_path, created_at, updated_at")
         .order("created_at", { ascending: false });
       
       if (error) throw error;
       
-      // Contar chunks por documento
-      const { data: chunkCounts } = await supabase
-        .from("document_chunks")
-        .select("document_id");
+      // Count chunks per document
+      const { data: chunkCounts } = await supabase.from("document_chunks").select("document_id");
       
       const countMap = new Map<string, number>();
       chunkCounts?.forEach(c => {
         countMap.set(c.document_id, (countMap.get(c.document_id) || 0) + 1);
       });
+
+      // Get job status for documents
+      const { data: jobs } = await supabase
+        .from("document_jobs")
+        .select("document_id, status, next_page, total_pages")
+        .in("status", ["pending", "processing"]);
+
+      const jobMap = new Map<string, any>();
+      jobs?.forEach(j => jobMap.set(j.document_id, j));
       
-      const documentsWithCounts = documents?.map(doc => ({
+      const documentsWithInfo = documents?.map(doc => ({
         ...doc,
-        chunk_count: countMap.get(doc.id) || 0
+        chunk_count: countMap.get(doc.id) || 0,
+        processing_status: jobMap.get(doc.id)?.status || null,
+        processing_progress: jobMap.get(doc.id) 
+          ? Math.round((jobMap.get(doc.id).next_page / jobMap.get(doc.id).total_pages) * 100) 
+          : null
       }));
       
       return new Response(
-        JSON.stringify({ documents: documentsWithCounts }),
+        JSON.stringify({ documents: documentsWithInfo }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
     // =============================================
-    // POST /documents - Processar documento do Storage
+    // POST /documents - Process document from Storage
     // =============================================
-    if (req.method === "POST") {
-      // Verificar admin key
-       const adminKey = (req.headers.get("x-admin-key") || "").trim();
-       if (!adminKey || !ADMIN_KEY || adminKey !== ADMIN_KEY) {
+    if (req.method === "POST" && lastPart !== "process-job") {
+      const adminKey = (req.headers.get("x-admin-key") || "").trim();
+      if (!adminKey || !ADMIN_KEY || adminKey !== ADMIN_KEY) {
         return new Response(
           JSON.stringify({ error: "Não autorizado" }),
           { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
-      // NOTE: GEMINI_API_KEY is optional for PDF extraction (we can use Lovable AI).
-      // It is still used for embeddings when available.
       
-      // Parse JSON body (not FormData anymore)
       const body = await req.json();
       const { filePath, title, category, fileType, originalName } = body;
       
       console.log(`[documents] ========== PROCESSING REQUEST ==========`);
       console.log(`[documents] filePath: ${filePath}`);
       console.log(`[documents] title: ${title}`);
-      console.log(`[documents] category: ${category}`);
-      console.log(`[documents] fileType: ${fileType}`);
-      console.log(`[documents] originalName: ${originalName}`);
       
-      // Input validation
       if (!filePath) {
-        console.error(`[documents] ERROR: filePath is missing`);
         return new Response(
           JSON.stringify({ error: "filePath é obrigatório" }),
           { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -407,160 +624,163 @@ serve(async (req) => {
       }
       
       // Download file from Storage
-      console.log(`[documents] ========== DOWNLOADING FROM STORAGE ==========`);
-      console.log(`[documents] Bucket: knowledge-base`);
-      console.log(`[documents] Path: ${filePath}`);
-      
       const { data: fileData, error: downloadError } = await supabase.storage
         .from("knowledge-base")
         .download(filePath);
       
       if (downloadError || !fileData) {
-        console.error(`[documents] DOWNLOAD FAILED`);
-        console.error(`[documents] Error:`, downloadError);
-        console.error(`[documents] Error message:`, downloadError?.message);
         return new Response(
-          JSON.stringify({ 
-            error: "Arquivo não encontrado no Storage",
-            details: downloadError?.message,
-            path: filePath
-          }),
+          JSON.stringify({ error: "Arquivo não encontrado no Storage", details: downloadError?.message }),
           { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
       
-      console.log(`[documents] DOWNLOAD SUCCESS`);
-      console.log(`[documents] File size: ${Math.round(fileData.size / 1024)}KB`);
+      console.log(`[documents] Downloaded: ${Math.round(fileData.size / 1024)}KB`);
       
-      // Determine file type from path or provided type
       const isPDF = filePath.endsWith(".pdf") || fileType?.includes("pdf");
       const isDOCX = filePath.endsWith(".docx") || fileType?.includes("wordprocessingml");
       const isTXT = filePath.endsWith(".txt") || fileType?.includes("text/plain");
       
-      // Extract text based on file type
       let contentText: string;
-      
-      // File size limit for processing
-      const MAX_PDF_SIZE = 50 * 1024 * 1024; // 50MB (processed via signed URL)
-      const MAX_DOCX_SIZE = 50 * 1024 * 1024; // 50MB
       
       if (isTXT) {
         contentText = await fileData.text();
-        console.log(`[documents] TXT extracted: ${contentText.length} characters`);
+        console.log(`[documents] TXT extracted: ${contentText.length} chars`);
       } else if (isPDF) {
-        // Check file size
-        if (fileData.size > MAX_PDF_SIZE) {
-          console.error(`[documents] PDF too large: ${Math.round(fileData.size / 1024 / 1024)}MB (max ${MAX_PDF_SIZE / 1024 / 1024}MB)`);
-          return new Response(
-            JSON.stringify({ 
-              error: `PDF muito grande (${Math.round(fileData.size / 1024 / 1024)}MB). O limite para PDFs é ${MAX_PDF_SIZE / 1024 / 1024}MB. Por favor, divida o documento em partes menores.`,
-              code: "FILE_TOO_LARGE",
-              maxSizeMB: MAX_PDF_SIZE / 1024 / 1024,
-              actualSizeMB: Math.round(fileData.size / 1024 / 1024)
-            }),
-            { status: 413, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-          );
-        }
-        
-        // Extraction flow:
-        // 1) Lovable AI gateway with PDF as base64 data URL (does not depend on GEMINI_API_KEY quotas)
-        // 2) Direct Gemini base64 fallback (requires GEMINI_API_KEY with active quota)
-
-        console.log(`[documents] ========== EXTRACTION FLOW ==========`);
-        console.log(`[documents] PDF size: ${Math.round(fileData.size / 1024)}KB`);
-
-        let usedProvider = "unknown";
-        const MAX_INLINE_PDF_SIZE = 20 * 1024 * 1024; // Keep request sizes reasonable
+        console.log(`[documents] ========== DETERMINISTIC PDF EXTRACTION ==========`);
         
         try {
-          // PRIMARY: Lovable AI (PDF base64 data URL)
-          if (!LOVABLE_API_KEY) {
-            throw new Error("LOVABLE_API_KEY não configurada - tentando Gemini base64");
+          // Extract first batch of pages deterministically
+          const { pages, totalPages } = await extractPdfTextDeterministic(fileData, 1, PAGES_PER_BATCH);
+          const partialText = pages.join("\n\n--- Página ---\n\n");
+          
+          console.log(`[documents] Extracted ${pages.length} pages, total: ${totalPages}`);
+          
+          // Check if extraction returned minimal text (might be scanned PDF)
+          const totalChars = pages.reduce((sum, p) => sum + p.length, 0);
+          
+          if (totalChars < 100 && totalPages > 0 && LOVABLE_API_KEY) {
+            // Fallback to OCR for scanned PDFs
+            console.log(`[documents] Low text content (${totalChars} chars), trying OCR fallback...`);
+            
+            try {
+              contentText = await extractPdfViaLovableAIBase64(fileData, LOVABLE_API_KEY);
+            } catch (ocrError) {
+              console.error("[documents] OCR fallback failed:", ocrError);
+              contentText = partialText; // Use what we got
+            }
+          } else {
+            contentText = partialText;
           }
-
-          if (fileData.size > MAX_INLINE_PDF_SIZE) {
-            throw new Error(
-              `PDF muito grande para extração via Lovable AI (base64) (${Math.round(fileData.size / 1024 / 1024)}MB > 20MB)`
+          
+          // Create document in database
+          const { data: document, error: docError } = await supabase
+            .from("documents")
+            .insert({
+              title: title || originalName || "Documento sem título",
+              category: category || "manual",
+              file_path: filePath,
+              content_text: contentText
+            })
+            .select()
+            .single();
+          
+          if (docError) throw docError;
+          
+          console.log(`[documents] Document created: ${document.id}`);
+          
+          // If PDF has more pages, create background job
+          if (totalPages > PAGES_PER_BATCH) {
+            console.log(`[documents] Creating background job for ${totalPages - PAGES_PER_BATCH} remaining pages...`);
+            
+            const { error: jobError } = await supabase
+              .from("document_jobs")
+              .insert({
+                document_id: document.id,
+                status: "pending",
+                next_page: PAGES_PER_BATCH + 1,
+                total_pages: totalPages,
+                pages_per_batch: PAGES_PER_BATCH
+              });
+            
+            if (jobError) {
+              console.error("[documents] Error creating job:", jobError);
+            }
+            
+            return new Response(
+              JSON.stringify({
+                success: true,
+                status: "processing",
+                message: `Documento criado. Processando ${totalPages} páginas em background...`,
+                document: {
+                  id: document.id,
+                  title: document.title,
+                  category: document.category,
+                  totalPages,
+                  processedPages: PAGES_PER_BATCH
+                }
+              }),
+              { headers: { ...corsHeaders, "Content-Type": "application/json" } }
             );
           }
           
-          console.log(`[documents] PRIMARY: Attempting Lovable AI (base64) extraction...`);
+          // Small PDF - process chunks immediately
+          const { chunksCount, warning } = await processChunksAndEmbeddings(
+            supabase, document.id, contentText, GEMINI_API_KEY
+          );
           
-          contentText = await extractPdfViaLovableAIBase64(fileData, LOVABLE_API_KEY);
-          usedProvider = "lovable-ai";
-          console.log(`[documents] SUCCESS: PDF extracted via Lovable AI: ${contentText.length} characters`);
+          return new Response(
+            JSON.stringify({
+              success: true,
+              status: "completed",
+              warning,
+              document: {
+                id: document.id,
+                title: document.title,
+                category: document.category,
+                chunk_count: chunksCount
+              }
+            }),
+            { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
           
-        } catch (lovableError) {
-          console.error("[documents] Lovable AI extraction failed:", lovableError);
-          const lovableErrorMsg = lovableError instanceof Error ? lovableError.message : String(lovableError);
+        } catch (pdfError) {
+          console.error("[documents] PDF extraction failed:", pdfError);
           
-          // FALLBACK: Gemini with base64 (only for PDFs < 15MB)
-          const MAX_BASE64_SIZE = 20 * 1024 * 1024; // 20MB limit
-          
-          if (GEMINI_API_KEY && fileData.size <= MAX_BASE64_SIZE) {
-            console.log(`[documents] FALLBACK: Attempting Gemini base64 extraction...`);
-            console.log(`[documents] File size (${Math.round(fileData.size / 1024)}KB) is within base64 limit`);
-            
+          // Try OCR as last resort
+          if (LOVABLE_API_KEY && fileData.size < 20 * 1024 * 1024) {
+            console.log("[documents] Trying OCR fallback...");
             try {
-              contentText = await extractPdfViaGeminiBase64(fileData, GEMINI_API_KEY);
-              usedProvider = "gemini-base64";
-              console.log(`[documents] SUCCESS: PDF extracted via Gemini base64: ${contentText.length} characters`);
-            } catch (geminiError) {
-              console.error("[documents] Gemini base64 fallback also failed:", geminiError);
-              const geminiErrorMsg = geminiError instanceof Error ? geminiError.message : String(geminiError);
-              
+              contentText = await extractPdfViaLovableAIBase64(fileData, LOVABLE_API_KEY);
+            } catch (ocrError) {
               return new Response(
                 JSON.stringify({ 
-                  error: "Falha ao processar PDF. Ambos os provedores falharam.",
-                  // Provide explicit, raw-ish errors for debugging.
-                  debug: {
-                    lovable_ai_error: lovableErrorMsg,
-                    gemini_error: geminiErrorMsg,
-                    notes: "Se Gemini retornar 429/quota, o problema é a cota/chave do GEMINI_API_KEY; o Lovable AI deve funcionar para PDFs via data URL até ~20MB.",
-                  },
-                  details: `Lovable AI: ${lovableErrorMsg}. Gemini: ${geminiErrorMsg}`
+                  error: "Falha ao processar PDF",
+                  details: pdfError instanceof Error ? pdfError.message : String(pdfError),
+                  ocrError: ocrError instanceof Error ? ocrError.message : String(ocrError)
                 }),
                 { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
               );
             }
-          } else if (fileData.size > MAX_BASE64_SIZE) {
-            // PDF too large for base64 fallback
-            console.error(`[documents] PDF too large for Gemini base64 fallback: ${Math.round(fileData.size / 1024 / 1024)}MB`);
-            return new Response(
-              JSON.stringify({ 
-                error: `Falha ao processar PDF. O arquivo é grande demais para extração inline (>${MAX_BASE64_SIZE / 1024 / 1024}MB). Divida em partes menores.`,
-                details: lovableErrorMsg
-              }),
-              { status: 413, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-            );
           } else {
-            // No GEMINI_API_KEY and Lovable AI failed
             return new Response(
               JSON.stringify({ 
-                error: "Falha ao processar PDF. Lovable AI falhou e não há fallback disponível.",
-                details: lovableErrorMsg
+                error: "Falha ao processar PDF",
+                details: pdfError instanceof Error ? pdfError.message : String(pdfError)
               }),
               { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
             );
           }
         }
-        
-        console.log(`[documents] ========== EXTRACTION COMPLETE ==========`);
-        console.log(`[documents] Provider used: ${usedProvider}`);
-        console.log(`[documents] Content length: ${contentText.length} characters`);
-        
-        // Log which provider was used for debugging
       } else if (isDOCX) {
-        // Extract text from DOCX
         try {
           const arrayBuffer = await fileData.arrayBuffer();
           const result = await mammoth.extractRawText({ arrayBuffer });
           contentText = result.value;
-          console.log(`[documents] DOCX extracted: ${contentText.length} characters`);
+          console.log(`[documents] DOCX extracted: ${contentText.length} chars`);
         } catch (docxError) {
-          console.error("Erro ao extrair DOCX:", docxError);
           return new Response(
-            JSON.stringify({ error: "Erro ao processar DOCX. Verifique se o arquivo não está corrompido." }),
+            JSON.stringify({ error: "Erro ao processar DOCX" }),
             { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
           );
         }
@@ -571,144 +791,68 @@ serve(async (req) => {
         );
       }
       
-      if (!contentText || contentText.trim().length < 100) {
+      // For non-PDF files (TXT, DOCX) - standard processing
+      if (!isPDF) {
+        if (!contentText || contentText.trim().length < 100) {
+          return new Response(
+            JSON.stringify({ error: "Conteúdo muito curto ou vazio" }),
+            { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+        
+        const { data: document, error: docError } = await supabase
+          .from("documents")
+          .insert({
+            title: title || originalName || "Documento sem título",
+            category: category || "manual",
+            file_path: filePath,
+            content_text: contentText
+          })
+          .select()
+          .single();
+        
+        if (docError) throw docError;
+        
+        const { chunksCount, warning } = await processChunksAndEmbeddings(
+          supabase, document.id, contentText, GEMINI_API_KEY
+        );
+        
         return new Response(
-          JSON.stringify({ error: "Conteúdo do documento muito curto ou vazio" }),
-          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          JSON.stringify({
+            success: true,
+            status: "completed",
+            warning,
+            document: {
+              id: document.id,
+              title: document.title,
+              category: document.category,
+              chunk_count: chunksCount
+            }
+          }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
-      
-      // Create document in database
-      const { data: document, error: docError } = await supabase
-        .from("documents")
-        .insert({
-          title: title || originalName || "Documento sem título",
-          category: category || "manual",
-          file_path: filePath,
-          content_text: contentText
-        })
-        .select()
-        .single();
-      
-      if (docError) throw docError;
-      
-      console.log(`[documents] Document created: ${document.id}`);
-      
-      // Split into chunks
-      const chunks = splitIntoChunks(contentText);
-      console.log(`[documents] Document split into ${chunks.length} chunks`);
-      
-       // Generate embeddings (best-effort)
-       // If the key is missing or rate-limited, we still save chunks without embeddings.
-       const chunkRecords: Array<any> = [];
-       let embeddingsWarning: string | null = null;
-       let embeddingModel: any = null;
-
-       if (!GEMINI_API_KEY) {
-         embeddingsWarning = "Embeddings não geradas (GEMINI_API_KEY não configurada).";
-       } else {
-         try {
-           const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
-           embeddingModel = genAI.getGenerativeModel({ model: "text-embedding-004" });
-         } catch (e) {
-           embeddingsWarning = `Embeddings desativadas (falha ao inicializar modelo): ${e instanceof Error ? e.message : String(e)}`;
-         }
-       }
-
-       let embeddingsDisabled = !embeddingModel;
-
-       for (let i = 0; i < chunks.length; i++) {
-         const chunk = chunks[i];
-         const metadata = extractMetadata(chunk, i);
-
-         let embeddingJson: string | null = null;
-         if (!embeddingsDisabled && embeddingModel) {
-           try {
-              const embeddingResult = await withTimeout<any>(
-                embeddingModel.embedContent(chunk) as Promise<any>,
-                AI_TIMEOUT_MS,
-                "Gemini embedContent (text-embedding-004)"
-              );
-              const embedding = embeddingResult?.embedding?.values;
-              if (!embedding) throw new Error("Embedding inválido retornado pelo modelo");
-             embeddingJson = JSON.stringify(embedding);
-           } catch (e) {
-             // Disable further embedding attempts if we hit rate limits/quota or any persistent error.
-             embeddingsDisabled = true;
-             const msg = e instanceof Error ? e.message : String(e);
-             embeddingsWarning = embeddingsWarning || `Embeddings interrompidas: ${msg}`;
-             console.error("[documents] Embedding generation failed, continuing without embeddings:", e);
-           }
-         }
-
-         chunkRecords.push({
-           document_id: document.id,
-           content: chunk,
-           chunk_index: i,
-           embedding: embeddingJson,
-           metadata,
-         });
-
-         // Small pause to not overload the API
-         if (!embeddingsDisabled && i % 5 === 0 && i > 0) {
-           await new Promise((resolve) => setTimeout(resolve, 100));
-         }
-       }
-      
-      // Insert chunks in batches
-      const batchSize = 50;
-      for (let i = 0; i < chunkRecords.length; i += batchSize) {
-        const batch = chunkRecords.slice(i, i + batchSize);
-        const { error: chunksError } = await supabase
-          .from("document_chunks")
-          .insert(batch);
-        
-        if (chunksError) {
-          console.error("Erro ao inserir chunks:", chunksError);
-          throw chunksError;
-        }
-      }
-      
-      console.log(`[documents] All ${chunks.length} chunks inserted successfully`);
-      
-      return new Response(
-        JSON.stringify({
-          success: true,
-           warning: embeddingsWarning,
-          document: {
-            id: document.id,
-            title: document.title,
-            category: document.category,
-            chunk_count: chunks.length
-          }
-        }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
     }
 
     // =============================================
-    // DELETE /documents/:id - Remover documento
+    // DELETE /documents/:id - Remove document
     // =============================================
     if (req.method === "DELETE") {
-      // Verificar admin key
-       const adminKey = (req.headers.get("x-admin-key") || "").trim();
-       if (!adminKey || !ADMIN_KEY || adminKey !== ADMIN_KEY) {
+      const adminKey = (req.headers.get("x-admin-key") || "").trim();
+      if (!adminKey || !ADMIN_KEY || adminKey !== ADMIN_KEY) {
         return new Response(
           JSON.stringify({ error: "Não autorizado" }),
           { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
       
-      // Accept ID from URL path or from request body
-      let docId = documentId && documentId !== "documents" ? documentId : null;
+      let docId = lastPart && lastPart !== "documents" ? lastPart : null;
       
       if (!docId) {
         try {
           const body = await req.json();
           docId = body.id;
-        } catch {
-          // Body parsing failed, docId remains null
-        }
+        } catch { /* ignore */ }
       }
       
       if (!docId) {
@@ -718,7 +862,6 @@ serve(async (req) => {
         );
       }
       
-      // Buscar documento
       const { data: document, error: fetchError } = await supabase
         .from("documents")
         .select("id, file_path")
@@ -732,32 +875,19 @@ serve(async (req) => {
         );
       }
       
-      // Remover chunks
-      const { error: chunksError } = await supabase
-        .from("document_chunks")
-        .delete()
-        .eq("document_id", docId);
+      // Remove related jobs
+      await supabase.from("document_jobs").delete().eq("document_id", docId);
       
-      if (chunksError) {
-        console.error("Erro ao remover chunks:", chunksError);
-      }
+      // Remove chunks
+      await supabase.from("document_chunks").delete().eq("document_id", docId);
       
-      // Remover arquivo do storage
+      // Remove file from storage
       if (document.file_path) {
-        const { error: storageError } = await supabase.storage
-          .from("knowledge-base")
-          .remove([document.file_path]);
-        
-        if (storageError) {
-          console.error("Erro ao remover arquivo:", storageError);
-        }
+        await supabase.storage.from("knowledge-base").remove([document.file_path]);
       }
       
-      // Remover documento
-      const { error: deleteError } = await supabase
-        .from("documents")
-        .delete()
-        .eq("id", docId);
+      // Remove document
+      const { error: deleteError } = await supabase.from("documents").delete().eq("id", docId);
       
       if (deleteError) throw deleteError;
       
@@ -767,17 +897,15 @@ serve(async (req) => {
       );
     }
 
-    // Método não suportado
     return new Response(
       JSON.stringify({ error: "Método não suportado" }),
       { status: 405, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
 
   } catch (error) {
-    console.error("Erro na função documents:", error);
-    const errorMessage = error instanceof Error ? error.message : "Erro interno";
+    console.error("Error in documents function:", error);
     return new Response(
-      JSON.stringify({ error: errorMessage }),
+      JSON.stringify({ error: error instanceof Error ? error.message : "Erro interno" }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
