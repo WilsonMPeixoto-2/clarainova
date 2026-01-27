@@ -232,70 +232,118 @@ Responda APENAS com o texto extraído.`,
 }
 
 // =============================================
-// CHUNKING
+// CHUNKING - Standardized policy for performance and quality
 // =============================================
-const CHUNK_SIZE = 4000;
-const CHUNK_OVERLAP = 500;
+const CHUNK_SIZE = 4000;      // ~1000 tokens
+const CHUNK_OVERLAP = 400;    // 10% overlap for context preservation
 
-function splitIntoChunks(text: string): string[] {
-  const chunks: string[] = [];
-  let start = 0;
+// Simple hash for idempotency
+async function computeContentHash(text: string): Promise<string> {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(text);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('').slice(0, 16);
+}
+
+// Normalize text for better chunking
+function normalizeText(text: string): string {
+  return text
+    // Remove repeated headers/footers (common in PDFs)
+    .replace(/(\n.{0,50}\n)\1+/g, '$1')
+    // Normalize multiple newlines
+    .replace(/\n{4,}/g, '\n\n\n')
+    // Fix broken hyphenation
+    .replace(/(\w)-\n(\w)/g, '$1$2')
+    // Normalize whitespace
+    .replace(/[ \t]+/g, ' ')
+    .trim();
+}
+
+// Detect section anchors for better metadata
+function detectSectionAnchor(text: string): { title: string | null; level: number } {
+  const lines = text.split('\n').slice(0, 3);
   
-  while (start < text.length) {
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.length > 150) continue;
+    
+    // Markdown headers
+    const mdMatch = trimmed.match(/^(#{1,3})\s+(.+)/);
+    if (mdMatch) {
+      return { title: mdMatch[2], level: mdMatch[1].length };
+    }
+    
+    // ALL CAPS titles (common in legal docs)
+    if (trimmed === trimmed.toUpperCase() && trimmed.length > 5 && trimmed.length < 100 && /[A-Z]/.test(trimmed)) {
+      return { title: trimmed, level: 1 };
+    }
+    
+    // Numbered sections (1. Title, Art. 1º, etc)
+    const numMatch = trimmed.match(/^(Art\.?\s*\d+[°º]?|Artigo\s+\d+|\d+\.\s+|[IVX]+\s*[-–.]\s*)(.{5,100})/i);
+    if (numMatch) {
+      return { title: numMatch[0], level: 2 };
+    }
+  }
+  
+  return { title: null, level: 0 };
+}
+
+function splitIntoChunks(text: string): { content: string; metadata: Record<string, any> }[] {
+  const normalizedText = normalizeText(text);
+  const chunks: { content: string; metadata: Record<string, any> }[] = [];
+  let start = 0;
+  let chunkIndex = 0;
+  
+  while (start < normalizedText.length) {
     let end = start + CHUNK_SIZE;
     
-    if (end < text.length) {
-      const doubleNewline = text.lastIndexOf("\n\n", end);
-      if (doubleNewline > start + CHUNK_SIZE / 2) {
-        end = doubleNewline + 2;
+    if (end < normalizedText.length) {
+      // Try to break at semantic boundaries
+      const searchWindow = normalizedText.slice(start + CHUNK_SIZE / 2, end);
+      
+      // Priority: section break > double newline > sentence end
+      const sectionBreak = searchWindow.lastIndexOf('\n\n\n');
+      if (sectionBreak > 0) {
+        end = start + CHUNK_SIZE / 2 + sectionBreak + 3;
       } else {
-        const period = text.lastIndexOf(". ", end);
-        if (period > start + CHUNK_SIZE / 2) {
-          end = period + 2;
+        const doubleNewline = searchWindow.lastIndexOf('\n\n');
+        if (doubleNewline > 0) {
+          end = start + CHUNK_SIZE / 2 + doubleNewline + 2;
+        } else {
+          const period = searchWindow.lastIndexOf('. ');
+          if (period > 0) {
+            end = start + CHUNK_SIZE / 2 + period + 2;
+          }
         }
       }
     }
     
-    chunks.push(text.slice(start, end).trim());
-    start = end - CHUNK_OVERLAP;
-    
-    if (start < 0) start = 0;
-    if (start >= text.length) break;
-  }
-  
-  return chunks.filter(chunk => chunk.length > 50);
-}
-
-function extractMetadata(chunk: string, index: number): Record<string, any> {
-  const lines = chunk.split("\n");
-  const firstLine = lines[0] || "";
-  
-  const isTitle = firstLine.length < 100 && 
-    (firstLine.startsWith("#") || 
-     firstLine === firstLine.toUpperCase() ||
-     firstLine.match(/^\d+\.\s/) ||
-     firstLine.match(/^[A-Z][^.!?]*$/));
-  
-  const keywords: string[] = [];
-  const keywordPatterns = [
-    /SEI/gi, /processo/gi, /documento/gi, /assinatura/gi,
-    /bloco/gi, /tramit/gi, /legislação/gi, /normativa/gi,
-    /unidade/gi, /usuário/gi, /administrativ/gi
-  ];
-  
-  for (const pattern of keywordPatterns) {
-    if (pattern.test(chunk)) {
-      keywords.push(pattern.source.replace(/\\s\*|\\|gi|g|i/g, "").toLowerCase());
+    const content = normalizedText.slice(start, end).trim();
+    if (content.length > 50) {
+      const anchor = detectSectionAnchor(content);
+      
+      chunks.push({
+        content,
+        metadata: {
+          chunk_index: chunkIndex,
+          char_count: content.length,
+          word_count: content.split(/\s+/).length,
+          section_title: anchor.title,
+          section_level: anchor.level,
+          start_offset: start,
+          end_offset: Math.min(end, normalizedText.length)
+        }
+      });
+      chunkIndex++;
     }
+    
+    start = end - CHUNK_OVERLAP;
+    if (start < 0) start = 0;
+    if (start >= normalizedText.length) break;
   }
   
-  return {
-    section_title: isTitle ? firstLine.replace(/^#+\s*/, "") : null,
-    chunk_index: index,
-    keywords: [...new Set(keywords)],
-    char_count: chunk.length,
-    word_count: chunk.split(/\s+/).length
-  };
+  return chunks;
 }
 
 // Rate limiting configuration
@@ -316,7 +364,7 @@ function getClientKey(req: Request): string {
 }
 
 // =============================================
-// PROCESS CHUNKS AND EMBEDDINGS
+// PROCESS CHUNKS AND EMBEDDINGS (Idempotent)
 // =============================================
 async function processChunksAndEmbeddings(
   supabase: any,
@@ -325,7 +373,11 @@ async function processChunksAndEmbeddings(
   geminiApiKey: string | undefined,
   requestId: string,
   debug: DebugInfo
-): Promise<{ chunksCount: number; warning: string | null }> {
+): Promise<{ chunksCount: number; warning: string | null; contentHash: string }> {
+  // Compute content hash for idempotency check
+  const contentHash = await computeContentHash(contentText);
+  console.log(`[${requestId}] Content hash: ${contentHash}`);
+  
   const chunkStart = Date.now();
   const chunks = splitIntoChunks(contentText);
   debug.timings.chunk_ms = Date.now() - chunkStart;
@@ -351,14 +403,14 @@ async function processChunksAndEmbeddings(
   const embedStart = Date.now();
 
   for (let i = 0; i < chunks.length; i++) {
-    const chunk = chunks[i];
-    const metadata = extractMetadata(chunk, i);
+    const { content, metadata } = chunks[i];
+    const chunkHash = await computeContentHash(content);
 
     let embeddingJson: string | null = null;
     if (!embeddingsDisabled && embeddingModel) {
       try {
         const embeddingResult = await withTimeout<any>(
-          embeddingModel.embedContent(chunk) as Promise<any>,
+          embeddingModel.embedContent(content) as Promise<any>,
           AI_TIMEOUT_MS,
           "Gemini embedContent"
         );
@@ -384,12 +436,14 @@ async function processChunksAndEmbeddings(
 
     chunkRecords.push({
       document_id: documentId,
-      content: chunk,
+      content,
       chunk_index: i,
       embedding: embeddingJson,
       metadata,
+      content_hash: chunkHash,
     });
 
+    // Rate limit embeddings
     if (!embeddingsDisabled && i % 5 === 0 && i > 0) {
       await new Promise((resolve) => setTimeout(resolve, 100));
     }
@@ -401,8 +455,22 @@ async function processChunksAndEmbeddings(
     console.log(`[${requestId}] ✓ embed: ${chunks.length} embeddings in ${debug.timings.embed_ms}ms`);
   }
   
-  // Insert chunks in batches
+  // IDEMPOTENT: Delete existing chunks then insert new ones (transactional behavior)
   const dbInsertStart = Date.now();
+  
+  // Delete old chunks first
+  const { error: deleteError } = await supabase
+    .from("document_chunks")
+    .delete()
+    .eq("document_id", documentId);
+  
+  if (deleteError) {
+    console.warn(`[${requestId}] ⚠ delete_old_chunks: ${deleteError.message}`);
+  } else {
+    console.log(`[${requestId}] ✓ delete_old_chunks: Cleared previous chunks`);
+  }
+  
+  // Insert new chunks in batches
   const batchSize = 50;
   for (let i = 0; i < chunkRecords.length; i += batchSize) {
     const batch = chunkRecords.slice(i, i + batchSize);
@@ -417,11 +485,22 @@ async function processChunksAndEmbeddings(
     }
   }
   
+  // Update document metadata
+  await supabase
+    .from("documents")
+    .update({
+      content_hash: contentHash,
+      chunk_count: chunks.length,
+      processed_at: new Date().toISOString(),
+      version: supabase.sql`COALESCE(version, 0) + 1`
+    })
+    .eq("id", documentId);
+  
   debug.timings.db_insert_ms = Date.now() - dbInsertStart;
   debug.steps_completed.push("db_insert");
-  console.log(`[${requestId}] ✓ db_insert: ${chunks.length} chunks in ${debug.timings.db_insert_ms}ms`);
+  console.log(`[${requestId}] ✓ db_insert: ${chunks.length} chunks in ${debug.timings.db_insert_ms}ms (idempotent)`);
   
-  return { chunksCount: chunks.length, warning: embeddingsWarning };
+  return { chunksCount: chunks.length, warning: embeddingsWarning, contentHash };
 }
 
 // =============================================
