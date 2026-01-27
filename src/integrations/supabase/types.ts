@@ -138,6 +138,50 @@ export type Database = {
           },
         ]
       }
+      document_jobs: {
+        Row: {
+          created_at: string
+          document_id: string
+          error: string | null
+          id: string
+          next_page: number
+          pages_per_batch: number
+          status: string
+          total_pages: number | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          document_id: string
+          error?: string | null
+          id?: string
+          next_page?: number
+          pages_per_batch?: number
+          status?: string
+          total_pages?: number | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          document_id?: string
+          error?: string | null
+          id?: string
+          next_page?: number
+          pages_per_batch?: number
+          status?: string
+          total_pages?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "document_jobs_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "documents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       documents: {
         Row: {
           category: string

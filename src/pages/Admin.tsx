@@ -1,11 +1,12 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Upload, FileText, Trash2, RefreshCw, Lock, Check, X, AlertCircle, BarChart3, ClipboardList, Eye, EyeOff } from 'lucide-react';
+import { ArrowLeft, Upload, FileText, Trash2, RefreshCw, Lock, Check, X, AlertCircle, BarChart3, ClipboardList, Eye, EyeOff, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { AnalyticsTab } from '@/components/admin/AnalyticsTab';
@@ -28,6 +29,8 @@ interface Document {
   file_path: string;
   created_at: string;
   chunk_count?: number;
+  processing_status?: string | null;
+  processing_progress?: number | null;
 }
 
 // Conditional debug logging (only in development)
@@ -80,6 +83,10 @@ const Admin = () => {
   const [isDragOver, setIsDragOver] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [documentToDelete, setDocumentToDelete] = useState<Document | null>(null);
+  
+  // Track documents being processed in background
+  const [processingDocs, setProcessingDocs] = useState<Set<string>>(new Set());
+  const pollingIntervalRef = useRef<number | null>(null);
 
   const getAdminKey = useCallback(() => adminKey.trim(), [adminKey]);
 
@@ -110,6 +117,85 @@ const Admin = () => {
     }
   }, [isAuthenticated]);
 
+  // Cleanup polling on unmount
+  useEffect(() => {
+    return () => {
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current);
+      }
+    };
+  }, []);
+
+  // Poll for processing jobs and trigger worker
+  useEffect(() => {
+    if (!isAuthenticated || processingDocs.size === 0) {
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current);
+        pollingIntervalRef.current = null;
+      }
+      return;
+    }
+
+    const pollAndProcess = async () => {
+      const key = getAdminKey();
+      
+      // Trigger the worker to process next batch
+      try {
+        const response = await fetch(
+          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/documents/process-job`,
+          {
+            method: 'POST',
+            headers: {
+              'x-admin-key': key,
+              apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+              Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({}),
+          }
+        );
+
+        if (response.ok) {
+          const result = await response.json();
+          debugLog('[Admin] Worker result:', result);
+
+          if (result.status === 'completed') {
+            // Job completed - remove from tracking and refresh
+            setProcessingDocs(prev => {
+              const next = new Set(prev);
+              next.delete(result.documentId);
+              return next;
+            });
+            
+            toast({
+              title: 'Processamento concluído',
+              description: `Documento processado com sucesso!`,
+            });
+            
+            await fetchDocuments();
+          } else if (result.status === 'processing') {
+            // Still processing - refresh to show progress
+            await fetchDocuments();
+          }
+        }
+      } catch (error) {
+        console.error('[Admin] Polling error:', error);
+      }
+    };
+
+    // Poll every 3 seconds while there are processing documents
+    pollingIntervalRef.current = window.setInterval(pollAndProcess, 3000);
+    
+    // Initial poll
+    pollAndProcess();
+
+    return () => {
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current);
+      }
+    };
+  }, [isAuthenticated, processingDocs.size, getAdminKey, toast]);
+
   const handleAuthenticate = async () => {
     const key = getAdminKey();
     if (!key) {
@@ -124,7 +210,6 @@ const Admin = () => {
     setIsAuthenticating(true);
     
     try {
-      // Validate admin key using dedicated auth endpoint (fetch to read body even on 401)
       const authResponse = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/admin-auth`,
         {
@@ -147,7 +232,6 @@ const Admin = () => {
         throw new Error(data?.error || 'Chave de administrador inválida.');
       }
 
-      // Store in session storage
       sessionStorage.setItem('clara_admin_key', key);
       setAdminKey(key);
       setIsAuthenticated(true);
@@ -180,8 +264,6 @@ const Admin = () => {
       });
 
       if (error) {
-        // When the backend returns 401, supabase-js wraps it in an error.
-        // We treat it as expired auth and force re-login.
         const msg = (error as any)?.message || '';
         if (msg.includes('401') || msg.toLowerCase().includes('not authorized')) {
           handleAuthExpired();
@@ -189,7 +271,19 @@ const Admin = () => {
         }
         throw error;
       }
-      setDocuments(data.documents || []);
+      
+      const docs = data.documents || [];
+      setDocuments(docs);
+      
+      // Track documents that are still processing
+      const stillProcessing = new Set<string>();
+      docs.forEach((doc: Document) => {
+        if (doc.processing_status === 'pending' || doc.processing_status === 'processing') {
+          stillProcessing.add(doc.id);
+        }
+      });
+      setProcessingDocs(stillProcessing);
+      
     } catch (error: any) {
       toast({
         title: 'Erro ao carregar documentos',
@@ -200,7 +294,6 @@ const Admin = () => {
       setIsLoading(false);
     }
   };
-
 
   const handleFileUpload = async (files: FileList | null) => {
     debugLog('[Admin] handleFileUpload called with files:', files?.length);
@@ -216,9 +309,8 @@ const Admin = () => {
       'text/plain',
     ];
 
-    // Size limits by file type (PDFs now processed via URL, so can be larger)
-    const MAX_PDF_SIZE = 50 * 1024 * 1024; // 50MB limit for PDFs (processed via signed URL)
-    const MAX_OTHER_SIZE = 50 * 1024 * 1024; // 50MB limit for DOCX/TXT
+    const MAX_PDF_SIZE = 50 * 1024 * 1024;
+    const MAX_OTHER_SIZE = 50 * 1024 * 1024;
     
     const validFiles = Array.from(files).filter(file => {
       debugLog(`[Admin] Checking file: ${file.name}, type: ${file.type}, size: ${Math.round(file.size / 1024 / 1024)}MB`);
@@ -228,10 +320,7 @@ const Admin = () => {
       const maxSize = isPDF ? MAX_PDF_SIZE : MAX_OTHER_SIZE;
       const isValidSize = file.size <= maxSize;
       
-      debugLog(`[Admin] File ${file.name}: validType=${isValidType}, validSize=${isValidSize}, isPDF=${isPDF}`);
-      
       if (!isValidType) {
-        debugLog(`[Admin] Invalid type for ${file.name}`);
         toast({
           title: `Arquivo ignorado: ${file.name}`,
           description: 'Use apenas PDF, DOCX ou TXT.',
@@ -243,11 +332,10 @@ const Admin = () => {
       if (!isValidSize) {
         const fileSizeMB = Math.round(file.size / 1024 / 1024);
         const maxSizeMB = Math.round(maxSize / 1024 / 1024);
-        debugLog(`[Admin] File too large: ${file.name} (${fileSizeMB}MB, max: ${maxSizeMB}MB)`);
         toast({
           title: `Arquivo muito grande: ${file.name}`,
           description: isPDF 
-            ? `PDFs têm limite de ${maxSizeMB}MB para processamento. Seu arquivo: ${fileSizeMB}MB. Divida o documento em partes menores.`
+            ? `PDFs têm limite de ${maxSizeMB}MB. Seu arquivo: ${fileSizeMB}MB.`
             : `Limite: ${maxSizeMB}MB. Seu arquivo: ${fileSizeMB}MB.`,
           variant: 'destructive',
         });
@@ -257,10 +345,7 @@ const Admin = () => {
       return true;
     });
 
-    debugLog('[Admin] Valid files count:', validFiles.length);
-
     if (validFiles.length === 0) {
-      debugLog('[Admin] No valid files to upload');
       return;
     }
 
@@ -280,7 +365,7 @@ const Admin = () => {
           throw new Error('Chave de administrador ausente.');
         }
 
-        // STEP 1: Get signed upload URL from Edge Function
+        // STEP 1: Get signed upload URL
         debugLog(`[Admin] Getting signed upload URL for ${file.name}...`);
         setUploadProgress(Math.round(((completedFiles + 0.1) / totalFiles) * 100));
 
@@ -303,7 +388,6 @@ const Admin = () => {
 
         if (!signedUrlResponse.ok) {
           const errorData = await signedUrlResponse.json();
-          console.error('[Admin] Signed URL error:', signedUrlResponse.status, errorData);
           throw new Error(`[${signedUrlResponse.status}] ${errorData.error || 'Falha ao obter URL de upload'}`);
         }
 
@@ -311,65 +395,39 @@ const Admin = () => {
         debugLog(`[Admin] Got signed URL for path: ${signedUrlData.path}`);
         setUploadProgress(Math.round(((completedFiles + 0.3) / totalFiles) * 100));
 
-        // STEP 2: Upload file directly via PUT request (diagnostic definitivo)
-        debugLog(`[Admin] ========== UPLOAD STEP 2 ==========`);
-        
-        // Validate file is a proper Blob before upload
+        // STEP 2: Upload file via PUT
         assertIsBlobLike(file, file.name);
-        debugLog(`[Admin] ✓ File validated as Blob`);
-        debugLog(`[Admin] File: ${file.name}`);
-        debugLog(`[Admin] Size: ${file.size} bytes (${(file.size / 1024 / 1024).toFixed(2)} MB)`);
-        debugLog(`[Admin] Type: ${file.type}`);
-        debugLog(`[Admin] Target path: ${signedUrlData.path}`);
-        debugLog(`[Admin] Bucket: ${signedUrlData.bucket}`);
-        debugLog(`[Admin] Signed URL (first 100 chars): ${signedUrlData.signedUrl?.substring(0, 100)}...`);
         
-        // Mobile-optimized upload function with retry logic
         const uploadFile = async (fileToUpload: File, signedUrl: string): Promise<Response> => {
           const isMobile = /mobile|android|iphone|ipad|ipod/i.test(navigator.userAgent);
-          debugLog(`[Admin] Device type: ${isMobile ? 'Mobile' : 'Desktop'}`);
-
-          // 1) Conservative limit on mobile
           const maxMb = isMobile ? 10 : 50;
+          
           if (fileToUpload.size > maxMb * 1024 * 1024) {
             throw new Error(`Arquivo muito grande para este dispositivo (máx ${maxMb}MB).`);
           }
 
-          // 2) Longer timeout on mobile
           const timeoutMs = isMobile ? 120000 : 60000;
-          
-          // 3) Content-Type with fallback (mobile sometimes comes empty)
           const isPdf = (fileToUpload.type?.includes("pdf") || fileToUpload.name?.toLowerCase().endsWith(".pdf"));
           const contentType = fileToUpload.type || (isPdf ? "application/pdf" : "application/octet-stream");
-          debugLog(`[Admin] Using Content-Type: ${contentType}`);
-
-          // 4) More compatible body on iOS (arrayBuffer for PDF)
           const body = isPdf ? await fileToUpload.arrayBuffer() : fileToUpload;
-          debugLog(`[Admin] Body type: ${isPdf ? 'ArrayBuffer' : 'File'}`);
 
-          // Execute upload with timeout
           const controller = new AbortController();
           const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-          debugLog(`[Admin] Upload timeout set to ${timeoutMs / 1000}s`);
 
           try {
-            debugLog(`[Admin] PUT request starting...`);
             const uploadRes = await fetch(signedUrl, {
               method: "PUT",
-              headers: {
-                "Content-Type": contentType,
-              },
+              headers: { "Content-Type": contentType },
               body,
               signal: controller.signal,
             });
 
             clearTimeout(timeoutId);
-            debugLog(`[Admin] PUT response status: ${uploadRes.status} ${uploadRes.statusText}`);
 
             if (!uploadRes.ok) {
               const msg = `Upload falhou: HTTP ${uploadRes.status}`;
               if (uploadRes.status === 409) {
-                throw new Error(`${msg} (conflito: arquivo já existe — verifique o path ou use upsert)`);
+                throw new Error(`${msg} (conflito: arquivo já existe)`);
               }
               if (uploadRes.status === 403) {
                 throw new Error(`${msg} (permissão/policy do bucket ou URL expirada)`);
@@ -381,28 +439,24 @@ const Admin = () => {
           } catch (err: any) {
             clearTimeout(timeoutId);
             if (err?.name === "AbortError") {
-              throw new Error("Upload excedeu o tempo limite. Tente em Wi-Fi ou envie arquivo menor.");
+              throw new Error("Upload excedeu o tempo limite.");
             }
             throw err;
           }
         };
 
-        // Retry with exponential backoff
         const MAX_RETRIES = 3;
-        const BASE_DELAY = 1000; // 1 second
+        const BASE_DELAY = 1000;
         
         const uploadWithRetry = async (fileToUpload: File, signedUrl: string): Promise<Response> => {
           let lastError: Error | null = null;
           
           for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
             try {
-              debugLog(`[Admin] Upload attempt ${attempt}/${MAX_RETRIES}`);
               return await uploadFile(fileToUpload, signedUrl);
             } catch (error) {
               lastError = error instanceof Error ? error : new Error(String(error));
-              debugLog(`[Admin] Attempt ${attempt} failed:`, lastError.message);
               
-              // Don't retry for definitive errors
               if (lastError.message.includes("muito grande") || 
                   lastError.message.includes("não autorizado") ||
                   lastError.message.includes("conflito") ||
@@ -411,8 +465,7 @@ const Admin = () => {
               }
               
               if (attempt < MAX_RETRIES) {
-                const delay = BASE_DELAY * Math.pow(2, attempt - 1); // 1s, 2s, 4s
-                debugLog(`[Admin] Retrying in ${delay}ms...`);
+                const delay = BASE_DELAY * Math.pow(2, attempt - 1);
                 await new Promise(r => setTimeout(r, delay));
               }
             }
@@ -421,50 +474,11 @@ const Admin = () => {
           throw lastError || new Error("Upload falhou após todas tentativas");
         };
 
-        // Execute the mobile-optimized upload with retry logic
-        const uploadResponse = await uploadWithRetry(file, signedUrlData.signedUrl);
-        debugLog(`[Admin] PUT response headers:`, Object.fromEntries(uploadResponse.headers.entries()));
-        
-        const responseBody = await uploadResponse.text().catch(() => '');
-        debugLog(`[Admin] [UPLOAD OK]`, { status: uploadResponse.status, path: signedUrlData.path });
-        debugLog(`[Admin] PUT SUCCESS - Response body: ${responseBody || '(empty)'}`);
-        
-        // Verify file exists in storage
-        debugLog(`[Admin] ========== VERIFY UPLOAD ==========`);
-        debugLog(`[Admin] Checking if file exists at: ${signedUrlData.path}`);
-        
-        const { data: fileCheck, error: checkError } = await supabase.storage
-          .from(signedUrlData.bucket)
-          .list(signedUrlData.path.split('/').slice(0, -1).join('/'));
-        
-        if (checkError) {
-          console.warn(`[Admin] Could not verify upload:`, checkError);
-        } else {
-          const fileName = signedUrlData.path.split('/').pop();
-          const fileExists = fileCheck?.some(f => f.name === fileName);
-          debugLog(`[Admin] File exists in bucket: ${fileExists}`);
-          debugLog(`[Admin] Files in folder:`, fileCheck?.map(f => f.name));
-        }
-        
-        debugLog(`[Admin] ========== UPLOAD COMPLETE ==========`);
-
+        await uploadWithRetry(file, signedUrlData.signedUrl);
         setUploadProgress(Math.round(((completedFiles + 0.6) / totalFiles) * 100));
 
-        // STEP 3: Process document via documents Edge Function
-        debugLog(`[Admin] ========== PROCESSING STEP 3 ==========`);
-        debugLog(`[Admin] Calling documents Edge Function...`);
-        debugLog(`[Admin] filePath: ${signedUrlData.path}`);
-        debugLog(`[Admin] title: ${file.name.replace(/\.[^/.]+$/, '')}`);
-        debugLog(`[Admin] fileType: ${file.type || signedUrlData.contentType}`);
-        
-        const processPayload = {
-          filePath: signedUrlData.path,
-          title: file.name.replace(/\.[^/.]+$/, ''),
-          category: 'manual',
-          fileType: file.type || signedUrlData.contentType,
-          originalName: file.name,
-        };
-        debugLog(`[Admin] Request payload:`, JSON.stringify(processPayload, null, 2));
+        // STEP 3: Process document
+        debugLog(`[Admin] Processing document...`);
         
         const processResponse = await fetch(
           `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/documents`,
@@ -476,12 +490,16 @@ const Admin = () => {
               Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
               'Content-Type': 'application/json',
             },
-            body: JSON.stringify(processPayload),
+            body: JSON.stringify({
+              filePath: signedUrlData.path,
+              title: file.name.replace(/\.[^/.]+$/, ''),
+              category: 'manual',
+              fileType: file.type || signedUrlData.contentType,
+              originalName: file.name,
+            }),
           }
         );
         
-        debugLog(`[Admin] Process response status: ${processResponse.status} ${processResponse.statusText}`);
-
         setUploadProgress(Math.round(((completedFiles + 0.9) / totalFiles) * 100));
 
         if (!processResponse.ok) {
@@ -489,35 +507,36 @@ const Admin = () => {
             handleAuthExpired();
           }
 
-          const errorData = await processResponse
-            .json()
-            .catch(() => ({ error: 'Falha ao processar documento (resposta inválida).' }));
-          console.error('[Admin] Processing FAILED:', processResponse.status, errorData);
-          // Clean up the uploaded file if processing failed
+          const errorData = await processResponse.json().catch(() => ({ error: 'Falha ao processar documento.' }));
+          
+          // Cleanup uploaded file
           try {
-            debugLog('[Admin] Cleaning up uploaded file...');
             await supabase.storage.from('knowledge-base').remove([signedUrlData.path]);
-          } catch (cleanupError) {
-            console.error('[Admin] Cleanup error:', cleanupError);
-          }
+          } catch {}
+          
           throw new Error(`[${processResponse.status}] ${errorData.error || 'Erro ao processar documento'}`);
         }
 
         const processResult = await processResponse.json();
-        debugLog(`[Admin] ========== PROCESSING SUCCESS ==========`);
-        debugLog(`[Admin] Document ID: ${processResult.document?.id || 'unknown'}`);
-        debugLog(`[Admin] Chunks created: ${processResult.document?.chunk_count || processResult.chunks || 'unknown'}`);
-        debugLog(`[Admin] Full response:`, JSON.stringify(processResult, null, 2));
+        debugLog(`[Admin] Processing result:`, processResult);
 
         completedFiles++;
         setUploadProgress(Math.round((completedFiles / totalFiles) * 100));
-        
-        debugLog(`[Admin] ========== FILE ${completedFiles}/${totalFiles} COMPLETE ==========`);
 
-        toast({
-          title: 'Upload concluído',
-          description: `"${file.name}" processado com sucesso (${completedFiles}/${totalFiles}).${processResult?.warning ? `\n\nAviso: ${processResult.warning}` : ''}`,
-        });
+        // Check if document is being processed in background
+        if (processResult.status === 'processing') {
+          setProcessingDocs(prev => new Set(prev).add(processResult.document.id));
+          
+          toast({
+            title: 'Upload iniciado',
+            description: `"${file.name}" será processado em background (${processResult.document.totalPages} páginas).`,
+          });
+        } else {
+          toast({
+            title: 'Upload concluído',
+            description: `"${file.name}" processado com sucesso.${processResult?.warning ? `\n\nAviso: ${processResult.warning}` : ''}`,
+          });
+        }
 
       } catch (error: any) {
         hasErrors = true;
@@ -530,13 +549,12 @@ const Admin = () => {
       }
     }
 
-    // Refresh documents list
     await fetchDocuments();
 
     if (!hasErrors && totalFiles > 1) {
       toast({
         title: 'Todos os uploads concluídos',
-        description: `${totalFiles} documentos processados com sucesso.`,
+        description: `${totalFiles} documentos enviados.`,
       });
     }
 
@@ -551,9 +569,7 @@ const Admin = () => {
       const key = getAdminKey();
       const { error } = await supabase.functions.invoke(`documents`, {
         method: 'DELETE',
-        headers: {
-          'x-admin-key': key,
-        },
+        headers: { 'x-admin-key': key },
         body: { id: documentToDelete.id },
       });
 
@@ -572,6 +588,11 @@ const Admin = () => {
       });
 
       setDocuments(docs => docs.filter(d => d.id !== documentToDelete.id));
+      setProcessingDocs(prev => {
+        const next = new Set(prev);
+        next.delete(documentToDelete.id);
+        return next;
+      });
     } catch (error: any) {
       toast({
         title: 'Erro ao remover',
@@ -804,6 +825,11 @@ const Admin = () => {
                 </CardTitle>
                 <CardDescription>
                   {documents.length} documento{documents.length !== 1 ? 's' : ''} na base
+                  {processingDocs.size > 0 && (
+                    <span className="ml-2 text-yellow-500">
+                      • {processingDocs.size} em processamento
+                    </span>
+                  )}
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -828,7 +854,11 @@ const Admin = () => {
                       >
                         <div className="flex items-center gap-4 flex-1 min-w-0">
                           <div className="w-10 h-10 rounded-lg bg-primary/20 flex items-center justify-center flex-shrink-0">
-                            <FileText className="w-5 h-5 text-primary" />
+                            {doc.processing_status === 'processing' || doc.processing_status === 'pending' ? (
+                              <Loader2 className="w-5 h-5 text-primary animate-spin" />
+                            ) : (
+                              <FileText className="w-5 h-5 text-primary" />
+                            )}
                           </div>
                           <div className="flex-1 min-w-0">
                             <p className="font-medium truncate">{doc.title}</p>
@@ -837,10 +867,25 @@ const Admin = () => {
                                 {doc.category}
                               </Badge>
                               <span>{formatDate(doc.created_at)}</span>
-                              {doc.chunk_count !== undefined && (
+                              {doc.chunk_count !== undefined && doc.chunk_count > 0 && (
                                 <span>{doc.chunk_count} chunks</span>
                               )}
                             </div>
+                            {/* Processing progress bar */}
+                            {(doc.processing_status === 'processing' || doc.processing_status === 'pending') && (
+                              <div className="mt-2">
+                                <div className="flex items-center gap-2 text-xs text-yellow-500">
+                                  <Loader2 className="w-3 h-3 animate-spin" />
+                                  <span>Processando...</span>
+                                  {doc.processing_progress !== null && (
+                                    <span>{doc.processing_progress}%</span>
+                                  )}
+                                </div>
+                                {doc.processing_progress !== null && (
+                                  <Progress value={doc.processing_progress} className="h-1 mt-1" />
+                                )}
+                              </div>
+                            )}
                           </div>
                         </div>
                         <Button
@@ -851,6 +896,7 @@ const Admin = () => {
                             setDeleteDialogOpen(true);
                           }}
                           className="text-destructive hover:text-destructive hover:bg-destructive/10 flex-shrink-0"
+                          disabled={doc.processing_status === 'processing'}
                         >
                           <Trash2 className="w-4 h-4" />
                         </Button>
