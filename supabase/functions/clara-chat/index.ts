@@ -69,6 +69,25 @@ const currentDate = new Date().toLocaleDateString('pt-BR', {
   year: 'numeric'
 });
 
+// Mode-specific instructions for Direto vs Didático
+const MODE_INSTRUCTIONS: Record<string, string> = {
+  "fast": `## Modo de Resposta: DIRETO
+Você está no modo "Direto". Priorize:
+- Respostas objetivas e concisas
+- Bullets e listas numeradas
+- Citações diretas das fontes
+- Menos analogias, mais ação
+- Formato: O quê fazer → Como fazer → Fonte`,
+
+  "deep": `## Modo de Resposta: DIDÁTICO
+Você está no modo "Didático". Priorize:
+- Explicações completas com contexto
+- Analogias do mundo físico antes de termos técnicos
+- O "porquê" antes do "como"
+- Exemplos práticos ilustrativos
+- Antecipação de dúvidas correlatas`
+};
+
 const CLARA_SYSTEM_PROMPT = `Você é a **CLARA** (Consultora de Legislação e Apoio a Rotinas Administrativas).
 Sua missão é atuar como uma "colega sênior" experiente, paciente e pedagógica.
 Data atual: ${currentDate}.
@@ -657,10 +676,16 @@ serve(async (req) => {
       
 A base local não contém informação suficiente sobre este tema. Use a ferramenta de busca do Google para encontrar informações atualizadas.
 PRIORIZE fontes oficiais: ${WEB_SEARCH_CONFIG.trustedDomains.join(", ")}.
-SEMPRE inclua o disclaimer de busca web ao final da resposta.`
+SEMPRE inclua o disclaimer de busca web ao final da resposta.
+INICIE a resposta mencionando que consultou fontes externas.`
       : "";
 
-    const userPrompt = `## Contexto da Base de Conhecimento
+    // Get mode-specific instruction
+    const modeInstruction = MODE_INSTRUCTIONS[mode] || MODE_INSTRUCTIONS["fast"];
+
+    const userPrompt = `${modeInstruction}
+
+## Contexto da Base de Conhecimento
 
 ${context || "Nenhum documento relevante encontrado na base de conhecimento."}
 
@@ -895,6 +920,11 @@ Sempre cite as fontes quando usar informação do contexto [Nome do Documento].$
         try {
           // Enviar evento de provedor de API
           controller.enqueue(encoder.encode(`event: api_provider\ndata: ${JSON.stringify({ provider: apiProvider, model: activeModelName })}\n\n`));
+          
+          // Enviar notice se web search estiver ativo
+          if (needsWebSearch) {
+            controller.enqueue(encoder.encode(`event: notice\ndata: ${JSON.stringify({ type: "web_search", message: "Consultando fontes externas..." })}\n\n`));
+          }
           
           // Enviar evento de início
           const thinkingStep = needsWebSearch 

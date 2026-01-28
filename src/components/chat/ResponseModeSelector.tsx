@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { Zap, Brain } from "lucide-react";
+import { Target, BookOpen } from "lucide-react";
 import {
   Tooltip,
   TooltipContent,
@@ -18,22 +18,24 @@ interface ResponseModeSelectorProps {
 const modes = [
   {
     value: "fast" as ResponseMode,
-    label: "Rápido",
-    icon: Zap,
-    tooltip: "Respostas ágeis para dúvidas simples e procedimentos do dia a dia.",
+    label: "Direto",
+    icon: Target,
+    tooltip: "Respostas objetivas com citações diretas. Ideal para dúvidas simples e procedimentos do dia a dia.",
+    shortLabel: "Direto",
   },
   {
     value: "deep" as ResponseMode,
-    label: "Análise Completa",
-    icon: Brain,
-    tooltip: "Análise mais profunda para questões complexas de legislação e normas.",
+    label: "Didático",
+    icon: BookOpen,
+    tooltip: "Explicações completas com analogias e contexto. Ideal para entender o 'porquê' das regras.",
+    shortLabel: "Didático",
   },
 ];
 
 export function ResponseModeSelector({ mode, onChange, disabled }: ResponseModeSelectorProps) {
   return (
     <div 
-      className="flex items-center gap-1 p-1 rounded-lg bg-muted/30"
+      className="flex items-center gap-1 p-1 rounded-lg bg-surface-3/50 border border-border-subtle"
       role="radiogroup"
       aria-label="Modo de resposta"
     >
@@ -51,12 +53,12 @@ export function ResponseModeSelector({ mode, onChange, disabled }: ResponseModeS
                 disabled={disabled}
                 onClick={() => onChange(option.value)}
                 className={cn(
-                  "relative flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors",
+                  "relative flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors",
                   "focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50",
                   "disabled:opacity-50 disabled:cursor-not-allowed",
                   isSelected
                     ? "text-primary-foreground"
-                    : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                    : "text-muted-foreground hover:text-foreground hover:bg-surface-4/50"
                 )}
                 whileTap={{ scale: 0.97 }}
               >
@@ -74,8 +76,9 @@ export function ResponseModeSelector({ mode, onChange, disabled }: ResponseModeS
                 </span>
               </motion.button>
             </TooltipTrigger>
-            <TooltipContent side="top" className="max-w-[200px] text-center">
-              {option.tooltip}
+            <TooltipContent side="top" className="max-w-[220px] text-center text-xs">
+              <p className="font-medium mb-1">{option.label}</p>
+              <p className="text-muted-foreground">{option.tooltip}</p>
             </TooltipContent>
           </Tooltip>
         );
