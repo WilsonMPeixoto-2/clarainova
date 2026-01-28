@@ -43,7 +43,7 @@
     
     /* Superfícies - Escala de 5 níveis */
     --surface-0: 216 45% 7%;      /* Fundo base (background) */
-    --surface-1: 216 40% 10%;     /* Cards elevados */
+    --surface-1: 216 40% 9%;      /* Header, elevated surfaces */
     --surface-2: 216 40% 12%;     /* Cards secundários (atual --card) */
     --surface-3: 216 35% 15%;     /* Inputs, hover states */
     --surface-4: 216 35% 18%;     /* Elementos interativos ativos */
