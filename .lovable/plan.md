@@ -1,181 +1,196 @@
 
-# Plano de Refinamento Artístico - Fase de Ajustes Finos + Continuação
+
+# ETAPA 1 — Chat Premium: Refinamentos Estratégicos
+
+## Visão Geral do Diretor de Arte
+
+Após análise detalhada do código, identifico que o sistema atual já possui:
+- ✅ Markdown rendering robusto (headers, listas, code blocks)
+- ✅ Sistema de fontes colapsável (SourcesSection)
+- ✅ Toggle de modo Rápido/Análise Completa (ResponseModeSelector)
+- ✅ Ações de Copiar, PDF, Feedback
+- ✅ Web search fallback com grounding
+- ✅ Indicador de pensamento (ThinkingIndicator)
+
+O foco será **refinamento cirúrgico**, não reestruturação.
 
 ---
 
-## Avaliação do Diretor de Arte
+## 1.1 Hierarquia Visual das Respostas (Sem Rigidez)
 
-Após análise detalhada do código e do sistema visual atual, identifico três categorias de ação:
+### O que manter
+- Renderização markdown existente (funciona bem)
+- Sistema de fontes colapsável atual
+- Estética dark premium com tokens do design system
 
-### Consolidar (Está Excelente)
-- Sistema de tokens unificado em `index.css` (superfícies, bordas, texto)
-- Header sticky com `backdrop-blur-xl` e transição suave
-- Badge "PREVIEW" minimalista
-- Micro-interações nos botões (`active:scale-[0.98]`)
-- Classes semânticas `.text-body`, `.text-caption`, `.text-hint`
+### O que ajustar
+Introduzir **divisores visuais sutis** entre seções naturais da resposta, sem impor estrutura ao conteúdo. A IA continuará livre para estruturar conforme necessário.
 
-### Suavizar (Ajustes Finos)
-1. **Feature cards hover**: `translateY(-4px)` é ligeiramente agressivo para o tom institucional. Reduzir para `-2px`.
-2. **Floating elements no Hero**: Os pontos decorativos (`w-2 h-2 bg-primary/30 blur-sm`) são quase invisíveis e adicionam complexidade desnecessária ao DOM. Remover.
-3. **H1 hover scale**: O `whileHover={{ scale: 1.02 }}` no texto "CLARA" pode parecer "jovial demais" para LegalTech. Remover.
+### Implementação
+1. **Aprimorar `renderMarkdown()`** em `ChatMessage.tsx`:
+   - Adicionar classe visual diferenciada para `<h2>` e `<h3>` com borda lateral sutil âmbar
+   - Manter horizontal rules (`---`) mais elegantes com opacidade reduzida
+   - Nenhuma limitação de conteúdo — apenas estilização
 
-### Expandir para Consistência (Próximas Etapas)
-- Aplicar tokens semânticos aos componentes de Chat e Admin
-- Padronizar opacidades inline (`text-muted-foreground/60`) para classes
+2. **Estilização de seções** via CSS em `index.css`:
+   ```css
+   .chat-section-title {
+     border-left: 2px solid hsl(var(--primary) / 0.4);
+     padding-left: 12px;
+     margin-top: 16px;
+   }
+   ```
 
----
-
-## Fase 1: Ajustes Finos Imediatos
-
-### 1.1 Feature Card Hover (Mais Sutil)
-
-**Arquivo:** `src/index.css`
-
-**Alteração:**
-```css
-/* Antes */
-.feature-card:hover {
-  transform: translateY(-4px);
-}
-
-/* Depois */
-.feature-card:hover {
-  transform: translateY(-2px);
-}
-```
-
-**Justificativa:** Movimento mais contido, elegante, coerente com identidade institucional.
+### Critério de sucesso
+Respostas longas ficam mais "escaneáveis" visualmente, sem alterar o conteúdo gerado pela IA.
 
 ---
 
-### 1.2 Remover Floating Elements Decorativos
+## 1.2 Chips de Fontes Premium + Ações Rápidas
 
-**Arquivo:** `src/components/HeroSection.tsx`
+### O que manter
+- Sistema colapsável de fontes existente (SourcesSection)
+- Copiar resposta completa (CopyButton)
+- Download PDF (DownloadPdfButton)
 
-**Alteração:** Remover completamente o bloco de elementos flutuantes (linhas 61-72).
+### O que ajustar
+Transformar as fontes em **chips clicáveis estilo Apple** e adicionar novas ações:
+- Chips formatados: `Manual SEI 4.0 • p. 32` ou `Decreto nº X • art. Y`
+- Nova ação: **"Copiar como Checklist"** (converte bullets em formato checklist)
 
-**Justificativa:**
-- Quase imperceptíveis visualmente
-- Adicionam animações contínuas sem propósito claro
-- Reduz complexidade do DOM e melhora performance
+### Implementação
+1. **Redesenhar `SourcesSection`** em `ChatMessage.tsx`:
+   - Chips com visual premium (glass effect, hover sutil)
+   - Tooltip com "Por que esta fonte?" (opcional, fase futura)
+   
+2. **Adicionar `ChecklistButton`** novo componente:
+   - Detecta listas no conteúdo
+   - Converte para formato `[ ] Item` ao copiar
+   - Ícone: `ListChecks` do Lucide
 
----
+3. **Melhorar apresentação de fontes** no backend:
+   - O CLARA_SYSTEM_PROMPT já instrui citações no formato `[Manual SEI 4.0, p. X]`
+   - Manter como está — o parsing no frontend pode extrair isso
 
-### 1.3 Remover Scale Hover do H1
-
-**Arquivo:** `src/components/HeroSection.tsx`
-
-**Alteração:**
-```tsx
-/* Antes */
-<motion.span 
-  className="..."
-  whileHover={{ scale: 1.02 }}
-  transition={{ type: "spring", stiffness: 300 }}
->
-  CLARA
-</motion.span>
-
-/* Depois */
-<span className="...">
-  CLARA
-</span>
-```
-
-**Justificativa:** Texto institucional não deve "pular" no hover. Mantém sobriedade.
+### Critério de sucesso
+Chips de fonte são elegantes e discretos. Copiar preserva formatação. Nova opção de checklist disponível.
 
 ---
 
-## Fase 2: Componentes de Chat (Tokens Semânticos)
+## 1.3 Evolução do Modo de Resposta
 
-### 2.1 ChatMessage.tsx
+### O que manter
+- ResponseModeSelector existente (Rápido ⚡ / Análise Completa 🧠)
+- Integração com localStorage
+- Roteamento para diferentes modelos (flash vs pro)
 
-**Alterações:**
-1. Substituir `text-muted-foreground/60` por `text-caption`
-2. Substituir `bg-muted/50` (code blocks) por `bg-surface-3`
-3. Padronizar `border-border/50` para `border-border-subtle`
+### O que ajustar
+Renomear para terminologia mais clara e conectar diretamente aos modelos:
 
-### 2.2 SourceCitation.tsx
+| Modo Atual | Novo Nome | Modelo | Comportamento |
+|------------|-----------|--------|---------------|
+| Rápido | **Direto** | gemini-flash | Curto, citações diretas |
+| Análise Completa | **Didático** | gemini-pro | Analogias, explicações |
 
-**Alterações:**
-1. Usar `bg-surface-3` em vez de `bg-muted/30`
-2. Aplicar `text-caption` para labels de fonte
-3. Hover states: `hover:bg-surface-4`
+### Implementação
+1. **Atualizar labels** em `ResponseModeSelector.tsx`:
+   - "Rápido" → "Direto" (ícone: Target)
+   - "Análise Completa" → "Didático" (ícone: BookOpen)
+   - Tooltips mais descritivos
 
-### 2.3 ThinkingIndicator.tsx
+2. **Ajustar CLARA_SYSTEM_PROMPT** no edge function:
+   - Adicionar instrução condicional baseada no modo
+   - Modo "Direto": priorizar bullets, citações, menos analogias
+   - Modo "Didático": incluir analogias, explicações do "por quê"
 
-**Alterações:**
-1. Já usa `.glass-card` - sem alterações necessárias
-2. Apenas confirmar que cores dinâmicas (blue, purple, emerald) estão harmônicas
+3. **Passar modo para o sistema via contexto**:
+   - Já existe `mode` no payload
+   - Adicionar instrução dinâmica no prompt do usuário
 
-### 2.4 FeedbackModal.tsx
-
-**Alterações:**
-1. Substituir `bg-background/80` por `bg-surface-0/85 backdrop-blur-sm` (consistente com Sheet)
-2. Usar `bg-surface-3` para hover em radio options
-
----
-
-## Fase 3: Painel Admin (Tokens Semânticos)
-
-### 3.1 Cards de Métricas (AnalyticsTab.tsx)
-
-**Alterações:**
-1. Cards já usam `.glass-card` - OK
-2. Padronizar badges: usar tokens de cores ao invés de hardcoded `bg-green-500/20`
-3. Refinar gráficos: usar `hsl(var(--text-muted))` em vez de inline HSL
-
-### 3.2 ProcessingStatsTab.tsx
-
-**Alterações:**
-1. Badges de status: manter cores funcionais (verde/vermelho/amarelo) mas com opacidades consistentes
-2. Cards de erro: usar `bg-destructive/10` já presente - OK
-
-### 3.3 ReportFormModal.tsx e ReportViewModal.tsx
-
-**Alterações:**
-1. Usar `.text-body` para parágrafos
-2. Usar `.text-caption` para metadata
-3. Botões já usam `.btn-clara-primary` - OK
+### Critério de sucesso
+Mesmo input produz saídas consistentemente diferentes conforme o modo selecionado.
 
 ---
 
-## Arquivos a Modificar
+## 1.4 Transparência Elegante para Cenários Especiais
 
-| Arquivo | Tipo de Alteração |
+### O que manter
+- Web search grounding existente (funciona bem)
+- Indicador de provedor de API (ApiProviderBadge)
+- ThinkingIndicator com etapas
+
+### O que ajustar
+Criar respostas elegantes e padronizadas para cenários específicos, diretamente no prompt do sistema:
+
+| Cenário | Resposta Elegante |
 |---------|-------------------|
-| `src/index.css` | Ajuste fino no hover do feature-card |
-| `src/components/HeroSection.tsx` | Remover floating elements e scale hover |
-| `src/components/chat/ChatMessage.tsx` | Migrar para tokens semânticos |
-| `src/components/chat/SourceCitation.tsx` | Migrar para tokens semânticos |
-| `src/components/chat/FeedbackModal.tsx` | Padronizar overlay e hovers |
-| `src/components/admin/AnalyticsTab.tsx` | Pequenos ajustes de consistência |
+| **Base insuficiente → Web** | "Não encontrei referência específica na base interna. Consultei fontes oficiais para complementar..." |
+| **Nenhuma resposta objetiva** | "Não localizei orientação normativa definitiva sobre este ponto específico. Sugiro..." |
+| **Orientação geral sem especificidade setorial** | "A base normativa geral indica X, mas para especificidades do seu setor, recomendo consultar..." |
+| **Assunto fora do escopo** | Recusa elegante (já existe no prompt) |
+| **Dados pessoais detectados** | Solicitação de reformulação (já existe no prompt) |
+
+### Implementação
+1. **Expandir CLARA_SYSTEM_PROMPT** com seção "Cenários de Transparência":
+   - Templates de resposta para cada situação
+   - Instruções claras de quando usar cada um
+
+2. **Adicionar evento SSE de "aviso"** no edge function:
+   - Novo evento `event: notice` para avisos discretos
+   - Frontend renderiza como badge/chip acima da resposta
+
+3. **Criar componente `ResponseNotice`**:
+   - Visual: chip discreto com ícone Info
+   - Mensagens como "Consultando fontes web..." ou "Base limitada sobre este tema"
+
+### Critério de sucesso
+Usuário entende instantaneamente a origem e confiabilidade da resposta.
 
 ---
 
-## Critérios de Sucesso
+## Detalhamento Técnico
 
-1. **Hover mais sutil**: Feature cards sobem 2px (não 4px)
-2. **Hero mais limpo**: Sem elementos decorativos invisíveis
-3. **H1 estático**: "CLARA" não reage ao hover
-4. **Tokens consistentes**: Chat e Admin usam mesmas classes semânticas
-5. **Zero regressão visual**: Nenhuma quebra de layout
+### Arquivos a Modificar
+
+| Arquivo | Alterações |
+|---------|------------|
+| `src/components/chat/ChatMessage.tsx` | Estilização de headers, nova seção de ações |
+| `src/components/chat/ResponseModeSelector.tsx` | Novos labels e ícones |
+| `src/components/chat/ChecklistButton.tsx` | **Novo arquivo** - botão copiar como checklist |
+| `src/components/chat/ResponseNotice.tsx` | **Novo arquivo** - avisos de transparência |
+| `src/index.css` | Classes para hierarquia visual |
+| `supabase/functions/clara-chat/index.ts` | Expansão do prompt, evento de aviso |
+| `src/hooks/useChat.ts` | Processar novo evento SSE `notice` |
+
+### Ordem de Implementação
+
+```text
+Fase 1: Hierarquia Visual (CSS + ChatMessage)
+   ↓
+Fase 2: Evolução do Modo (ResponseModeSelector + Prompt)
+   ↓
+Fase 3: Ações Rápidas (ChecklistButton)
+   ↓
+Fase 4: Transparência (ResponseNotice + Eventos SSE)
+```
+
+### Estimativa de Esforço
+- **Fase 1**: Baixo (estilização apenas)
+- **Fase 2**: Médio (prompt + UI)
+- **Fase 3**: Baixo (novo componente simples)
+- **Fase 4**: Médio (backend + frontend)
 
 ---
 
-## Decisão Artística Final
+## Resultado Esperado
 
-**Elementos MANTIDOS por serem eficazes:**
-- Staggered animations no Hero (15% delay entre itens)
-- Badge chip com pulse no ponto verde
-- Botão CTA com shadow-glow no hover
-- Header blur transition no scroll
+O chat CLARA evolui de "assistente funcional" para **"consultoria premium acionável"**:
 
-**Elementos REMOVIDOS por serem excessivos:**
-- Floating decorative dots (imperceptíveis)
-- Scale hover no título principal (desconexo do tom)
+1. **Respostas visualmente escaneáveis** com hierarquia clara
+2. **Fontes como chips premium** clicáveis e informativos
+3. **Modo de resposta semântico** (Direto vs Didático) conectado aos modelos
+4. **Transparência elegante** sobre origem e confiabilidade das informações
+5. **Novas ações** (checklist) sem poluir a interface
 
-**Elementos SUAVIZADOS:**
-- Feature card lift (de -4px para -2px)
+Tudo isso mantendo a identidade visual premium estabelecida e zero regressão no comportamento atual.
 
-Este plano equilibra refinamento visual com manutenção da identidade premium já estabelecida.
