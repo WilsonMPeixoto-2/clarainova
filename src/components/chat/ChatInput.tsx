@@ -93,7 +93,7 @@ export function ChatInput({ onSend, isLoading, onCancel, initialValue = "" }: Ch
           disabled={isLoading}
           rows={1}
           aria-describedby="chat-hint"
-          className="flex-1 bg-transparent border-0 resize-none px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-0 disabled:opacity-50"
+          className="flex-1 bg-transparent border-0 resize-none px-4 py-3 text-sm text-foreground placeholder:text-text-muted focus:outline-none focus:ring-0 disabled:opacity-50"
           style={{ minHeight: "44px", maxHeight: "200px" }}
         />
         
@@ -179,7 +179,7 @@ export function ChatInput({ onSend, isLoading, onCancel, initialValue = "" }: Ch
           
           {!isLoading && (
             <motion.span 
-              className={`text-xs ${isNearLimit ? "text-destructive" : "text-muted-foreground/50"}`}
+              className={`text-xs ${isNearLimit ? "text-destructive" : "text-text-disabled"}`}
               animate={{ scale: isNearLimit ? [1, 1.05, 1] : 1 }}
               transition={{ duration: 0.3 }}
             >

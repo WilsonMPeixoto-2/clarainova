@@ -206,7 +206,7 @@ export function ChatPanel({ open, onOpenChange, initialQuery }: ChatPanelProps) 
           }`}
         >
           {/* Header */}
-          <SheetHeader className="flex-shrink-0 px-4 py-3 border-b border-border/50 bg-background">
+          <SheetHeader className="flex-shrink-0 px-4 py-3 border-b border-border-subtle bg-background">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center">
@@ -214,7 +214,7 @@ export function ChatPanel({ open, onOpenChange, initialQuery }: ChatPanelProps) 
                 </div>
                 <div>
                   <SheetTitle className="text-lg font-semibold text-foreground">CLARA</SheetTitle>
-                  <p className="text-xs text-muted-foreground">Inteligência Administrativa</p>
+                  <p className="text-caption">Inteligência Administrativa</p>
                 </div>
               </div>
 
@@ -291,7 +291,7 @@ export function ChatPanel({ open, onOpenChange, initialQuery }: ChatPanelProps) 
                   
                   <motion.p 
                     variants={itemVariants}
-                    className="text-sm text-muted-foreground max-w-sm mb-6"
+                    className="text-body text-sm max-w-sm mb-6"
                   >
                     Sua assistente especializada em legislação e procedimentos administrativos.
                   </motion.p>
@@ -312,7 +312,7 @@ export function ChatPanel({ open, onOpenChange, initialQuery }: ChatPanelProps) 
                         whileTap="tap"
                         onClick={() => sendMessage(suggestion, "fast")}
                         disabled={isLoading}
-                        className="text-left px-3 py-2.5 rounded-lg border border-border/60 bg-card/40 text-sm text-foreground/80 hover:bg-card hover:border-primary/30 transition-colors disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-primary/50"
+                        className="text-left px-3 py-2.5 rounded-lg border border-border-subtle bg-card/40 text-sm text-foreground/80 hover:bg-card hover:border-primary/30 transition-all duration-fast disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-primary/40"
                       >
                         {suggestion}
                       </motion.button>
@@ -346,13 +346,13 @@ export function ChatPanel({ open, onOpenChange, initialQuery }: ChatPanelProps) 
           </main>
 
           {/* Input Area */}
-          <footer className="flex-shrink-0 border-t border-border/50 bg-background/80 backdrop-blur-xl px-4 py-3">
+          <footer className="flex-shrink-0 border-t border-border-subtle bg-background/80 backdrop-blur-xl px-4 py-3">
             <ChatInput
               onSend={sendMessage}
               isLoading={isLoading}
               onCancel={cancelStream}
             />
-            <p className="text-xs text-center text-muted-foreground/60 mt-2">
+            <p className="text-hint text-center mt-2">
               CLARA pode cometer erros. Verifique informações importantes.
             </p>
           </footer>

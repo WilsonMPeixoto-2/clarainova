@@ -35,7 +35,7 @@ const FeaturesSection = () => {
           >
             Como a CLARA pode ajudar
           </h2>
-          <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
+          <p className="text-body text-lg max-w-2xl mx-auto">
             Recursos projetados para simplificar seu trabalho com legislação e processos administrativos.
           </p>
         </div>
@@ -69,7 +69,7 @@ const FeaturesSection = () => {
                 </h3>
 
                 {/* Description */}
-                <p className="text-muted-foreground leading-relaxed">
+                <p className="text-body">
                   {feature.description}
                 </p>
               </article>
