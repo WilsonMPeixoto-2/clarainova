@@ -6,6 +6,8 @@ import { CopyButton } from "./CopyButton";
 import { DownloadPdfButton } from "./DownloadPdfButton";
 import { FeedbackButtons } from "./FeedbackButtons";
 import { ApiProviderBadge } from "./ApiProviderBadge";
+import { ChecklistButton } from "./ChecklistButton";
+import { ResponseNotice } from "./ResponseNotice";
 import { Button } from "@/components/ui/button";
 
 interface ChatMessageProps {
@@ -74,11 +76,11 @@ function renderMarkdown(text: string): JSX.Element[] {
       continue;
     }
 
-    // Headings
+    // Headings - with chat-section-title styling for visual hierarchy
     if (line.startsWith("### ")) {
       flushList();
       elements.push(
-        <h3 key={`h3-${elements.length}`} className="text-lg font-semibold text-foreground mt-4 mb-2">
+        <h3 key={`h3-${elements.length}`} className="chat-section-title text-base font-semibold text-foreground mt-4 mb-2">
           {renderInline(line.slice(4))}
         </h3>
       );
@@ -87,7 +89,7 @@ function renderMarkdown(text: string): JSX.Element[] {
     if (line.startsWith("## ")) {
       flushList();
       elements.push(
-        <h2 key={`h2-${elements.length}`} className="text-xl font-semibold text-foreground mt-5 mb-2">
+        <h2 key={`h2-${elements.length}`} className="chat-section-title text-lg font-semibold text-foreground mt-5 mb-2">
           {renderInline(line.slice(3))}
         </h2>
       );
@@ -96,7 +98,7 @@ function renderMarkdown(text: string): JSX.Element[] {
     if (line.startsWith("# ")) {
       flushList();
       elements.push(
-        <h1 key={`h1-${elements.length}`} className="text-2xl font-bold text-foreground mt-5 mb-3">
+        <h1 key={`h1-${elements.length}`} className="chat-section-title text-xl font-bold text-foreground mt-5 mb-3">
           {renderInline(line.slice(2))}
         </h1>
       );
@@ -125,10 +127,10 @@ function renderMarkdown(text: string): JSX.Element[] {
       continue;
     }
 
-    // Horizontal rule
+    // Horizontal rule - elegant divider
     if (line.match(/^[-*_]{3,}$/)) {
       flushList();
-      elements.push(<hr key={`hr-${elements.length}`} className="my-4 border-border-subtle" />);
+      elements.push(<hr key={`hr-${elements.length}`} className="chat-divider my-5 border-0" />);
       continue;
     }
 
@@ -226,7 +228,7 @@ function renderInline(text: string): (string | JSX.Element)[] {
   return parts;
 }
 
-// Componente de fontes colapsável
+// Componente de fontes colapsável - Premium chips design
 function SourcesSection({ sources }: { sources: ChatMessageType["sources"] }) {
   const [isExpanded, setIsExpanded] = useState(false);
   
@@ -246,10 +248,10 @@ function SourcesSection({ sources }: { sources: ChatMessageType["sources"] }) {
         variant="ghost"
         size="sm"
         onClick={() => setIsExpanded(!isExpanded)}
-        className="text-xs text-muted-foreground hover:text-foreground gap-1 h-7 px-2"
+        className="text-xs text-muted-foreground hover:text-foreground gap-1.5 h-7 px-2 group"
       >
-        <FileText className="w-3 h-3" aria-hidden="true" />
-        {totalSources} {totalSources === 1 ? "fonte" : "fontes"}
+        <FileText className="w-3 h-3 group-hover:text-primary transition-colors" aria-hidden="true" />
+        <span>{totalSources} {totalSources === 1 ? "fonte consultada" : "fontes consultadas"}</span>
         {isExpanded ? (
           <ChevronUp className="w-3 h-3" aria-hidden="true" />
         ) : (
@@ -273,10 +275,11 @@ function SourcesSection({ sources }: { sources: ChatMessageType["sources"] }) {
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ delay: i * 0.05 }}
-              className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full bg-surface-3 text-caption"
+              className="source-chip-local"
+              title={source}
             >
-              <FileText className="w-3 h-3" aria-hidden="true" />
-              {source}
+              <FileText className="w-3 h-3 flex-shrink-0" aria-hidden="true" />
+              <span className="truncate max-w-[180px]">{source}</span>
             </motion.span>
           ))}
           {sources.web?.map((source, i) => (
@@ -288,10 +291,11 @@ function SourcesSection({ sources }: { sources: ChatMessageType["sources"] }) {
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ delay: (sources.local?.length || 0 + i) * 0.05 }}
-              className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
+              className="source-chip-web"
+              title={source}
             >
-              <ExternalLink className="w-3 h-3" aria-hidden="true" />
-              Fonte web
+              <ExternalLink className="w-3 h-3 flex-shrink-0" aria-hidden="true" />
+              <span className="truncate max-w-[150px]">Fonte web</span>
             </motion.a>
           ))}
         </div>
@@ -378,15 +382,21 @@ export const ChatMessage = memo(function ChatMessage({ message }: ChatMessagePro
           )}
         </div>
 
+        {/* Notice for transparency */}
+        {!isUser && message.notice && !message.isStreaming && (
+          <ResponseNotice type={message.notice.type} message={message.notice.message} />
+        )}
+
         {/* Actions for assistant messages */}
         {!isUser && !message.isStreaming && message.content && (
           <motion.div 
-            className="flex items-center gap-2 mt-1"
+            className="flex items-center gap-2 mt-2 flex-wrap"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.3 }}
           >
             <CopyButton text={message.content} />
+            <ChecklistButton text={message.content} />
             {message.userQuery && (
               <DownloadPdfButton
                 userQuery={message.userQuery}
