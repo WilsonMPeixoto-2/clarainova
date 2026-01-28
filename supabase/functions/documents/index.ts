@@ -1,3 +1,4 @@
+// Import map: ../import_map.json (used during Supabase deploy)
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { GoogleGenerativeAI } from "https://esm.sh/@google/generative-ai@0.21.0";
@@ -811,6 +812,70 @@ serve(async (req) => {
     }
 
     // =============================================
+    // GET /documents/download/:documentId - Get signed download URL
+    // =============================================
+    if (req.method === "GET" && pathParts.includes("download")) {
+      const adminKey = (req.headers.get("x-admin-key") || "").trim();
+      if (!adminKey || !ADMIN_KEY || adminKey !== ADMIN_KEY) {
+        return createDebugResponse(false, 401, { error: "Não autorizado" }, debug, startTime);
+      }
+
+      const documentId = lastPart;
+      console.log(`[${requestId}] DOWNLOAD: Generating signed URL for document ${documentId}`);
+
+      // Get document file path
+      const { data: document, error: docError } = await supabase
+        .from("documents")
+        .select("id, title, file_path")
+        .eq("id", documentId)
+        .single();
+
+      if (docError || !document || !document.file_path) {
+        return createDebugResponse(false, 404, { 
+          error: "Documento não encontrado ou sem arquivo" 
+        }, debug, startTime);
+      }
+
+      // Generate signed URL with 15 minutes expiration
+      const DOWNLOAD_URL_EXPIRATION_SECONDS = 15 * 60; // 15 minutes
+      const { data: signedUrlData, error: signedUrlError } = await supabase.storage
+        .from("knowledge-base")
+        .createSignedUrl(document.file_path, DOWNLOAD_URL_EXPIRATION_SECONDS);
+
+      if (signedUrlError || !signedUrlData?.signedUrl) {
+        console.error(`[${requestId}] ✗ signed_url: ${signedUrlError?.message}`);
+        return createDebugResponse(false, 500, { 
+          error: "Falha ao gerar URL de download" 
+        }, debug, startTime);
+      }
+
+      // Log document access
+      const clientIp = getClientKey(req);
+      await supabase.rpc("log_document_access", {
+        p_document_id: documentId,
+        p_access_type: "download",
+        p_ip_address: clientIp,
+        p_user_agent: req.headers.get("user-agent") || "unknown"
+      });
+
+      debug.steps_completed.push("signed_url");
+      console.log(`[${requestId}] ✓ signed_url: Generated for ${document.title}`);
+
+      const expiresAt = new Date(Date.now() + DOWNLOAD_URL_EXPIRATION_SECONDS * 1000).toISOString();
+
+      return createDebugResponse(true, 200, {
+        signedUrl: signedUrlData.signedUrl,
+        expiresAt,
+        expiresInSeconds: DOWNLOAD_URL_EXPIRATION_SECONDS,
+        document: {
+          id: document.id,
+          title: document.title,
+          filePath: document.file_path
+        }
+      }, debug, startTime);
+    }
+
+    // =============================================
     // POST /documents/ingest-start - Start a batch ingestion session
     // =============================================
     if (req.method === "POST" && lastPart === "ingest-start") {
@@ -850,7 +915,7 @@ serve(async (req) => {
     }
 
     // =============================================
-    // POST /documents/ingest-batch - Append batch of text to document
+    // POST /documents/ingest-batch - Append batch of text to document (idempotent)
     // =============================================
     if (req.method === "POST" && lastPart === "ingest-batch") {
       const adminKey = (req.headers.get("x-admin-key") || "").trim();
@@ -861,13 +926,43 @@ serve(async (req) => {
       const body = await req.json();
       const { documentId, batchText, batchIndex, totalBatches } = body;
 
-      if (!documentId || batchText === undefined) {
+      if (!documentId || batchText === undefined || batchIndex === undefined) {
         return createDebugResponse(false, 400, { 
-          error: "documentId e batchText são obrigatórios" 
+          error: "documentId, batchText e batchIndex são obrigatórios" 
         }, debug, startTime);
       }
 
-      console.log(`[${requestId}] INGEST-BATCH: doc=${documentId}, batch=${batchIndex}/${totalBatches}, chars=${batchText.length}`);
+      // Compute hash for idempotency check
+      const encoder = new TextEncoder();
+      const data = encoder.encode(batchText);
+      const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+      const hashArray = Array.from(new Uint8Array(hashBuffer));
+      const batchHash = hashArray.map(b => b.toString(16).padStart(2, '0')).join('').slice(0, 16);
+
+      console.log(`[${requestId}] INGEST-BATCH: doc=${documentId}, batch=${batchIndex}/${totalBatches}, chars=${batchText.length}, hash=${batchHash}`);
+
+      // Check idempotency via RPC
+      const { data: idempotencyResult, error: idempotencyError } = await supabase.rpc(
+        "record_batch_processed",
+        {
+          p_document_id: documentId,
+          p_batch_index: batchIndex,
+          p_batch_hash: batchHash
+        }
+      );
+
+      if (idempotencyError) {
+        console.warn(`[${requestId}] ⚠ idempotency_check: ${idempotencyError.message}`);
+      } else if (idempotencyResult?.[0]?.is_duplicate) {
+        console.log(`[${requestId}] ⏭ batch_skip: Batch ${batchIndex} already processed (same hash)`);
+        return createDebugResponse(true, 200, {
+          status: "batch_skipped",
+          reason: "idempotent",
+          documentId,
+          batchIndex,
+          message: "Batch já processado com mesmo conteúdo"
+        }, debug, startTime);
+      }
 
       // Get current document
       const { data: doc, error: docError } = await supabase
@@ -904,7 +999,55 @@ serve(async (req) => {
         documentId,
         batchIndex,
         totalBatches,
-        totalChars: updatedText.length
+        totalChars: updatedText.length,
+        batchHash
+      }, debug, startTime);
+    }
+
+    // =============================================
+    // GET /documents/resume/:documentId - Get resume point for interrupted ingestion
+    // =============================================
+    if (req.method === "GET" && pathParts.includes("resume")) {
+      const adminKey = (req.headers.get("x-admin-key") || "").trim();
+      if (!adminKey || !ADMIN_KEY || adminKey !== ADMIN_KEY) {
+        return createDebugResponse(false, 401, { error: "Não autorizado" }, debug, startTime);
+      }
+
+      const documentId = lastPart;
+      console.log(`[${requestId}] RESUME: Checking resume point for document ${documentId}`);
+
+      // Get resume point via RPC
+      const { data: resumeData, error: resumeError } = await supabase.rpc(
+        "get_ingestion_resume_point",
+        { p_document_id: documentId }
+      );
+
+      if (resumeError) {
+        return createDebugResponse(false, 500, { 
+          error: `Falha ao verificar ponto de retomada: ${resumeError.message}` 
+        }, debug, startTime);
+      }
+
+      const result = resumeData?.[0] || { resume_from_batch: 0, total_batches_recorded: 0, job_status: 'not_started' };
+
+      // Also get document status
+      const { data: doc } = await supabase
+        .from("documents")
+        .select("id, title, status, content_text")
+        .eq("id", documentId)
+        .single();
+
+      const contentLength = doc?.content_text?.length || 0;
+
+      return createDebugResponse(true, 200, {
+        documentId,
+        resumeFromBatch: result.resume_from_batch,
+        totalBatchesRecorded: result.total_batches_recorded,
+        lastHash: result.last_hash,
+        jobStatus: result.job_status,
+        documentStatus: doc?.status || 'not_found',
+        currentContentLength: contentLength,
+        canResume: result.job_status === 'processing' || doc?.status === 'ingesting'
       }, debug, startTime);
     }
 

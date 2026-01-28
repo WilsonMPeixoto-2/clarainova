@@ -184,11 +184,13 @@ export type Database = {
       }
       document_jobs: {
         Row: {
+          batch_hashes: Json | null
           completed_at: string | null
           created_at: string
           document_id: string
           error: string | null
           id: string
+          last_batch_index: number | null
           last_error_at: string | null
           max_retries: number | null
           next_page: number
@@ -196,15 +198,18 @@ export type Database = {
           retry_count: number | null
           started_at: string | null
           status: string
+          total_batches: number | null
           total_pages: number | null
           updated_at: string
         }
         Insert: {
+          batch_hashes?: Json | null
           completed_at?: string | null
           created_at?: string
           document_id: string
           error?: string | null
           id?: string
+          last_batch_index?: number | null
           last_error_at?: string | null
           max_retries?: number | null
           next_page?: number
@@ -212,15 +217,18 @@ export type Database = {
           retry_count?: number | null
           started_at?: string | null
           status?: string
+          total_batches?: number | null
           total_pages?: number | null
           updated_at?: string
         }
         Update: {
+          batch_hashes?: Json | null
           completed_at?: string | null
           created_at?: string
           document_id?: string
           error?: string | null
           id?: string
+          last_batch_index?: number | null
           last_error_at?: string | null
           max_retries?: number | null
           next_page?: number
@@ -228,6 +236,7 @@ export type Database = {
           retry_count?: number | null
           started_at?: string | null
           status?: string
+          total_batches?: number | null
           total_pages?: number | null
           updated_at?: string
         }
@@ -291,6 +300,47 @@ export type Database = {
           version?: number | null
         }
         Relationships: []
+      }
+      processing_metrics: {
+        Row: {
+          created_at: string | null
+          document_id: string | null
+          duration_ms: number
+          error_message: string | null
+          id: string
+          metadata: Json | null
+          step: string
+          success: boolean
+        }
+        Insert: {
+          created_at?: string | null
+          document_id?: string | null
+          duration_ms: number
+          error_message?: string | null
+          id?: string
+          metadata?: Json | null
+          step: string
+          success: boolean
+        }
+        Update: {
+          created_at?: string | null
+          document_id?: string | null
+          duration_ms?: number
+          error_message?: string | null
+          id?: string
+          metadata?: Json | null
+          step?: string
+          success?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "processing_metrics_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "documents"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       profiles: {
         Row: {
@@ -408,6 +458,39 @@ export type Database = {
           },
         ]
       }
+      search_metrics: {
+        Row: {
+          created_at: string | null
+          id: string
+          keyword_search_ms: number | null
+          query_hash: string
+          results_returned: number | null
+          threshold_used: number | null
+          total_chunks_scanned: number | null
+          vector_search_ms: number | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          keyword_search_ms?: number | null
+          query_hash: string
+          results_returned?: number | null
+          threshold_used?: number | null
+          total_chunks_scanned?: number | null
+          vector_search_ms?: number | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          keyword_search_ms?: number | null
+          query_hash?: string
+          results_returned?: number | null
+          threshold_used?: number | null
+          total_chunks_scanned?: number | null
+          vector_search_ms?: number | null
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           id: string
@@ -476,6 +559,66 @@ export type Database = {
           total_size_bytes: number
         }[]
       }
+      get_document_file_path: {
+        Args: { p_document_id: string }
+        Returns: string
+      }
+      get_documents_for_retry: {
+        Args: never
+        Returns: {
+          error_reason: string
+          id: string
+          last_batch_index: number
+          status: string
+          title: string
+          total_batches: number
+          updated_at: string
+        }[]
+      }
+      get_ingestion_resume_point: {
+        Args: { p_document_id: string }
+        Returns: {
+          job_status: string
+          last_hash: string
+          resume_from_batch: number
+          total_batches_recorded: number
+        }[]
+      }
+      get_processing_stats: {
+        Args: { p_days?: number }
+        Returns: {
+          avg_duration_ms: number
+          failed_count: number
+          max_duration_ms: number
+          min_duration_ms: number
+          step: string
+          success_rate: number
+          total_count: number
+        }[]
+      }
+      get_recent_processing_errors: {
+        Args: { p_limit?: number }
+        Returns: {
+          created_at: string
+          document_id: string
+          document_title: string
+          duration_ms: number
+          error_message: string
+          id: string
+          step: string
+        }[]
+      }
+      get_search_performance_stats: {
+        Args: { p_days?: number }
+        Returns: {
+          avg_keyword_ms: number
+          avg_results: number
+          avg_total_chunks: number
+          avg_vector_ms: number
+          p95_vector_ms: number
+          total_searches: number
+        }[]
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -512,6 +655,17 @@ export type Database = {
           p_user_agent?: string
         }
         Returns: string
+      }
+      record_batch_processed: {
+        Args: {
+          p_batch_hash: string
+          p_batch_index: number
+          p_document_id: string
+        }
+        Returns: {
+          existing_hash: string
+          is_duplicate: boolean
+        }[]
       }
       search_document_chunks: {
         Args: {

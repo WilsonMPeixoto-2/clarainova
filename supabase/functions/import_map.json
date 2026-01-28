@@ -1,0 +1,10 @@
+{
+  "imports": {
+    "@std/http": "https://deno.land/std@0.224.0/http/server.ts",
+    "@std/encoding/base64": "https://deno.land/std@0.224.0/encoding/base64.ts",
+    "@supabase/supabase-js": "https://esm.sh/@supabase/supabase-js@2.49.1",
+    "@google/generative-ai": "https://esm.sh/@google/generative-ai@0.21.0",
+    "mammoth": "https://esm.sh/mammoth@1.6.0",
+    "pdfjs-serverless": "https://esm.sh/pdfjs-serverless@0.6.0"
+  }
+}
