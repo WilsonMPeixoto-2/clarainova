@@ -1,76 +1,94 @@
 
-# Plano: Corrigir Erro de Build (Top-Level Await)
+# Plano: Corrigir Erro de Página Não Funcionando
 
-## Problema
+## Diagnóstico
 
-O `pdfjs-dist@4.0.379` usa **top-level await**, que não é suportado pelos targets padrão do Vite (`chrome87`, `edge88`, `es2020`).
+O erro mostra dois problemas encadeados:
 
-```
-ERROR: Top-level await is not available in the configured target environment
-```
+1. **"Failed to fetch dynamically imported module: src/pages/Index.tsx"**
+   - O Vite não consegue carregar o módulo lazy-loaded
+   
+2. **"Cannot read properties of null (reading 'useState')"**
+   - Indica múltiplas instâncias do React em conflito
 
-## Solução
+O `force: true` no `vite.config.ts` força reconstrução de dependências, mas pode criar inconsistência temporária entre o cache do navegador e os novos bundles.
 
-Adicionar `target: "esnext"` em três lugares do `vite.config.ts`:
+## Causa Raiz
 
-1. **`optimizeDeps.esbuildOptions.target`** - Para o dev server
-2. **`build.target`** - Para o build de produção
-3. **`esbuild.target`** - Para a transpilação geral
+Quando `force: true` é aplicado:
+- O Vite regenera os hashes dos chunks (ex: `chunk-DRWLMN53.js?v=8a24826e`)
+- O navegador pode ter cache de módulos antigos
+- O lazy loading tenta carregar módulos com hashes desatualizados
+- React é carregado de bundles diferentes, causando o erro de hooks
 
-## Alteração Necessária
+## Solução (2 alterações)
+
+### 1. Remover `force: true` do vite.config.ts
+
+O `force: true` só deve ser usado uma vez para limpar cache corrompido. Mantê-lo permanentemente causa rebuilds desnecessários e pode gerar inconsistências.
 
 **Arquivo: `vite.config.ts`**
 
 ```typescript
-import { defineConfig } from "vite";
-import react from "@vitejs/plugin-react-swc";
-import path from "path";
-import { componentTagger } from "lovable-tagger";
-
-export default defineConfig(({ mode }) => ({
-  server: {
-    host: "::",
-    port: 8080,
-    hmr: {
-      overlay: false,
-    },
+optimizeDeps: {
+  include: ["react", "react-dom", "framer-motion"],
+  exclude: [],
+  // Remover: force: true,
+  esbuildOptions: {
+    target: "esnext",
   },
-  plugins: [react(), mode === "development" && componentTagger()].filter(Boolean),
-  resolve: {
-    alias: {
-      "@": path.resolve(__dirname, "./src"),
-    },
-    dedupe: ["react", "react-dom", "framer-motion"],
-  },
-  optimizeDeps: {
-    include: ["react", "react-dom", "framer-motion"],
-    exclude: [],
-    esbuildOptions: {
-      target: "esnext",  // <-- ADICIONAR
-    },
-  },
-  build: {
-    target: "esnext",    // <-- ADICIONAR
-    commonjsOptions: {
-      include: [/node_modules/],
-    },
-  },
-  esbuild: {
-    target: "esnext",    // <-- ADICIONAR
-  },
-}));
+},
 ```
 
-## Por que esta solução funciona
+### 2. Adicionar tratamento de erro no lazy loading
 
-| Target | Suporta Top-Level Await |
-|--------|------------------------|
-| `es2020` | Não |
-| `chrome87` | Não |
-| `esnext` | Sim |
+Para evitar que erros de cache quebrem a aplicação, adicionar retry automático nos imports dinâmicos.
 
-O `esnext` é suportado por todos os navegadores modernos (Chrome 89+, Firefox 89+, Safari 15+).
+**Arquivo: `src/App.tsx`**
+
+Criar uma função wrapper que tenta recarregar o módulo em caso de falha:
+
+```typescript
+// Função para retry de lazy imports com fallback
+function lazyWithRetry(
+  importFn: () => Promise<{ default: React.ComponentType<unknown> }>
+) {
+  return lazy(async () => {
+    try {
+      return await importFn();
+    } catch (error) {
+      // Se falhar, força refresh da página para limpar cache
+      console.error("Failed to load module, reloading...", error);
+      window.location.reload();
+      // Retorna um componente vazio enquanto recarrega
+      return { default: () => null };
+    }
+  });
+}
+
+// Uso:
+const Index = lazyWithRetry(() => import("./pages/Index"));
+const Login = lazyWithRetry(() => import("./pages/Login"));
+// ... demais páginas
+```
+
+## Por que isso resolve
+
+| Problema | Solução |
+|----------|---------|
+| Cache inconsistente | Remove `force: true` para estabilizar hashes |
+| Falha no lazy loading | Retry automático com reload |
+| Múltiplas instâncias React | Deduplicação já configurada funciona corretamente |
+
+## Ação Imediata do Usuário
+
+Enquanto implemento as correções, o usuário pode resolver temporariamente:
+- **Limpar cache do navegador** e recarregar a página
+- Ou usar **Ctrl+Shift+R** (hard refresh)
 
 ## Resultado Esperado
 
-Após esta alteração, o build deve completar sem erros e o `pdfjs-dist` funcionará corretamente no frontend.
+Após as alterações:
+- A página carrega normalmente
+- Erros de cache são tratados automaticamente com reload
+- Não haverá mais conflitos de instâncias do React
