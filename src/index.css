@@ -336,6 +336,26 @@
     background: hsl(var(--accent) / 0.2);
     color: hsl(var(--accent));
   }
+
+  /* Suggestion chips for search */
+  .suggestion-chip {
+    @apply text-sm px-3 py-1.5 rounded-full font-medium;
+    background: hsl(var(--surface-3));
+    border: 1px solid hsl(var(--border-subtle));
+    color: hsl(var(--text-secondary));
+    transition: all var(--duration-fast) ease-out;
+  }
+  
+  .suggestion-chip:hover {
+    background: hsl(var(--surface-4));
+    border-color: hsl(var(--primary) / 0.4);
+    color: hsl(var(--primary));
+  }
+  
+  .suggestion-chip:focus-visible {
+    @apply outline-none ring-2 ring-offset-2 ring-offset-background;
+    --tw-ring-color: hsl(var(--primary) / 0.4);
+  }
 }
 
 @layer utilities {
