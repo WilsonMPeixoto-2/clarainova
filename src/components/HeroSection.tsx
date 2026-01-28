@@ -79,7 +79,7 @@ const HeroSection = ({ onOpenChat }: HeroSectionProps) => {
 
             {/* H1 - CLARA */}
             <motion.h1 variants={itemVariants}>
-              <span className="text-6xl sm:text-7xl md:text-8xl lg:text-9xl font-bold tracking-tight text-primary amber-glow inline-block">
+              <span className="text-5xl sm:text-6xl md:text-8xl lg:text-9xl font-bold tracking-tight text-primary amber-glow inline-block">
                 CLARA
               </span>
             </motion.h1>
@@ -185,7 +185,7 @@ const HeroSection = ({ onOpenChat }: HeroSectionProps) => {
                     onChange={(e) => setSearchQuery(e.target.value)}
                     onFocus={() => setIsSearchFocused(true)}
                     onBlur={() => setIsSearchFocused(false)}
-                    placeholder="Descreva sua dúvida com suas próprias palavras…"
+                    placeholder="Descreva sua dúvida…"
                     className="search-input-clara pl-12"
                     autoComplete="off"
                   />
