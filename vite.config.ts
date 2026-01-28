@@ -22,6 +22,7 @@ export default defineConfig(({ mode }) => ({
   optimizeDeps: {
     include: ["react", "react-dom", "framer-motion"],
     exclude: [],
+    force: true,
     esbuildOptions: {
       target: "esnext",
     },
