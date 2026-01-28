@@ -58,7 +58,7 @@ export function FeedbackModal({ isOpen, onClose, onSubmit, isSubmitting }: Feedb
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={handleClose}
-            className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50"
+            className="fixed inset-0 bg-surface-0/85 backdrop-blur-sm z-50"
           />
 
           {/* Modal */}
@@ -94,7 +94,7 @@ export function FeedbackModal({ isOpen, onClose, onSubmit, isSubmitting }: Feedb
                 {FEEDBACK_CATEGORIES.map((category) => (
                   <div
                     key={category.value}
-                    className="flex items-center space-x-3 p-2 rounded-lg hover:bg-muted/50 transition-colors"
+                    className="flex items-center space-x-3 p-2 rounded-lg hover:bg-surface-3 transition-colors"
                   >
                     <RadioGroupItem
                       value={category.value}

@@ -21,10 +21,6 @@ const itemVariants = {
   }
 };
 
-const floatAnimation = {
-  y: [0, -10, 0],
-  transition: { duration: 4, repeat: Infinity, ease: "easeInOut" as const }
-};
 
 interface HeroSectionProps {
   onOpenChat: (query?: string) => void;
@@ -57,19 +53,6 @@ const HeroSection = ({ onOpenChat }: HeroSectionProps) => {
       {/* Mobile Gradient Overlay */}
       <div className="absolute inset-0 z-10 pointer-events-none md:hidden hero-overlay-mobile" />
 
-      {/* Floating decorative elements - Desktop only */}
-      {!isMobile && (
-        <>
-          <motion.div
-            animate={floatAnimation}
-            className="absolute top-1/4 right-1/4 w-2 h-2 rounded-full bg-primary/30 blur-sm hidden lg:block"
-          />
-          <motion.div
-            animate={floatAnimation}
-            className="absolute top-1/3 right-1/3 w-3 h-3 rounded-full bg-primary/20 blur-sm hidden lg:block"
-          />
-        </>
-      )}
 
       {/* Content Layer */}
       <div className="container mx-auto px-6 relative z-20 pt-24 md:pt-32 pb-16 md:pb-24">
@@ -96,13 +79,9 @@ const HeroSection = ({ onOpenChat }: HeroSectionProps) => {
 
             {/* H1 - CLARA */}
             <motion.h1 variants={itemVariants}>
-              <motion.span 
-                className="text-6xl sm:text-7xl md:text-8xl lg:text-9xl font-bold tracking-tight text-primary amber-glow inline-block"
-                whileHover={{ scale: 1.02 }}
-                transition={{ type: "spring", stiffness: 300 }}
-              >
+              <span className="text-6xl sm:text-7xl md:text-8xl lg:text-9xl font-bold tracking-tight text-primary amber-glow inline-block">
                 CLARA
-              </motion.span>
+              </span>
             </motion.h1>
 
             {/* Subtitle */}

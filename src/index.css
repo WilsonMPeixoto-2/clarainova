@@ -317,7 +317,7 @@
   .feature-card:hover {
     border-color: hsl(var(--primary) / 0.3);
     box-shadow: var(--shadow-lg), 0 0 30px hsl(var(--accent-amber-glow) / 0.08);
-    transform: translateY(-4px);
+    transform: translateY(-2px);
   }
 
   /* ============================================

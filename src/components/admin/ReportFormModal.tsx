@@ -103,7 +103,7 @@ export function ReportFormModal({
               disabled={isSaving}
               className="min-h-[300px] bg-background/50 font-mono text-sm resize-y"
             />
-            <p className="text-xs text-muted-foreground">
+            <p className="text-hint">
               Suporta formatação Markdown (títulos, listas, negrito, etc.)
             </p>
           </div>

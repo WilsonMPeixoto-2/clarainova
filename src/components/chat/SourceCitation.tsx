@@ -31,11 +31,11 @@ export function SourceCitation({ sources }: SourceCitationProps) {
           {sources.local?.map((source, i) => (
             <div 
               key={`local-${i}`}
-              className="flex items-center gap-3 px-3 py-2 rounded-lg bg-muted/30 text-sm"
+              className="flex items-center gap-3 px-3 py-2 rounded-lg bg-surface-3 text-sm"
             >
               <FileText className="w-4 h-4 text-primary flex-shrink-0" />
               <span className="text-foreground/80">{source}</span>
-              <span className="text-xs text-muted-foreground ml-auto">Base local</span>
+              <span className="text-caption ml-auto">Base local</span>
             </div>
           ))}
           
@@ -52,12 +52,12 @@ export function SourceCitation({ sources }: SourceCitationProps) {
                 href={url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center gap-3 px-3 py-2 rounded-lg bg-accent/10 text-sm hover:bg-accent/20 transition-colors group"
+                className="flex items-center gap-3 px-3 py-2 rounded-lg bg-accent/10 text-sm hover:bg-surface-4 transition-colors group"
               >
                 <ExternalLink className="w-4 h-4 text-accent flex-shrink-0" />
                 <div className="flex-1 min-w-0">
                   <span className="text-foreground/80 block truncate">{title}</span>
-                  <span className="text-xs text-muted-foreground truncate block">{url}</span>
+                  <span className="text-caption truncate block">{url}</span>
                 </div>
                 <span className="text-xs text-accent group-hover:underline transition-colors flex-shrink-0">
                   Abrir ↗
@@ -66,11 +66,11 @@ export function SourceCitation({ sources }: SourceCitationProps) {
             ) : (
               <div
                 key={`web-${i}`}
-                className="flex items-center gap-3 px-3 py-2 rounded-lg bg-accent/10 text-sm"
+                className="flex items-center gap-3 px-3 py-2 rounded-lg bg-surface-3 text-sm"
               >
                 <ExternalLink className="w-4 h-4 text-accent flex-shrink-0" />
                 <span className="text-foreground/80 truncate flex-1">{source}</span>
-                <span className="text-xs text-muted-foreground">Busca web</span>
+                <span className="text-caption">Busca web</span>
               </div>
             );
           })}

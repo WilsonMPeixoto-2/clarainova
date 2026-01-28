@@ -53,7 +53,7 @@ function renderMarkdown(text: string): JSX.Element[] {
       if (inCodeBlock) {
         flushList();
         elements.push(
-          <pre key={`code-${elements.length}`} className="bg-muted/50 rounded-lg p-4 overflow-x-auto my-3 text-sm">
+          <pre key={`code-${elements.length}`} className="bg-surface-3 rounded-lg p-4 overflow-x-auto my-3 text-sm">
             <code className={codeLanguage ? `language-${codeLanguage}` : ""}>
               {codeContent.join("\n")}
             </code>
@@ -128,7 +128,7 @@ function renderMarkdown(text: string): JSX.Element[] {
     // Horizontal rule
     if (line.match(/^[-*_]{3,}$/)) {
       flushList();
-      elements.push(<hr key={`hr-${elements.length}`} className="my-4 border-border/50" />);
+      elements.push(<hr key={`hr-${elements.length}`} className="my-4 border-border-subtle" />);
       continue;
     }
 
@@ -273,7 +273,7 @@ function SourcesSection({ sources }: { sources: ChatMessageType["sources"] }) {
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ delay: i * 0.05 }}
-              className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full bg-muted/50 text-muted-foreground"
+              className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full bg-surface-3 text-caption"
             >
               <FileText className="w-3 h-3" aria-hidden="true" />
               {source}
@@ -338,7 +338,7 @@ export const ChatMessage = memo(function ChatMessage({ message }: ChatMessagePro
         <div className={`inline-block rounded-2xl px-4 py-3 ${
           isUser 
             ? "bg-primary text-primary-foreground rounded-tr-sm" 
-            : "bg-card/80 backdrop-blur-sm border border-border/50 rounded-tl-sm"
+            : "bg-card/80 backdrop-blur-sm border border-border-subtle rounded-tl-sm"
         }`}>
           {isUser ? (
             <p className="text-sm leading-relaxed">{message.content}</p>
@@ -404,7 +404,7 @@ export const ChatMessage = memo(function ChatMessage({ message }: ChatMessagePro
 
         {/* Timestamp and API Provider */}
         <div className={`flex items-center gap-2 mt-1 ${isUser ? "justify-end" : ""}`}>
-          <p className="text-xs text-muted-foreground/60">
+          <p className="text-caption">
             {formattedTime}
           </p>
           {!isUser && message.apiProvider && !message.isStreaming && (
