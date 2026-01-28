@@ -104,7 +104,7 @@ export function ReportViewModal({
         // Bullet points
         if (trimmed.startsWith("- ") || trimmed.startsWith("* ")) {
           return (
-            <li key={index} className="ml-4 text-muted-foreground">
+            <li key={index} className="ml-4 text-body">
               {formatInlineStyles(trimmed.substring(2))}
             </li>
           );
@@ -114,7 +114,7 @@ export function ReportViewModal({
         const numberedMatch = trimmed.match(/^(\d+)\.\s+(.+)$/);
         if (numberedMatch) {
           return (
-            <li key={index} className="ml-4 text-muted-foreground list-decimal">
+            <li key={index} className="ml-4 text-body list-decimal">
               {formatInlineStyles(numberedMatch[2])}
             </li>
           );
@@ -127,7 +127,7 @@ export function ReportViewModal({
         
         // Regular paragraph
         return (
-          <p key={index} className="text-muted-foreground mb-1">
+          <p key={index} className="text-body mb-1">
             {formatInlineStyles(trimmed)}
           </p>
         );
