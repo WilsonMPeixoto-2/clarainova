@@ -37,7 +37,7 @@ const HeroSection = ({ onOpenChat }: HeroSectionProps) => {
 
   return (
     <section className="relative min-h-screen flex items-center overflow-hidden">
-      {/* Background Image Layer - Integrated, no frame */}
+      {/* Background Image Layer */}
       <motion.div 
         initial={isMobile ? { opacity: 0 } : { scale: 1.1, opacity: 0 }}
         animate={isMobile ? { opacity: 1 } : { scale: 1, opacity: 1 }}
@@ -51,17 +51,13 @@ const HeroSection = ({ onOpenChat }: HeroSectionProps) => {
         }}
       />
       
-      {/* Desktop Gradient Overlay - Left to Right fade */}
-      <div 
-        className="absolute inset-0 z-10 pointer-events-none hidden md:block hero-overlay"
-      />
+      {/* Desktop Gradient Overlay */}
+      <div className="absolute inset-0 z-10 pointer-events-none hidden md:block hero-overlay" />
       
-      {/* Mobile Gradient Overlay - Top to Bottom fade */}
-      <div 
-        className="absolute inset-0 z-10 pointer-events-none md:hidden hero-overlay-mobile"
-      />
+      {/* Mobile Gradient Overlay */}
+      <div className="absolute inset-0 z-10 pointer-events-none md:hidden hero-overlay-mobile" />
 
-      {/* Floating decorative elements - Only render on desktop to save mobile CPU */}
+      {/* Floating decorative elements - Desktop only */}
       {!isMobile && (
         <>
           <motion.div
@@ -124,7 +120,7 @@ const HeroSection = ({ onOpenChat }: HeroSectionProps) => {
             {/* Description */}
             <motion.p 
               variants={itemVariants}
-              className="text-base md:text-lg text-muted-foreground leading-relaxed max-w-lg"
+              className="text-body max-w-lg"
             >
               Sua assistente especializada em sistemas eletrônicos de informações e procedimentos administrativos. Orientações passo a passo com indicação de fontes documentais.
             </motion.p>
@@ -162,12 +158,12 @@ const HeroSection = ({ onOpenChat }: HeroSectionProps) => {
             {/* Privacy Policy Link */}
             <motion.p 
               variants={itemVariants}
-              className="text-sm text-muted-foreground"
+              className="text-caption"
             >
               Ao usar nossos serviços, você concorda com nossa{' '}
               <a 
                 href="/privacidade.html" 
-                className="text-primary hover:underline font-medium"
+                className="text-primary hover:underline font-medium transition-colors duration-150"
               >
                 Política de Privacidade
               </a>
@@ -199,7 +195,7 @@ const HeroSection = ({ onOpenChat }: HeroSectionProps) => {
                   className="relative rounded-2xl overflow-hidden"
                 >
                   <Search 
-                    className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground/60 z-10" 
+                    className="absolute left-4 top-1/2 -translate-y-1/2 text-text-muted z-10" 
                     size={20}
                     aria-hidden="true"
                   />
@@ -219,7 +215,7 @@ const HeroSection = ({ onOpenChat }: HeroSectionProps) => {
             </motion.div>
           </motion.div>
 
-          {/* Right Column - Empty space for background image to show through */}
+          {/* Right Column - Empty space for background image */}
           <div className="hidden md:block md:col-span-5 lg:col-span-5" />
         </div>
       </div>
