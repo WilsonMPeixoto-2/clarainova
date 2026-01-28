@@ -1,397 +1,323 @@
 
-# Plano de Melhorias de Arquitetura - CLARA
-
-## Visão Geral
-
-Este plano abrange 6 melhorias de arquitetura solicitadas, executadas sequencialmente. Cada alteração será isolada e testável antes de prosseguir.
+# Plano de Refinamento Estético CLARA (High-End)
+## Etapa 1: Diagnóstico e Design Tokens
 
 ---
 
-## 1. Blindar Dependências das Edge Functions
+## Inventario Atual do Sistema de Design
 
-### Situação Atual
-- 6 Edge Functions existentes: `admin-auth`, `admin-upload`, `admin_get_upload_url`, `clara-chat`, `documents`, `search`
-- Todas usam imports diretos com versões inline (ex: `https://deno.land/std@0.224.0/http/server.ts`)
-- Versões consistentes atualmente (std@0.224.0, supabase-js@2.49.1, generative-ai@0.21.0)
-- Não existe `deno.json` em nenhuma function
+### 1. Cores (Paleta Existente)
 
-### Alterações
+| Token CSS | Valor HSL | Uso Atual |
+|-----------|-----------|-----------|
+| `--background` | `216 45% 7%` | Fundo profundo (navy escuro) |
+| `--foreground` | `210 40% 98%` | Texto principal (quase branco) |
+| `--card` | `216 40% 12%` | Superfícies de cards |
+| `--muted` | `216 30% 15%` | Áreas secundárias |
+| `--muted-foreground` | `210 20% 70%` | Texto secundário |
+| `--primary` | `30 45% 64%` | Amber/dourado principal |
+| `--accent` | `24 100% 63%` | Laranja vibrante (destaque) |
+| `--secondary` | `216 35% 18%` | Superfície intermediária |
+| `--border` | `216 30% 22%` | Bordas sutis |
+| `--input` | `216 30% 18%` | Background de inputs |
 
-#### 1.1 Criar deno.json para cada Edge Function
+**Tokens customizados CLARA:**
+- `--clara-deep`, `--clara-navy`, `--clara-navy-light`
+- `--clara-amber`, `--clara-amber-bright`
+- `--clara-text-primary`, `--clara-text-secondary`
+- `--clara-glass`
 
-Criar um arquivo `deno.json` em cada pasta de função com import map isolado:
+### 2. Tipografia
+
+| Elemento | Estilo Atual |
+|----------|--------------|
+| Fonte | Inter (preload) |
+| H1 (CLARA) | `text-6xl → text-9xl`, `font-bold`, `tracking-tight` |
+| H2 | `text-3xl → text-4xl`, `font-bold` |
+| H3 | `text-xl`, `font-semibold` |
+| Body | `text-base → text-lg`, `leading-relaxed` |
+| Caption | `text-xs → text-sm`, `text-muted-foreground` |
+
+### 3. Radius (Arredondamentos)
+
+| Token | Valor |
+|-------|-------|
+| `--radius` | `0.75rem` (12px) |
+| `rounded-lg` | 12px |
+| `rounded-xl` | 16px |
+| `rounded-2xl` | 20px |
+| `rounded-full` | Circular |
+
+### 4. Sombras e Efeitos
+
+| Classe | Descrição |
+|--------|-----------|
+| `.glass-card` | `bg-card/60 backdrop-blur-xl border border-border/50 shadow-xl` |
+| `.amber-glow` | `text-shadow: 0 0 40px hsl(30 45% 64% / 0.3)` |
+| `.text-glow` | `text-shadow: 0 2px 20px hsl(0 0% 0% / 0.5)` |
+
+### 5. Animações/Motion
+
+| Animação | Duração | Easing |
+|----------|---------|--------|
+| `fade-in` | 600ms | ease-out |
+| `slide-up` | 700ms | ease-out |
+| Hover transitions | 200-300ms | ease-out |
+| Framer stagger | 150ms delay |
+
+---
+
+## Diagnóstico: Pontos de Fricção Visual
+
+### Fricção Leve (Ajustes Rápidos)
+1. **Border opacity inconsistente**: Varia entre `/40`, `/50`, `/60` sem padrão claro
+2. **Spacing vertical**: Algumas seções usam `py-12`, outras `py-20`, `py-28` - sem escala definida
+3. **Card shadows**: `.glass-card` tem `shadow-xl` muito forte para algumas aplicações
+4. **Button hover**: `hover:bg-primary/90` é sutil demais, pouco feedback visual
+
+### Fricção Média (Refinamento Necessário)
+5. **Input focus states**: Ring colors variam (`ring-primary/40`, `ring-primary/50`, `ring-foreground/30`)
+6. **Text opacity hierarchy**: `text-muted-foreground/60`, `/70`, sem escala semântica
+7. **Badge chip**: `bg-primary/15 border border-primary/30` pode parecer "lavado" em alguns contextos
+8. **Sheet overlay**: `bg-black/80` é muito escuro, compete com identidade navy
+
+### Fricção Maior (Oportunidade Premium)
+9. **Micro-interações faltando**: Botões não têm feedback visual suficiente no clique
+10. **Hierarquia de elevação**: Cards e modais usam mesma sombra, sem camadas visuais claras
+11. **Gradientes hero**: Hardcoded em HSL inline, dificulta manutenção
+
+---
+
+## Proposta: Sistema de Tokens Unificado
+
+### Cores (Consolidação)
+
+```css
+:root {
+  /* Superfícies - Escala de 5 níveis */
+  --surface-0: 216 45% 7%;      /* Fundo base (background) */
+  --surface-1: 216 40% 10%;     /* Cards elevados */
+  --surface-2: 216 40% 12%;     /* Cards secundários (atual --card) */
+  --surface-3: 216 35% 15%;     /* Inputs, hover states */
+  --surface-4: 216 35% 18%;     /* Elementos interativos ativos */
+
+  /* Texto - 4 níveis semânticos */
+  --text-primary: 210 40% 98%;      /* Títulos, texto principal */
+  --text-secondary: 210 20% 75%;    /* Parágrafos, descrições */
+  --text-muted: 210 20% 60%;        /* Captions, hints */
+  --text-disabled: 210 15% 45%;     /* Desabilitado */
+
+  /* Bordas - 3 níveis */
+  --border-subtle: 216 30% 18%;     /* Divisórias leves */
+  --border-default: 216 30% 22%;    /* Bordas padrão */
+  --border-strong: 216 30% 28%;     /* Bordas em foco/hover */
+
+  /* Accent (inalterado, já está bom) */
+  --accent-amber: 30 45% 64%;
+  --accent-amber-bright: 24 100% 63%;
+  --accent-amber-glow: 30 45% 64% / 0.25;
+}
+```
+
+### Radius (Escala Consistente)
+
+```css
+:root {
+  --radius-sm: 8px;   /* Badges, chips pequenos */
+  --radius-md: 12px;  /* Buttons, inputs */
+  --radius-lg: 16px;  /* Cards */
+  --radius-xl: 20px;  /* Modals, panels */
+  --radius-2xl: 24px; /* Feature cards, hero elements */
+}
+```
+
+### Sombras (Elevação por Camada)
+
+```css
+:root {
+  /* Sombra sutil para cards leves */
+  --shadow-sm: 0 1px 2px hsl(0 0% 0% / 0.1),
+               0 1px 3px hsl(0 0% 0% / 0.05);
+  
+  /* Sombra padrão para cards */
+  --shadow-md: 0 4px 6px hsl(0 0% 0% / 0.1),
+               0 2px 4px hsl(0 0% 0% / 0.05);
+  
+  /* Sombra elevada para modais */
+  --shadow-lg: 0 10px 25px hsl(0 0% 0% / 0.15),
+               0 5px 10px hsl(0 0% 0% / 0.08);
+  
+  /* Sombra de destaque com amber glow */
+  --shadow-glow: 0 10px 30px hsl(var(--accent-amber) / 0.15),
+                 0 4px 12px hsl(0 0% 0% / 0.1);
+}
+```
+
+### Motion (Padrões Uniformes)
+
+```css
+:root {
+  --duration-fast: 150ms;
+  --duration-normal: 220ms;
+  --duration-slow: 350ms;
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+}
+```
+
+---
+
+## Alterações Específicas por Componente
+
+### 1. Botões (`src/components/ui/button.tsx`)
+
+**Antes:**
+```tsx
+"bg-primary text-primary-foreground hover:bg-primary/90"
+```
+
+**Depois:**
+```tsx
+"bg-primary text-primary-foreground 
+ hover:bg-primary/90 hover:shadow-md
+ active:scale-[0.98] active:shadow-sm
+ transition-all duration-150"
+```
+
+### 2. Glass Card (`.glass-card` em `src/index.css`)
+
+**Antes:**
+```css
+.glass-card {
+  @apply bg-card/60 backdrop-blur-xl border border-border/50 shadow-xl;
+}
+```
+
+**Depois:**
+```css
+.glass-card {
+  @apply bg-card/70 backdrop-blur-lg border border-border/40;
+  box-shadow: var(--shadow-md);
+}
+.glass-card:hover {
+  border-color: hsl(var(--border-strong));
+}
+```
+
+### 3. Sheet Overlay (`src/components/ui/sheet.tsx`)
+
+**Antes:**
+```tsx
+"bg-black/80"
+```
+
+**Depois:**
+```tsx
+"bg-background/85 backdrop-blur-sm"
+```
+*(Mantém identidade navy em vez de preto puro)*
+
+### 4. Input Focus States (Unificar)
+
+**Padrão único para todos os inputs:**
+```css
+.input-focus {
+  @apply focus:outline-none 
+         focus:ring-2 focus:ring-primary/30 
+         focus:border-primary/50
+         focus:shadow-[0_0_0_4px_hsl(var(--accent-amber-glow))];
+}
+```
+
+### 5. Hierarquia de Texto (Classes Semânticas)
+
+```css
+.text-display { @apply text-foreground font-bold tracking-tight; }
+.text-heading { @apply text-foreground font-semibold; }
+.text-body { @apply text-muted-foreground leading-relaxed; }
+.text-caption { @apply text-muted-foreground/70 text-sm; }
+.text-hint { @apply text-muted-foreground/50 text-xs; }
+```
+
+### 6. Badge Chip (Mais Contraste)
+
+**Antes:**
+```css
+.badge-chip {
+  @apply bg-primary/15 border border-primary/30 text-primary;
+}
+```
+
+**Depois:**
+```css
+.badge-chip {
+  @apply bg-primary/20 border border-primary/40 text-primary;
+  box-shadow: inset 0 1px 0 hsl(var(--primary) / 0.1);
+}
+```
+
+---
+
+## Arquivos a Serem Modificados
+
+| Arquivo | Alterações |
+|---------|------------|
+| `src/index.css` | Adicionar tokens de superfície, texto, sombra; refinar classes utilitárias |
+| `tailwind.config.ts` | Mapear novos tokens para classes Tailwind |
+| `src/components/ui/button.tsx` | Adicionar micro-interações (active:scale) |
+| `src/components/ui/sheet.tsx` | Overlay com blur navy em vez de preto |
+| `src/components/ui/card.tsx` | Usar nova escala de sombras |
+| `src/components/chat/ChatInput.tsx` | Padronizar focus ring |
+| `src/components/chat/ChatPanel.tsx` | Padronizar opacidades |
+| `src/components/Header.tsx` | Usar novos tokens de borda |
+| `src/components/FeaturesSection.tsx` | Feature cards com nova elevação |
+
+---
+
+## Critérios de Sucesso
+
+1. **Uniformidade**: Todas as bordas usam escala de 3 níveis (subtle/default/strong)
+2. **Hierarquia clara**: Texto segue 4 níveis semânticos
+3. **Micro-feedback**: Botões têm resposta tátil (scale) no clique
+4. **Elevação visual**: Cards, modais e sheets têm camadas de sombra distintas
+5. **Motion consistente**: Todas as transições usam 150-220ms com ease-out suave
+6. **Zero regressão**: Nenhuma alteração quebra o layout existente
+
+---
+
+## Seção Técnica: Implementação em 3 Fases
+
+### Fase 1: Tokens Base (index.css + tailwind.config.ts)
+- Adicionar variáveis CSS novas
+- Mapear para Tailwind
+- NÃO alterar componentes ainda
+
+### Fase 2: Componentes Core (button, card, input, sheet)
+- Aplicar novos tokens
+- Adicionar micro-interações
+- Testar em desktop e mobile
+
+### Fase 3: Componentes de Página (Header, Hero, Features, Chat)
+- Migrar para classes semânticas
+- Remover opacidades inline inconsistentes
+- Validar harmonia visual final
+
+---
+
+## Visualização: Antes vs Depois
 
 ```text
-supabase/functions/
-├── admin-auth/
-│   ├── deno.json          ← NOVO
-│   └── index.ts
-├── admin-upload/
-│   ├── deno.json          ← NOVO
-│   └── index.ts
-├── admin_get_upload_url/
-│   ├── deno.json          ← NOVO
-│   └── index.ts
-├── clara-chat/
-│   ├── deno.json          ← NOVO
-│   └── index.ts
-├── documents/
-│   ├── deno.json          ← NOVO
-│   └── index.ts
-└── search/
-    ├── deno.json          ← NOVO
-    └── index.ts
+ANTES (Inconsistente)                    DEPOIS (Sistema)
+─────────────────────                    ─────────────────
+border-border/40                    →    border-subtle
+border-border/50                    →    border-default  
+border-border/60                    →    border-strong
+
+text-muted-foreground/60            →    text-caption
+text-muted-foreground/70            →    text-body
+text-muted-foreground               →    text-secondary
+
+shadow-xl (tudo igual)              →    shadow-sm/md/lg (elevação)
+
+hover:bg-primary/90 (só cor)        →    hover:bg-primary/90 + shadow + scale
 ```
-
-Cada `deno.json` terá:
-
-```json
-{
-  "imports": {
-    "@std/http": "https://deno.land/std@0.224.0/http/server.ts",
-    "@std/encoding": "https://deno.land/std@0.224.0/encoding/base64.ts",
-    "@supabase/supabase-js": "https://esm.sh/@supabase/supabase-js@2.49.1",
-    "@google/generative-ai": "https://esm.sh/@google/generative-ai@0.21.0",
-    "mammoth": "https://esm.sh/mammoth@1.6.0",
-    "pdfjs-serverless": "https://esm.sh/pdfjs-serverless@0.6.0"
-  }
-}
-```
-
-#### 1.2 Refatorar imports nos arquivos index.ts
-
-De:
-```typescript
-import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
-```
-
-Para:
-```typescript
-import { serve } from "@std/http";
-import { createClient } from "@supabase/supabase-js";
-```
-
-#### Arquivos Afetados
-- 6 novos arquivos `deno.json`
-- 6 arquivos `index.ts` com imports refatorados
-
----
-
-## 2. Upload como Responsabilidade do Storage
-
-### Situação Atual
-- Frontend extrai texto do PDF via PDF.js
-- Backend recebe texto via `/ingest-start`, `/ingest-batch`, `/ingest-finish`
-- PDFs também são salvos no Storage via signed URL (já implementado)
-- Backend pode baixar PDF do Storage para reprocessamento
-
-### Alterações
-
-Esta arquitetura já está parcialmente implementada. Vou formalizar:
-
-#### 2.1 Documentar fluxo padrão (já existente)
-
-```text
-┌─────────────────────────────────────────────────────────────────┐
-│                     FLUXO DE UPLOAD                             │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                 │
-│  1. Frontend solicita signed URL (admin_get_upload_url)         │
-│  2. Frontend faz PUT do arquivo para Storage (signed URL)       │
-│  3. Frontend extrai texto localmente (PDF.js)                   │
-│  4. Frontend envia TEXTO para backend (ingest-start/batch/      │
-│     finish) com referência ao filePath no Storage               │
-│  5. Backend processa chunks e embeddings                        │
-│                                                                 │
-│  O backend NUNCA recebe o PDF bruto - apenas:                   │
-│  - filePath (ponteiro para Storage)                             │
-│  - texto extraído                                               │
-│  - metadata                                                     │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
-```
-
-#### 2.2 Remover endpoint legado de upload direto
-
-O endpoint `admin-upload` que recebe FormData com arquivo será marcado como deprecated e removido em favor do fluxo signed URL.
-
-#### Arquivos Afetados
-- `supabase/functions/admin-upload/index.ts` - Adicionar deprecation warning
-
----
-
-## 3. Padronizar Segurança: RLS + URLs Assinadas
-
-### Situação Atual
-- Bucket `knowledge-base` é privado
-- Signed URLs já usados para upload
-- RLS policies existentes, mas com warnings de "always true"
-- Tabela `document_access_log` existe mas não é usada consistentemente
-
-### Alterações
-
-#### 3.1 Criar função para gerar signed URL de download
-
-Nova função em `documents/index.ts`:
-
-```typescript
-// GET /documents/download/:documentId - Get signed download URL
-if (req.method === "GET" && pathParts.includes("download")) {
-  // Validar admin key
-  // Buscar file_path do documento
-  // Gerar signed URL com expiração curta (15 min)
-  // Registrar acesso em document_access_log
-  return { signedUrl, expiresAt };
-}
-```
-
-#### 3.2 Migração SQL para hardening de RLS
-
-```sql
--- Remover política permissiva de document_jobs
-DROP POLICY IF EXISTS "Service role can manage document jobs" ON public.document_jobs;
-
--- Criar política específica para service role via função
-CREATE POLICY "Edge functions can manage document jobs"
-  ON public.document_jobs FOR ALL
-  USING (auth.role() = 'service_role')
-  WITH CHECK (auth.role() = 'service_role');
-```
-
-#### 3.3 Configurar expiração padrão para signed URLs
-
-| Operação | Expiração |
-|----------|-----------|
-| Upload | 2 horas (padrão Supabase) |
-| Download | 15 minutos |
-| Preview | 5 minutos |
-
-#### Arquivos Afetados
-- `supabase/functions/documents/index.ts` - Novo endpoint download
-- Nova migração SQL para RLS
-
----
-
-## 4. Ingestão Idempotente e Retomável
-
-### Situação Atual
-- `document_jobs` já existe com campos de status e retry
-- `content_hash` já existe em `document_chunks`
-- Lógica de "delete-then-insert" já implementada
-- Faltam campos para tracking granular de batches
-
-### Alterações
-
-#### 4.1 Adicionar campos de tracking em document_jobs
-
-```sql
-ALTER TABLE public.document_jobs
-ADD COLUMN IF NOT EXISTS last_batch_index INT DEFAULT 0,
-ADD COLUMN IF NOT EXISTS total_batches INT,
-ADD COLUMN IF NOT EXISTS batch_hashes JSONB DEFAULT '[]'::jsonb;
-```
-
-#### 4.2 Refatorar ingest-batch para idempotência
-
-```typescript
-// Em ingest-batch:
-// 1. Verificar se batch_index já foi processado
-// 2. Comparar hash do batch_text com hash salvo
-// 3. Se hash igual, pular (idempotente)
-// 4. Se diferente, substituir batch
-```
-
-#### 4.3 Criar endpoint de retomada
-
-```typescript
-// POST /documents/resume/:documentId
-// 1. Buscar último batch processado
-// 2. Retornar { resumeFrom: lastBatchIndex + 1, status }
-```
-
-#### Arquivos Afetados
-- Nova migração SQL
-- `supabase/functions/documents/index.ts` - Novos endpoints
-
----
-
-## 5. Otimizar Busca Vetorial
-
-### Situação Atual
-- Índice HNSW já existe: `idx_document_chunks_embedding` com `vector_cosine_ops`
-- Índice GIN para tsvector: `idx_document_chunks_search`
-- Threshold fixo de 0.3
-- Sem parâmetros de tuning HNSW
-
-### Alterações
-
-#### 5.1 Otimizar índice HNSW com parâmetros
-
-```sql
--- Recriar índice com parâmetros otimizados
-DROP INDEX IF EXISTS idx_document_chunks_embedding;
-
-CREATE INDEX idx_document_chunks_embedding 
-ON public.document_chunks 
-USING hnsw (embedding vector_cosine_ops)
-WITH (m = 16, ef_construction = 64);
-
--- Configurar ef_search para consultas
--- (feito em runtime via SET)
-```
-
-#### 5.2 Adicionar configuração dinâmica de threshold
-
-```typescript
-// Em search/index.ts:
-const { query, limit = 12, threshold = 0.3 } = await req.json();
-
-// Permitir threshold dinâmico com limites
-const safeThreshold = Math.max(0.1, Math.min(0.9, Number(threshold)));
-```
-
-#### 5.3 Adicionar métricas de busca
-
-```typescript
-// Retornar métricas na resposta
-return {
-  results,
-  metrics: {
-    vector_search_ms: vectorDuration,
-    keyword_search_ms: keywordDuration,
-    total_chunks_scanned: allChunks?.length || 0,
-    index_type: 'hnsw'
-  }
-};
-```
-
-#### Arquivos Afetados
-- Nova migração SQL
-- `supabase/functions/search/index.ts`
-
----
-
-## 6. Observabilidade de Produto
-
-### Situação Atual
-- `DebugInfo` já existe em documents com timings
-- Não há visualização no Admin
-- Logs apenas no console
-
-### Alterações
-
-#### 6.1 Criar tabela de métricas de processamento
-
-```sql
-CREATE TABLE public.processing_metrics (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  document_id UUID REFERENCES public.documents(id) ON DELETE CASCADE,
-  step TEXT NOT NULL, -- 'upload', 'extract', 'ocr', 'chunk', 'embed', 'db_insert'
-  duration_ms INT NOT NULL,
-  success BOOLEAN NOT NULL,
-  error_message TEXT,
-  metadata JSONB,
-  created_at TIMESTAMPTZ DEFAULT now()
-);
-
--- Índices para consultas rápidas
-CREATE INDEX idx_processing_metrics_document ON public.processing_metrics(document_id);
-CREATE INDEX idx_processing_metrics_step ON public.processing_metrics(step);
-CREATE INDEX idx_processing_metrics_created ON public.processing_metrics(created_at DESC);
-```
-
-#### 6.2 Adicionar função RPC para estatísticas
-
-```sql
-CREATE OR REPLACE FUNCTION public.get_processing_stats(p_days INT DEFAULT 7)
-RETURNS TABLE (
-  step TEXT,
-  avg_duration_ms NUMERIC,
-  success_rate NUMERIC,
-  total_count BIGINT
-) AS $$
-BEGIN
-  RETURN QUERY
-  SELECT 
-    pm.step,
-    ROUND(AVG(pm.duration_ms)::NUMERIC, 2) as avg_duration_ms,
-    ROUND((SUM(CASE WHEN pm.success THEN 1 ELSE 0 END)::NUMERIC / COUNT(*)) * 100, 1) as success_rate,
-    COUNT(*)::BIGINT as total_count
-  FROM public.processing_metrics pm
-  WHERE pm.created_at >= NOW() - (p_days || ' days')::INTERVAL
-  GROUP BY pm.step
-  ORDER BY total_count DESC;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
-```
-
-#### 6.3 Modificar documents/index.ts para salvar métricas
-
-```typescript
-// Após cada etapa:
-await supabase.from('processing_metrics').insert({
-  document_id: documentId,
-  step: 'extract',
-  duration_ms: debug.timings.extract_ms,
-  success: true,
-  metadata: { pages: totalPages }
-});
-```
-
-#### 6.4 Adicionar aba de Observabilidade no Admin
-
-Novo componente `ProcessingStatsTab` com:
-- Gráfico de tempo médio por etapa
-- Taxa de sucesso por tipo de operação
-- Lista de erros recentes por categoria
-- Botão "Retomar do checkpoint" para documentos com falha
-
-#### Arquivos Afetados
-- Nova migração SQL
-- `supabase/functions/documents/index.ts`
-- Novo componente `src/components/admin/ProcessingStatsTab.tsx`
-- `src/pages/Admin.tsx` - Nova aba
-
----
-
-## Ordem de Execução
-
-| Ordem | Melhoria | Complexidade | Arquivos |
-|-------|----------|--------------|----------|
-| 1 | Blindar dependências | Média | 12 arquivos |
-| 2 | Upload como Storage | Baixa | 1 arquivo |
-| 3 | RLS + URLs assinadas | Média | 2 arquivos + migração |
-| 4 | Ingestão idempotente | Média | 2 arquivos + migração |
-| 5 | Otimizar busca vetorial | Baixa | 1 arquivo + migração |
-| 6 | Observabilidade | Alta | 4 arquivos + migração |
-
----
-
-## Seção Técnica
-
-### Dependências a Serem Padronizadas
-
-```json
-{
-  "@std/http": "std@0.224.0",
-  "@std/encoding": "std@0.224.0", 
-  "@supabase/supabase-js": "2.49.1",
-  "@google/generative-ai": "0.21.0",
-  "mammoth": "1.6.0",
-  "pdfjs-serverless": "0.6.0"
-}
-```
-
-### Migrações SQL Necessárias
-
-1. **RLS Hardening**: Remover políticas permissivas
-2. **Job Tracking**: Campos de batch em document_jobs
-3. **HNSW Tuning**: Recriar índice com parâmetros
-4. **Processing Metrics**: Nova tabela e função RPC
-
-### Compatibilidade
-
-- Todas as alterações são retrocompatíveis
-- Endpoints legados mantidos com deprecation warning
-- Frontend não precisa de alterações significativas (apenas nova aba)
