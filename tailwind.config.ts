@@ -50,6 +50,24 @@ export default {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
+        // Surface scale tokens
+        surface: {
+          0: "hsl(var(--surface-0))",
+          1: "hsl(var(--surface-1))",
+          2: "hsl(var(--surface-2))",
+          3: "hsl(var(--surface-3))",
+          4: "hsl(var(--surface-4))",
+        },
+        // Border scale tokens
+        "border-subtle": "hsl(var(--border-subtle))",
+        "border-default": "hsl(var(--border-default))",
+        "border-strong": "hsl(var(--border-strong))",
+        // Text scale tokens
+        "text-primary": "hsl(var(--text-primary))",
+        "text-secondary": "hsl(var(--text-secondary))",
+        "text-muted": "hsl(var(--text-muted))",
+        "text-disabled": "hsl(var(--text-disabled))",
+        // Clara brand tokens (legacy)
         clara: {
           deep: "hsl(var(--clara-deep))",
           navy: "hsl(var(--clara-navy))",
@@ -62,8 +80,20 @@ export default {
         lg: "var(--radius)",
         md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)",
-        xl: "1rem",
-        "2xl": "1.25rem",
+        xl: "var(--radius-lg)",
+        "2xl": "var(--radius-xl)",
+        "3xl": "var(--radius-2xl)",
+      },
+      boxShadow: {
+        sm: "var(--shadow-sm)",
+        md: "var(--shadow-md)",
+        lg: "var(--shadow-lg)",
+        glow: "var(--shadow-glow)",
+      },
+      transitionDuration: {
+        fast: "var(--duration-fast)",
+        normal: "var(--duration-normal)",
+        slow: "var(--duration-slow)",
       },
       keyframes: {
         "accordion-down": {

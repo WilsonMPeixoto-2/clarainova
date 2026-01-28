@@ -20,9 +20,9 @@ const Header = ({ onOpenChat }: HeaderProps) => {
 
   return (
     <header 
-      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
+      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-normal ${
         isScrolled 
-          ? 'bg-background/80 backdrop-blur-lg border-b border-border/40' 
+          ? 'bg-background/80 backdrop-blur-lg border-b border-border-subtle' 
           : 'bg-transparent border-b border-transparent'
       }`}
       role="banner"
@@ -80,7 +80,7 @@ const Header = ({ onOpenChat }: HeaderProps) => {
         {mobileMenuOpen && (
           <nav 
             id="mobile-menu"
-            className="md:hidden py-4 border-t border-border/40 animate-fade-in"
+            className="md:hidden py-4 border-t border-border-subtle animate-fade-in"
             role="navigation"
             aria-label="Menu mobile"
           >
