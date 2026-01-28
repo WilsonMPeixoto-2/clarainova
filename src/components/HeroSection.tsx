@@ -149,7 +149,7 @@ const HeroSection = ({ onOpenChat }: HeroSectionProps) => {
             </motion.p>
 
             {/* Search Bar */}
-            <motion.div variants={itemVariants} className="pt-4">
+            <motion.div variants={itemVariants} className="pt-4 space-y-3">
               <form 
                 onSubmit={(e) => {
                   e.preventDefault();
@@ -191,6 +191,28 @@ const HeroSection = ({ onOpenChat }: HeroSectionProps) => {
                   />
                 </motion.div>
               </form>
+
+              {/* Suggestion Chips */}
+              <div className="flex flex-wrap gap-2 max-w-xl" role="list" aria-label="Sugestões de perguntas">
+                {[
+                  "Como solicitar diárias?",
+                  "Prazos de prestação de contas",
+                  "Modelos SEI-Rio"
+                ].map((suggestion, i) => (
+                  <motion.button
+                    key={suggestion}
+                    type="button"
+                    onClick={() => onOpenChat(suggestion)}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.6 + i * 0.1 }}
+                    className="suggestion-chip"
+                    role="listitem"
+                  >
+                    {suggestion}
+                  </motion.button>
+                ))}
+              </div>
             </motion.div>
           </motion.div>
 

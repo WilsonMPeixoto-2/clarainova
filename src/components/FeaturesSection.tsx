@@ -57,19 +57,19 @@ const FeaturesSection = () => {
               >
                 {/* Icon */}
                 <div 
-                  className="w-14 h-14 rounded-xl bg-primary/10 flex items-center justify-center mb-6 group-hover:bg-primary/20 transition-colors duration-300"
+                  className="w-14 h-14 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center mb-6 group-hover:bg-primary/15 group-hover:border-primary/30 transition-all duration-300"
                   aria-hidden="true"
                 >
-                  <feature.icon className="w-7 h-7 text-primary" />
+                  <feature.icon className="w-7 h-7 text-primary" strokeWidth={1.5} />
                 </div>
 
                 {/* Title */}
-                <h3 className="text-xl font-semibold text-foreground mb-3">
+                <h3 className="text-xl font-bold text-foreground mb-3 tracking-tight">
                   {feature.title}
                 </h3>
 
                 {/* Description */}
-                <p className="text-body">
+                <p className="text-body leading-relaxed">
                   {feature.description}
                 </p>
               </article>
