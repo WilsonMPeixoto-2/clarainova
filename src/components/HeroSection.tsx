@@ -77,17 +77,17 @@ const HeroSection = ({ onOpenChat }: HeroSectionProps) => {
               </span>
             </motion.div>
 
-            {/* H1 - CLARA */}
+            {/* H1 - CLARA with tighter tracking for brand signature */}
             <motion.h1 variants={itemVariants}>
-              <span className="text-5xl sm:text-6xl md:text-8xl lg:text-9xl font-bold tracking-tight text-primary amber-glow inline-block">
+              <span className="text-5xl sm:text-6xl md:text-8xl lg:text-9xl font-bold tracking-tighter text-primary amber-glow inline-block">
                 CLARA
               </span>
             </motion.h1>
 
-            {/* Subtitle */}
+            {/* Subtitle - with elegant leading */}
             <motion.p 
               variants={itemVariants}
-              className="text-xl sm:text-2xl md:text-3xl font-medium text-foreground tracking-tight text-glow max-w-xl"
+              className="text-xl sm:text-2xl md:text-3xl font-medium text-foreground tracking-tight text-glow max-w-xl leading-snug"
             >
               <span className="text-primary">C</span>onsultora de{' '}
               <span className="text-primary">L</span>egislação e{' '}

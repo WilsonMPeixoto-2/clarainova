@@ -73,20 +73,20 @@ const Header = ({ onOpenChat }: HeaderProps) => {
                     `}
                   >
                     {link.label}
-                    {/* Active indicator - elegant golden underline */}
+                    {/* Active indicator - refined 1px underline */}
                     {isActive && (
-                      <span className="absolute bottom-0 left-4 right-4 h-0.5 bg-primary rounded-full" />
+                      <span className="absolute bottom-0.5 left-4 right-4 h-px bg-primary rounded-full" />
                     )}
                   </a>
                 );
               })}
               
-              {/* Chat Button */}
+              {/* Chat Button - Premium pill with amber accent */}
               {onOpenChat && (
                 <Button
                   onClick={onOpenChat}
                   size="sm"
-                  className="ml-3 gap-2 shadow-sm hover:shadow-glow"
+                  className="ml-3 gap-2 shadow-sm hover:shadow-glow border border-primary/20"
                 >
                   <MessageCircle size={16} aria-hidden="true" />
                   Chat
