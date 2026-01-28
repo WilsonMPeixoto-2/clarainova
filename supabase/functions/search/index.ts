@@ -1,3 +1,4 @@
+// Import map: ../import_map.json (used during Supabase deploy)
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { GoogleGenerativeAI } from "https://esm.sh/@google/generative-ai@0.21.0";
@@ -165,7 +166,13 @@ serve(async (req) => {
       );
     }
 
-    const { query, limit = 12 } = await req.json();
+    const { query, limit = 12, threshold = 0.3 } = await req.json();
+    
+    // Timing for metrics
+    const searchStartTime = Date.now();
+    let vectorSearchMs = 0;
+    let keywordSearchMs = 0;
+    let totalChunksScanned = 0;
     
     // Input validation - query
     if (!query || typeof query !== "string") {
@@ -183,8 +190,9 @@ serve(async (req) => {
       );
     }
     
-    // Input validation - limit (max 50)
+    // Input validation - limit (max 50) and threshold (0.1 - 0.9)
     const safeLimit = Math.min(Math.max(1, Number(limit) || 12), 50);
+    const safeThreshold = Math.max(0.1, Math.min(0.9, Number(threshold) || 0.3));
 
     const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
     if (!GEMINI_API_KEY) {
@@ -195,28 +203,33 @@ serve(async (req) => {
     const expandedTerms = expandQueryWithSynonyms(query);
     
     // Gerar embedding da query
+    const embedStart = Date.now();
     const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
     const embeddingModel = genAI.getGenerativeModel({ model: "text-embedding-004" });
     const embeddingResult = await embeddingModel.embedContent(query);
     const queryEmbedding = embeddingResult.embedding.values;
+    const embedMs = Date.now() - embedStart;
     
     // Try hybrid search first (uses ts_vector + vector similarity)
     let finalResults: any[] = [];
     
+    const hybridStart = Date.now();
     const { data: hybridResults, error: hybridError } = await supabase.rpc(
       "hybrid_search_chunks",
       {
         query_text: query,
         query_embedding: JSON.stringify(queryEmbedding),
-        match_threshold: 0.3,
+        match_threshold: safeThreshold,
         match_count: safeLimit,
         keyword_weight: 0.4,
         vector_weight: 0.6
       }
     );
+    vectorSearchMs = Date.now() - hybridStart;
     
     if (!hybridError && hybridResults?.length > 0) {
-      console.log(`[search] Hybrid search returned ${hybridResults.length} results`);
+      console.log(`[search] Hybrid search returned ${hybridResults.length} results in ${vectorSearchMs}ms`);
+      totalChunksScanned = hybridResults.length;
       finalResults = hybridResults.map((r: any, index: number) => ({
         chunk: r,
         score: r.combined_score,
@@ -228,25 +241,29 @@ serve(async (req) => {
       console.log(`[search] Falling back to RRF search. Hybrid error: ${hybridError?.message || 'no results'}`);
       
       // Busca semântica via pgvector
+      const semanticStart = Date.now();
       const { data: semanticChunks, error: searchError } = await supabase.rpc(
         "search_document_chunks",
         {
           query_embedding: JSON.stringify(queryEmbedding),
-          match_threshold: 0.3,
+          match_threshold: safeThreshold,
           match_count: 15
         }
       );
+      vectorSearchMs = Date.now() - semanticStart;
       
       if (searchError) {
         console.error("Erro na busca semântica:", searchError);
       }
       
       // Busca por keywords em todos os chunks (limited for performance)
+      const keywordStart = Date.now();
       const { data: allChunks } = await supabase
         .from("document_chunks")
         .select("id, content, document_id, metadata, chunk_index")
         .limit(2000);
-      
+      keywordSearchMs = Date.now() - keywordStart;
+      totalChunksScanned = allChunks?.length || 0;
       // Aplicar scoring por keywords
       const keywordScoredChunks = (allChunks || [])
         .map(chunk => ({
@@ -324,12 +341,35 @@ serve(async (req) => {
       };
     });
     
+    // Calculate total search time
+    const totalSearchMs = Date.now() - searchStartTime;
+    
+    // Record search metrics (async, don't wait)
+    const queryHash = query.slice(0, 50).replace(/\s+/g, '_');
+    supabase.from('search_metrics').insert({
+      query_hash: queryHash,
+      vector_search_ms: vectorSearchMs,
+      keyword_search_ms: keywordSearchMs,
+      total_chunks_scanned: totalChunksScanned,
+      results_returned: results.length,
+      threshold_used: safeThreshold
+    });
+    
     return new Response(
       JSON.stringify({
         query,
         expanded_terms: expandedTerms,
         result_count: results.length,
-        results
+        results,
+        metrics: {
+          total_ms: totalSearchMs,
+          embed_ms: embedMs,
+          vector_search_ms: vectorSearchMs,
+          keyword_search_ms: keywordSearchMs,
+          chunks_scanned: totalChunksScanned,
+          threshold_used: safeThreshold,
+          index_type: 'hnsw'
+        }
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );

@@ -1,5 +1,23 @@
+// Import map: ../import_map.json (used during Supabase deploy)
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+
+/**
+ * @deprecated Use admin_get_upload_url + direct PUT to Storage instead.
+ * 
+ * This endpoint receives files directly via FormData, which:
+ * 1. Has a 6MB Edge Function payload limit (vs 50MB with signed URLs)
+ * 2. Increases backend load unnecessarily
+ * 3. Doesn't scale well for large documents
+ * 
+ * PREFERRED FLOW:
+ * 1. Frontend calls admin_get_upload_url to get signed URL
+ * 2. Frontend PUTs file directly to Storage via signed URL
+ * 3. Frontend extracts text locally (PDF.js)
+ * 4. Frontend sends only text + metadata to /documents/ingest-*
+ * 
+ * This endpoint is maintained for backwards compatibility only.
+ */
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",

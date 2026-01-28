@@ -11,6 +11,7 @@ import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { AnalyticsTab } from '@/components/admin/AnalyticsTab';
 import { ReportsTab } from '@/components/admin/ReportsTab';
+import { ProcessingStatsTab } from '@/components/admin/ProcessingStatsTab';
 import { extractPdfTextClient, extractTxtContent, isPdfFile, isTxtFile, isDocxFile, splitTextIntoBatches, calculatePayloadMetrics } from '@/utils/extractPdfText';
 import { loadPdfDocument, renderPagesAsImages, getPageBatches, type PageImage } from '@/utils/renderPdfPages';
 import {
@@ -1244,7 +1245,7 @@ const Admin = () => {
 
         <main className="container mx-auto px-4 py-8">
           <Tabs defaultValue="documents" className="space-y-6">
-            <TabsList className="grid w-full max-w-lg grid-cols-3">
+            <TabsList className="grid w-full max-w-2xl grid-cols-4">
               <TabsTrigger value="documents" className="flex items-center gap-2">
                 <FileText className="w-4 h-4" />
                 Documentos
@@ -1256,6 +1257,10 @@ const Admin = () => {
               <TabsTrigger value="reports" className="flex items-center gap-2">
                 <ClipboardList className="w-4 h-4" />
                 Relatórios
+              </TabsTrigger>
+              <TabsTrigger value="observability" className="flex items-center gap-2">
+                <RefreshCw className="w-4 h-4" />
+                Observabilidade
               </TabsTrigger>
             </TabsList>
 
@@ -1486,6 +1491,10 @@ const Admin = () => {
 
             <TabsContent value="reports">
               <ReportsTab />
+            </TabsContent>
+
+            <TabsContent value="observability">
+              <ProcessingStatsTab adminKey={adminKey} />
             </TabsContent>
           </Tabs>
         </main>
