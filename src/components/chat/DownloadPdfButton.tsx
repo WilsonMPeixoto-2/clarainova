@@ -2,7 +2,6 @@ import { useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { FileDown, Check, Loader2 } from "lucide-react";
 import { jsPDF } from "jspdf";
-import { Button } from "@/components/ui/button";
 import {
   Tooltip,
   TooltipContent,
@@ -77,15 +76,13 @@ export function DownloadPdfButton({
       // Try to load and add logo image
       try {
         const logoBase64 = await loadImageAsBase64(claraLogoPdf);
-        // Add logo image - proportionally sized to fit header
         const logoWidth = 60;
-        const logoHeight = 32; // Approximate aspect ratio
+        const logoHeight = 32;
         doc.addImage(logoBase64, "PNG", margin, currentY - 5, logoWidth, logoHeight);
         currentY += logoHeight + 5;
       } catch (error) {
-        // Fallback to text logo if image fails
         console.warn("Could not load logo image, using text fallback");
-        doc.setTextColor(212, 165, 116); // Primary amber
+        doc.setTextColor(212, 165, 116);
         doc.setFontSize(16);
         doc.setFont("helvetica", "bold");
         doc.text("CLARA", margin, currentY);
@@ -146,13 +143,13 @@ export function DownloadPdfButton({
       
       // Clean markdown for plain text
       const cleanText = assistantResponse
-        .replace(/\*\*(.+?)\*\*/g, "$1")  // Remove bold
-        .replace(/\*(.+?)\*/g, "$1")      // Remove italic
-        .replace(/`([^`]+)`/g, "$1")      // Remove inline code
-        .replace(/```[\s\S]*?```/g, "")   // Remove code blocks
-        .replace(/#{1,6}\s/g, "")         // Remove headings
-        .replace(/\[([^\]]+)\]/g, "[$1]") // Keep citations
-        .replace(/\n{3,}/g, "\n\n")       // Normalize line breaks
+        .replace(/\*\*(.+?)\*\*/g, "$1")
+        .replace(/\*(.+?)\*/g, "$1")
+        .replace(/`([^`]+)`/g, "$1")
+        .replace(/```[\s\S]*?```/g, "")
+        .replace(/#{1,6}\s/g, "")
+        .replace(/\[([^\]]+)\]/g, "[$1]")
+        .replace(/\n{3,}/g, "\n\n")
         .trim();
       
       const responseLines = doc.splitTextToSize(cleanText, contentWidth);
@@ -162,7 +159,7 @@ export function DownloadPdfButton({
         currentY += 6;
       });
       
-      // Sources section (if available)
+      // Sources section
       const hasLocalSources = sources?.local && sources.local.length > 0;
       const hasWebSources = sources?.web && sources.web.length > 0;
       
@@ -170,7 +167,6 @@ export function DownloadPdfButton({
         currentY += 8;
         checkPageBreak(20);
         
-        // Section header
         doc.setDrawColor(200);
         doc.line(margin, currentY, pageWidth - margin, currentY);
         currentY += 8;
@@ -185,7 +181,6 @@ export function DownloadPdfButton({
         doc.setFont("helvetica", "normal");
         doc.setTextColor(60);
         
-        // Local sources (documents)
         if (hasLocalSources) {
           sources.local.forEach((source) => {
             checkPageBreak(6);
@@ -194,14 +189,10 @@ export function DownloadPdfButton({
           });
         }
         
-        // Web sources (if any)
         if (hasWebSources) {
-          if (hasLocalSources) {
-            currentY += 2;
-          }
+          if (hasLocalSources) currentY += 2;
           sources.web?.forEach((url) => {
             checkPageBreak(6);
-            // Truncate long URLs for display
             const displayUrl = url.length > 60 ? url.substring(0, 57) + "..." : url;
             doc.text(`• ${displayUrl}`, margin + 4, currentY);
             currentY += 6;
@@ -253,50 +244,54 @@ export function DownloadPdfButton({
   return (
     <Tooltip>
       <TooltipTrigger asChild>
-        <Button
-          variant="ghost"
-          size="icon"
+        <button
           onClick={handleDownload}
           disabled={isDownloading}
-          className={`h-7 w-7 text-muted-foreground hover:text-foreground transition-colors ${className}`}
+          className={`action-btn ${downloaded ? "success" : ""} ${isDownloading ? "opacity-50 cursor-wait" : ""} ${className}`}
           aria-label={downloaded ? "PDF baixado!" : "Baixar como PDF"}
         >
           <AnimatePresence mode="wait">
             {isDownloading ? (
-              <motion.div
+              <motion.span
                 key="loading"
-                initial={{ scale: 0, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                exit={{ scale: 0, opacity: 0 }}
-                transition={{ duration: 0.15 }}
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                exit={{ scale: 0 }}
+                transition={{ duration: 0.12 }}
+                className="flex items-center gap-1.5"
               >
-                <Loader2 className="w-4 h-4 animate-spin" />
-              </motion.div>
+                <Loader2 className="w-3.5 h-3.5 animate-spin" aria-hidden="true" />
+                <span className="hidden sm:inline">Gerando...</span>
+              </motion.span>
             ) : downloaded ? (
-              <motion.div
+              <motion.span
                 key="check"
-                initial={{ scale: 0, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                exit={{ scale: 0, opacity: 0 }}
-                transition={{ duration: 0.15 }}
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                exit={{ scale: 0 }}
+                transition={{ duration: 0.12 }}
+                className="flex items-center gap-1.5"
               >
-                <Check className="w-4 h-4 text-primary" />
-              </motion.div>
+                <Check className="w-3.5 h-3.5" aria-hidden="true" />
+                <span className="hidden sm:inline">Baixado</span>
+              </motion.span>
             ) : (
-              <motion.div
+              <motion.span
                 key="download"
-                initial={{ scale: 0, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                exit={{ scale: 0, opacity: 0 }}
-                transition={{ duration: 0.15 }}
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                exit={{ scale: 0 }}
+                transition={{ duration: 0.12 }}
+                className="flex items-center gap-1.5"
               >
-                <FileDown className="w-4 h-4" />
-              </motion.div>
+                <FileDown className="w-3.5 h-3.5" aria-hidden="true" />
+                <span className="hidden sm:inline">PDF</span>
+              </motion.span>
             )}
           </AnimatePresence>
-        </Button>
+        </button>
       </TooltipTrigger>
-      <TooltipContent side="top">
+      <TooltipContent side="top" className="text-xs">
         {isDownloading ? "Gerando PDF..." : downloaded ? "PDF baixado!" : "Baixar como PDF"}
       </TooltipContent>
     </Tooltip>

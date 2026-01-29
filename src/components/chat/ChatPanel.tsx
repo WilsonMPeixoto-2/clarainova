@@ -1,6 +1,6 @@
 import { useEffect, useRef, useCallback, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Trash2, MessageSquare, Keyboard } from "lucide-react";
+import { X, Trash2, MessageSquare, Keyboard, AlertCircle, RefreshCw, Sparkles, Target, BookOpen } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Sheet,
@@ -11,7 +11,7 @@ import {
 import { useChat, ChatMessage as ChatMessageType, ResponseMode } from "@/hooks/useChat";
 import { useChatSessions } from "@/hooks/useChatSessions";
 import { useAuth } from "@/contexts/AuthContext";
-import { ChatMessage } from "@/components/chat/ChatMessage";
+import { ChatMessage, MessageSkeleton } from "@/components/chat/ChatMessage";
 import { ChatInput } from "@/components/chat/ChatInput";
 import { ChatHistory } from "@/components/chat/ChatHistory";
 import { ThinkingIndicator } from "@/components/chat/ThinkingIndicator";
@@ -35,12 +35,12 @@ const containerVariants = {
   hidden: { opacity: 0 },
   visible: {
     opacity: 1,
-    transition: { staggerChildren: 0.1 }
+    transition: { staggerChildren: 0.08 }
   }
 };
 
 const itemVariants = {
-  hidden: { opacity: 0, y: 20 },
+  hidden: { opacity: 0, y: 16 },
   visible: { opacity: 1, y: 0 }
 };
 
@@ -49,23 +49,122 @@ const suggestionVariants = {
   visible: (i: number) => ({
     opacity: 1,
     scale: 1,
-    transition: { delay: i * 0.1, duration: 0.3 }
+    transition: { delay: i * 0.08, duration: 0.25 }
   }),
-  hover: { scale: 1.02, transition: { duration: 0.2 } },
+  hover: { scale: 1.01, transition: { duration: 0.15 } },
   tap: { scale: 0.98 }
 };
+
+// B1: Empty State Component
+function EmptyState({ onSuggestionClick, isLoading }: { onSuggestionClick: (query: string) => void; isLoading: boolean }) {
+  const suggestions = [
+    "Como criar um novo processo no SEI?",
+    "Como anexar documentos?",
+    "O que é bloco de assinatura?",
+    "Como fazer prestação de contas no SDP?"
+  ];
+
+  return (
+    <motion.div 
+      variants={containerVariants}
+      initial="hidden"
+      animate="visible"
+      exit={{ opacity: 0, scale: 0.95 }}
+      className="state-container h-full min-h-[40vh]"
+    >
+      <motion.div 
+        variants={itemVariants}
+        className="w-16 h-16 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center mb-5"
+      >
+        <Sparkles className="w-8 h-8 text-primary" aria-hidden="true" />
+      </motion.div>
+      
+      <motion.h2 variants={itemVariants} className="state-title">
+        Olá! Sou a CLARA
+      </motion.h2>
+      
+      <motion.p variants={itemVariants} className="state-description mb-6">
+        Sua assistente especializada em legislação e procedimentos administrativos.
+      </motion.p>
+
+      {/* Response modes explanation - B1 */}
+      <motion.div 
+        variants={itemVariants}
+        className="flex items-center justify-center gap-4 mb-6 text-chat-microcopy"
+      >
+        <div className="flex items-center gap-1.5">
+          <Target className="w-3.5 h-3.5 text-primary" />
+          <span><strong>Direto:</strong> Respostas objetivas</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <BookOpen className="w-3.5 h-3.5 text-primary" />
+          <span><strong>Didático:</strong> Explicações detalhadas</span>
+        </div>
+      </motion.div>
+      
+      {/* Suggestions */}
+      <motion.div 
+        variants={containerVariants}
+        className="grid grid-cols-1 gap-2 w-full max-w-sm" 
+        role="group" 
+        aria-label="Sugestões de perguntas"
+      >
+        {suggestions.map((suggestion, index) => (
+          <motion.button
+            key={suggestion}
+            custom={index}
+            variants={suggestionVariants}
+            whileHover="hover"
+            whileTap="tap"
+            onClick={() => onSuggestionClick(suggestion)}
+            disabled={isLoading}
+            className="text-left px-4 py-3 rounded-xl border border-border-subtle bg-card/40 text-sm text-foreground/85 hover:bg-card hover:border-primary/25 transition-all duration-fast disabled:opacity-50 focus-halo"
+          >
+            {suggestion}
+          </motion.button>
+        ))}
+      </motion.div>
+    </motion.div>
+  );
+}
+
+// B1: Error State Component
+function ErrorState({ message, onRetry }: { message: string; onRetry: () => void }) {
+  return (
+    <motion.div 
+      initial={{ opacity: 0, y: 16 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="state-container"
+    >
+      <div className="w-14 h-14 rounded-xl bg-destructive/10 border border-destructive/20 flex items-center justify-center mb-4">
+        <AlertCircle className="w-7 h-7 text-destructive" aria-hidden="true" />
+      </div>
+      <h3 className="state-title">Algo deu errado</h3>
+      <p className="state-description mb-4">{message}</p>
+      <Button 
+        variant="outline" 
+        onClick={onRetry}
+        className="gap-2 focus-halo"
+      >
+        <RefreshCw className="w-4 h-4" />
+        Tentar novamente
+      </Button>
+    </motion.div>
+  );
+}
 
 export function ChatPanel({ open, onOpenChange, initialQuery }: ChatPanelProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
-  const hasAutoSent = useRef(false);
   const lastInitialQuery = useRef<string>("");
   const { toast } = useToast();
   const isMobile = useIsMobile();
   const { user } = useAuth();
+  const [lastError, setLastError] = useState<string | null>(null);
 
   const { messages, isLoading, thinking, sendMessage, clearHistory, cancelStream, setMessages } = useChat({
     onError: (error) => {
+      setLastError(error);
       toast({
         variant: "destructive",
         title: "Erro",
@@ -83,7 +182,6 @@ export function ChatPanel({ open, onOpenChange, initialQuery }: ChatPanelProps) 
     updateSession,
     loadSession,
     deleteSession,
-    refreshSessions,
   } = useChatSessions();
 
   // Track if we need to save to database
@@ -94,16 +192,13 @@ export function ChatPanel({ open, onOpenChange, initialQuery }: ChatPanelProps) 
     if (!user || messages.length === 0) return;
     if (messages.length <= lastSavedLength.current) return;
     
-    // Debounce saving
     const timeoutId = setTimeout(async () => {
-      // Only save complete messages (not streaming)
       const completeMessages = messages.filter(m => !m.isStreaming);
       if (completeMessages.length === 0) return;
 
       if (currentSessionId) {
         await updateSession(currentSessionId, completeMessages);
       } else if (completeMessages.length >= 2) {
-        // Create a new session after first exchange
         await createSession(completeMessages);
       }
       lastSavedLength.current = messages.length;
@@ -114,50 +209,40 @@ export function ChatPanel({ open, onOpenChange, initialQuery }: ChatPanelProps) 
 
   // Keyboard shortcuts
   useChatShortcuts({
-    onNewChat: () => {
-      handleNewChat();
-    },
+    onNewChat: handleNewChat,
     onClearHistory: () => {
-      if (messages.length > 0) {
-        handleClearHistory();
-      }
+      if (messages.length > 0) handleClearHistory();
     },
-    onFocusInput: () => {
-      inputRef.current?.focus();
-    },
+    onFocusInput: () => inputRef.current?.focus(),
   });
 
-  // Auto-scroll to last message
+  // Auto-scroll
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, thinking.isThinking]);
 
-  // Send initial query when panel opens with a new query
+  // Send initial query
   useEffect(() => {
     if (open && initialQuery && initialQuery !== lastInitialQuery.current) {
       lastInitialQuery.current = initialQuery;
+      setLastError(null);
       sendMessage(initialQuery, "fast");
     }
   }, [open, initialQuery, sendMessage]);
 
-  // Reset tracking when panel closes
   useEffect(() => {
-    if (!open) {
-      lastInitialQuery.current = "";
-    }
+    if (!open) lastInitialQuery.current = "";
   }, [open]);
 
-  // Focus input when panel opens
   useEffect(() => {
-    if (open) {
-      setTimeout(() => inputRef.current?.focus(), 100);
-    }
+    if (open) setTimeout(() => inputRef.current?.focus(), 100);
   }, [open]);
 
   const handleClearHistory = useCallback(() => {
     if (messages.length > 0) {
       clearHistory();
       lastSavedLength.current = 0;
+      setLastError(null);
       toast({
         title: "Histórico limpo",
         description: "A conversa foi apagada."
@@ -165,17 +250,19 @@ export function ChatPanel({ open, onOpenChange, initialQuery }: ChatPanelProps) 
     }
   }, [messages.length, clearHistory, toast]);
 
-  const handleNewChat = useCallback(() => {
+  function handleNewChat() {
     clearHistory();
     lastSavedLength.current = 0;
+    setLastError(null);
     toast({ title: "Nova conversa iniciada" });
-  }, [clearHistory, toast]);
+  }
 
   const handleLoadSession = useCallback(async (sessionId: string) => {
     const loadedMessages = await loadSession(sessionId);
     if (loadedMessages && setMessages) {
       setMessages(loadedMessages);
       lastSavedLength.current = loadedMessages.length;
+      setLastError(null);
     }
   }, [loadSession, setMessages]);
 
@@ -187,12 +274,20 @@ export function ChatPanel({ open, onOpenChange, initialQuery }: ChatPanelProps) 
     });
   }, [deleteSession, toast]);
 
-  const suggestions = [
-    "Como criar um novo processo no SEI?",
-    "Como anexar documentos?",
-    "O que é bloco de assinatura?",
-    "Como fazer prestação de contas no SDP?"
-  ];
+  const handleSuggestionClick = useCallback((query: string) => {
+    setLastError(null);
+    sendMessage(query, "fast");
+  }, [sendMessage]);
+
+  const handleRetry = useCallback(() => {
+    if (messages.length > 0) {
+      const lastUserMessage = [...messages].reverse().find(m => m.role === "user");
+      if (lastUserMessage) {
+        setLastError(null);
+        sendMessage(lastUserMessage.content, "fast");
+      }
+    }
+  }, [messages, sendMessage]);
 
   return (
     <TooltipProvider>
@@ -200,26 +295,23 @@ export function ChatPanel({ open, onOpenChange, initialQuery }: ChatPanelProps) 
         <SheetContent 
           side="right" 
           className={`flex flex-col p-0 gap-0 ${
-            isMobile 
-              ? 'w-full max-w-full' 
-              : 'w-[450px] sm:max-w-[450px]'
+            isMobile ? 'w-full max-w-full' : 'w-[450px] sm:max-w-[450px]'
           }`}
         >
           {/* Header */}
           <SheetHeader className="flex-shrink-0 px-4 py-3 border-b border-border-subtle bg-background">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center">
+                <div className="w-10 h-10 rounded-xl bg-primary/15 flex items-center justify-center">
                   <MessageSquare className="w-5 h-5 text-primary" aria-hidden="true" />
                 </div>
                 <div>
                   <SheetTitle className="text-lg font-semibold text-foreground">CLARA</SheetTitle>
-                  <p className="text-caption">Inteligência Administrativa</p>
+                  <p className="text-chat-microcopy">Inteligência Administrativa</p>
                 </div>
               </div>
 
               <div className="flex items-center gap-1">
-                {/* History Button - only for authenticated users */}
                 {user && (
                   <ChatHistory
                     sessions={sessions}
@@ -236,7 +328,7 @@ export function ChatPanel({ open, onOpenChange, initialQuery }: ChatPanelProps) 
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="rounded-full text-muted-foreground h-8 w-8"
+                      className="btn-icon h-8 w-8"
                       aria-label="Atalhos de teclado"
                     >
                       <Keyboard className="w-4 h-4" aria-hidden="true" />
@@ -258,7 +350,7 @@ export function ChatPanel({ open, onOpenChange, initialQuery }: ChatPanelProps) 
                       size="icon"
                       onClick={handleClearHistory}
                       disabled={messages.length === 0}
-                      className="rounded-full text-muted-foreground hover:text-destructive h-8 w-8"
+                      className="btn-icon h-8 w-8 hover:text-destructive"
                       aria-label="Limpar histórico da conversa"
                     >
                       <Trash2 className="w-4 h-4" aria-hidden="true" />
@@ -274,57 +366,17 @@ export function ChatPanel({ open, onOpenChange, initialQuery }: ChatPanelProps) 
           <main className="flex-1 overflow-y-auto px-4 py-4" role="main" aria-label="Área de mensagens">
             <AnimatePresence mode="wait">
               {messages.length === 0 ? (
-                <motion.div 
+                <EmptyState 
                   key="empty-state"
-                  variants={containerVariants}
-                  initial="hidden"
-                  animate="visible"
-                  exit={{ opacity: 0, scale: 0.95 }}
-                  className="flex flex-col items-center justify-center h-full min-h-[40vh] text-center px-2"
-                >
-                  <motion.h2 
-                    variants={itemVariants}
-                    className="text-xl font-semibold text-foreground mb-2"
-                  >
-                    Olá! Sou a CLARA
-                  </motion.h2>
-                  
-                  <motion.p 
-                    variants={itemVariants}
-                    className="text-body text-sm max-w-sm mb-6"
-                  >
-                    Sua assistente especializada em legislação e procedimentos administrativos.
-                  </motion.p>
-                  
-                  {/* Suggestions */}
-                  <motion.div 
-                    variants={containerVariants}
-                    className="grid grid-cols-1 gap-2 w-full" 
-                    role="group" 
-                    aria-label="Sugestões de perguntas"
-                  >
-                    {suggestions.map((suggestion, index) => (
-                      <motion.button
-                        key={suggestion}
-                        custom={index}
-                        variants={suggestionVariants}
-                        whileHover="hover"
-                        whileTap="tap"
-                        onClick={() => sendMessage(suggestion, "fast")}
-                        disabled={isLoading}
-                        className="text-left px-3 py-2.5 rounded-lg border border-border-subtle bg-card/40 text-sm text-foreground/80 hover:bg-card hover:border-primary/30 transition-all duration-fast disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-primary/40"
-                      >
-                        {suggestion}
-                      </motion.button>
-                    ))}
-                  </motion.div>
-                </motion.div>
+                  onSuggestionClick={handleSuggestionClick}
+                  isLoading={isLoading}
+                />
               ) : (
                 <motion.div 
                   key="messages"
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
-                  className="space-y-4" 
+                  className="space-y-5" 
                   role="log" 
                   aria-live="polite" 
                   aria-label="Histórico da conversa"
@@ -338,6 +390,30 @@ export function ChatPanel({ open, onOpenChange, initialQuery }: ChatPanelProps) 
                       <ThinkingIndicator step={thinking.step} />
                     )}
                   </AnimatePresence>
+
+                  {/* Error state inline - B1 */}
+                  {lastError && !isLoading && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="flex items-start gap-3 p-3 rounded-xl bg-destructive/5 border border-destructive/20"
+                    >
+                      <AlertCircle className="w-5 h-5 text-destructive flex-shrink-0 mt-0.5" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm text-foreground font-medium">Não foi possível processar</p>
+                        <p className="text-chat-microcopy mt-0.5">{lastError}</p>
+                      </div>
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        onClick={handleRetry}
+                        className="text-xs gap-1.5 h-7 focus-halo"
+                      >
+                        <RefreshCw className="w-3 h-3" />
+                        Tentar
+                      </Button>
+                    </motion.div>
+                  )}
                   
                   <div ref={messagesEndRef} />
                 </motion.div>
@@ -352,7 +428,7 @@ export function ChatPanel({ open, onOpenChange, initialQuery }: ChatPanelProps) 
               isLoading={isLoading}
               onCancel={cancelStream}
             />
-            <p className="text-hint text-center mt-2">
+            <p className="text-chat-microcopy text-center mt-2">
               CLARA pode cometer erros. Verifique informações importantes.
             </p>
           </footer>
