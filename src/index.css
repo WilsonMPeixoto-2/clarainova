@@ -502,9 +502,31 @@
      CHAT MESSAGE - A1/A2: Visual Hierarchy
      ============================================ */
   
-  /* Chat container - A1: Max width for readability */
+  /* Chat container - A1: Max width for readability + Anti-overflow */
   .chat-content-container {
     max-width: 680px; /* Optimal reading width */
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
+
+  .chat-content-container * {
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
+
+  /* Code blocks - prevent horizontal page overflow */
+  .chat-content-container pre,
+  .chat-content-container code {
+    max-width: 100%;
+    overflow-x: auto;
+  }
+
+  /* Media elements - safe width constraints */
+  .chat-content-container img,
+  .chat-content-container video,
+  .chat-content-container iframe {
+    max-width: 100%;
+    height: auto;
   }
   
   /* Section titles with amber left border */
@@ -574,6 +596,35 @@
   }
 
   /* ============================================
+     SOURCES ROW - Mobile Premium Scroll
+     ============================================ */
+  .sources-row {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  @media (max-width: 520px) {
+    .sources-row {
+      flex-wrap: nowrap;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      scroll-snap-type: x mandatory;
+      padding-bottom: 6px;
+      scrollbar-width: none;
+    }
+    
+    .sources-row::-webkit-scrollbar {
+      display: none;
+    }
+    
+    .sources-row > * {
+      scroll-snap-align: start;
+      flex: 0 0 auto;
+    }
+  }
+
+  /* ============================================
      CARD PADDING STANDARDIZATION - A2
      ============================================ */
   .card-padding-sm {
@@ -602,6 +653,22 @@
     background: transparent;
     border: 1px solid transparent;
     transition: all var(--duration-fast) ease-out;
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  @media (min-width: 640px) {
+    .action-btn {
+      min-height: auto;
+      min-width: auto;
+    }
+  }
+
+  /* ============================================
+     CHAT INPUT FOOTER - Safe area for iOS
+     ============================================ */
+  .chat-input-footer {
+    padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 12px);
   }
 
   .action-btn:hover:not(:disabled) {

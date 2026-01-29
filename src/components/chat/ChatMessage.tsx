@@ -292,7 +292,7 @@ function SourcesSection({ sources }: { sources: ChatMessageType["sources"] }) {
         transition={{ duration: 0.2 }}
         className="overflow-hidden"
       >
-        <div className="flex flex-wrap gap-2 mt-2">
+        <div className="sources-row mt-2">
           {/* Local sources */}
           {sources.local?.map((source, i) => (
             <motion.span 
