@@ -1,10 +1,12 @@
-import { useState } from 'react';
+import { useState, lazy, Suspense } from 'react';
 import Header from '@/components/Header';
 import HeroSection from '@/components/HeroSection';
 import FeaturesSection from '@/components/FeaturesSection';
 import Footer from '@/components/Footer';
 import { SEOHead, SchemaOrg } from '@/components/SEOHead';
-import { ChatPanel } from '@/components/chat/ChatPanel';
+
+// Lazy load ChatPanel to break the critical request chain (scroll-area is 151KB)
+const ChatPanel = lazy(() => import('@/components/chat/ChatPanel').then(m => ({ default: m.ChatPanel })));
 
 const Index = () => {
   const [chatOpen, setChatOpen] = useState(false);
@@ -39,12 +41,14 @@ const Index = () => {
       </main>
       <Footer />
 
-      {/* Chat Panel */}
-      <ChatPanel 
-        open={chatOpen} 
-        onOpenChange={setChatOpen} 
-        initialQuery={initialQuery}
-      />
+      {/* Chat Panel - lazy loaded to break critical request chain */}
+      <Suspense fallback={null}>
+        <ChatPanel 
+          open={chatOpen} 
+          onOpenChange={setChatOpen} 
+          initialQuery={initialQuery}
+        />
+      </Suspense>
     </div>
   );
 };
