@@ -1,8 +1,24 @@
 # CLARA Design System
 
-**Version:** 2.0  
-**Updated:** 2026-01-28  
+**Version:** 3.0 — Premium Craft Edition  
+**Updated:** 2026-01-29  
 **Brand Identity:** Premium LegalTech AI Assistant
+
+## ⚠️ Regras-Mãe (antes de mexer)
+
+1. **Não adicionar ruído**: cada elemento novo justifica "ganho de legibilidade" ou "ganho de produtividade"
+2. **Uma só linguagem**: tudo segue os mesmos tokens (surface, border, text, motion). Sem cores "soltas"
+3. **Ritmo**: padding/margens em múltiplos de 4/8px
+4. **Estados completos**: nenhum componente existe sem loading / empty / error / success
+
+## ❌ Anti-Patterns (o que NÃO fazer)
+
+- Brilho/glow excessivo
+- Bordas fortes demais (use `--border-subtle`)
+- Animações longas (>350ms) ou em layout principal
+- Cores hardcoded (`text-white`, `bg-black`)
+- Sombras agressivas (use `--shadow-sm` ou `--shadow-md`)
+- Glass/blur em todos os elementos (só onde faz sentido)
 
 ---
 

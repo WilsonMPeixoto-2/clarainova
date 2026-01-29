@@ -28,17 +28,17 @@ function renderMarkdown(text: string): JSX.Element[] {
     if (listItems.length > 0) {
       if (isOrderedList) {
         elements.push(
-          <ol key={`ol-${elements.length}`} className="list-decimal list-inside space-y-1 my-3 ml-2">
+          <ol key={`ol-${elements.length}`} className="chat-list list-decimal list-inside space-y-1.5 my-3 ml-1">
             {listItems.map((item, i) => (
-              <li key={i} className="text-foreground/90">{renderInline(item)}</li>
+              <li key={i} className="text-chat-body">{renderInline(item)}</li>
             ))}
           </ol>
         );
       } else {
         elements.push(
-          <ul key={`ul-${elements.length}`} className="list-disc list-inside space-y-1 my-3 ml-2">
+          <ul key={`ul-${elements.length}`} className="chat-list list-disc list-inside space-y-1.5 my-3 ml-1">
             {listItems.map((item, i) => (
-              <li key={i} className="text-foreground/90">{renderInline(item)}</li>
+              <li key={i} className="text-chat-body">{renderInline(item)}</li>
             ))}
           </ul>
         );
@@ -55,7 +55,7 @@ function renderMarkdown(text: string): JSX.Element[] {
       if (inCodeBlock) {
         flushList();
         elements.push(
-          <pre key={`code-${elements.length}`} className="bg-surface-3 rounded-lg p-4 overflow-x-auto my-3 text-sm">
+          <pre key={`code-${elements.length}`} className="bg-surface-3 rounded-lg p-4 overflow-x-auto my-4 text-sm">
             <code className={codeLanguage ? `language-${codeLanguage}` : ""}>
               {codeContent.join("\n")}
             </code>
@@ -80,7 +80,7 @@ function renderMarkdown(text: string): JSX.Element[] {
     if (line.startsWith("### ")) {
       flushList();
       elements.push(
-        <h3 key={`h3-${elements.length}`} className="chat-section-title text-base font-semibold text-foreground mt-4 mb-2">
+        <h3 key={`h3-${elements.length}`} className="chat-section-title text-chat-subtitle">
           {renderInline(line.slice(4))}
         </h3>
       );
@@ -89,7 +89,7 @@ function renderMarkdown(text: string): JSX.Element[] {
     if (line.startsWith("## ")) {
       flushList();
       elements.push(
-        <h2 key={`h2-${elements.length}`} className="chat-section-title text-lg font-semibold text-foreground mt-5 mb-2">
+        <h2 key={`h2-${elements.length}`} className="chat-section-title text-chat-title">
           {renderInline(line.slice(3))}
         </h2>
       );
@@ -98,7 +98,7 @@ function renderMarkdown(text: string): JSX.Element[] {
     if (line.startsWith("# ")) {
       flushList();
       elements.push(
-        <h1 key={`h1-${elements.length}`} className="chat-section-title text-xl font-bold text-foreground mt-5 mb-3">
+        <h1 key={`h1-${elements.length}`} className="chat-section-title text-lg font-bold text-foreground mt-5 mb-3">
           {renderInline(line.slice(2))}
         </h1>
       );
@@ -130,7 +130,7 @@ function renderMarkdown(text: string): JSX.Element[] {
     // Horizontal rule - elegant divider
     if (line.match(/^[-*_]{3,}$/)) {
       flushList();
-      elements.push(<hr key={`hr-${elements.length}`} className="chat-divider my-5 border-0" />);
+      elements.push(<hr key={`hr-${elements.length}`} className="chat-divider border-0" />);
       continue;
     }
 
@@ -143,7 +143,7 @@ function renderMarkdown(text: string): JSX.Element[] {
     // Regular paragraph
     flushList();
     elements.push(
-      <p key={`p-${elements.length}`} className="text-foreground/90 leading-relaxed my-2">
+      <p key={`p-${elements.length}`} className="text-chat-body my-2">
         {renderInline(line)}
       </p>
     );
@@ -182,7 +182,7 @@ function renderInline(text: string): (string | JSX.Element)[] {
         parts.push(remaining.slice(0, codeMatch.index));
       }
       parts.push(
-        <code key={`c-${keyIndex++}`} className="bg-muted/70 px-1.5 py-0.5 rounded text-sm font-mono text-primary">
+        <code key={`c-${keyIndex++}`} className="bg-surface-3/80 px-1.5 py-0.5 rounded text-sm font-mono text-primary">
           {codeMatch[1]}
         </code>
       );
@@ -239,7 +239,7 @@ function SourcesSection({ sources }: { sources: ChatMessageType["sources"] }) {
   
   return (
     <motion.div 
-      className="mt-3"
+      className="mt-4"
       initial={{ opacity: 0, y: 5 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: 0.2 }}
@@ -248,10 +248,10 @@ function SourcesSection({ sources }: { sources: ChatMessageType["sources"] }) {
         variant="ghost"
         size="sm"
         onClick={() => setIsExpanded(!isExpanded)}
-        className="text-xs text-muted-foreground hover:text-foreground gap-1.5 h-7 px-2 group"
+        className="text-chat-microcopy hover:text-foreground gap-1.5 h-7 px-2 group focus-halo"
       >
         <FileText className="w-3 h-3 group-hover:text-primary transition-colors" aria-hidden="true" />
-        <span>{totalSources} {totalSources === 1 ? "fonte consultada" : "fontes consultadas"}</span>
+        <span>Fontes ({totalSources})</span>
         {isExpanded ? (
           <ChevronUp className="w-3 h-3" aria-hidden="true" />
         ) : (
@@ -291,7 +291,7 @@ function SourcesSection({ sources }: { sources: ChatMessageType["sources"] }) {
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ delay: (sources.local?.length || 0 + i) * 0.05 }}
-              className="source-chip-web"
+              className="source-chip-web focus-halo"
               title={source}
             >
               <ExternalLink className="w-3 h-3 flex-shrink-0" aria-hidden="true" />
@@ -301,6 +301,20 @@ function SourcesSection({ sources }: { sources: ChatMessageType["sources"] }) {
         </div>
       </motion.div>
     </motion.div>
+  );
+}
+
+// Loading skeleton component - B1
+function MessageSkeleton() {
+  return (
+    <div className="flex gap-4" aria-hidden="true">
+      <div className="skeleton w-9 h-9 rounded-full flex-shrink-0" />
+      <div className="flex-1 space-y-3 max-w-[85%]">
+        <div className="skeleton-text-full" />
+        <div className="skeleton-text-medium" />
+        <div className="skeleton-text-short" />
+      </div>
+    </div>
   );
 }
 
@@ -317,9 +331,9 @@ export const ChatMessage = memo(function ChatMessage({ message }: ChatMessagePro
   return (
     <motion.div 
       className={`flex gap-4 ${isUser ? "flex-row-reverse" : ""}`}
-      initial={{ opacity: 0, y: 20, scale: 0.98 }}
-      animate={{ opacity: 1, y: 0, scale: 1 }}
-      transition={{ duration: 0.3, ease: "easeOut" }}
+      initial={{ opacity: 0, y: 16 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.25, ease: "easeOut" }}
       role="article"
       aria-label={`Mensagem de ${isUser ? "você" : "CLARA"}`}
     >
@@ -328,7 +342,7 @@ export const ChatMessage = memo(function ChatMessage({ message }: ChatMessagePro
         className={`flex-shrink-0 w-9 h-9 rounded-full flex items-center justify-center ${
           isUser 
             ? "bg-secondary text-foreground" 
-            : "bg-primary/20 text-primary"
+            : "bg-primary/15 text-primary"
         }`}
         initial={{ scale: 0 }}
         animate={{ scale: 1 }}
@@ -342,14 +356,14 @@ export const ChatMessage = memo(function ChatMessage({ message }: ChatMessagePro
         <div className={`inline-block rounded-2xl px-4 py-3 ${
           isUser 
             ? "bg-primary text-primary-foreground rounded-tr-sm" 
-            : "bg-card/80 backdrop-blur-sm border border-border-subtle rounded-tl-sm"
+            : "bg-card/70 backdrop-blur-sm border border-border-subtle rounded-tl-sm"
         }`}>
           {isUser ? (
             <p className="text-sm leading-relaxed">{message.content}</p>
           ) : (
-            <div className="text-sm prose-sm max-w-none">
+            <div className="text-sm chat-content-container">
               {message.isStreaming && !message.content ? (
-                <span className="inline-flex items-center gap-1">
+                <span className="inline-flex items-center gap-1.5">
                   <motion.span 
                     animate={{ opacity: [0.4, 1, 0.4] }}
                     transition={{ duration: 1, repeat: Infinity }}
@@ -387,13 +401,13 @@ export const ChatMessage = memo(function ChatMessage({ message }: ChatMessagePro
           <ResponseNotice type={message.notice.type} message={message.notice.message} />
         )}
 
-        {/* Actions for assistant messages */}
+        {/* Actions for assistant messages - B2: Standardized action bar */}
         {!isUser && !message.isStreaming && message.content && (
           <motion.div 
-            className="flex items-center gap-2 mt-2 flex-wrap"
+            className="action-bar"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            transition={{ delay: 0.3 }}
+            transition={{ delay: 0.2 }}
           >
             <CopyButton text={message.content} />
             <ChecklistButton text={message.content} />
@@ -413,8 +427,8 @@ export const ChatMessage = memo(function ChatMessage({ message }: ChatMessagePro
         {!isUser && <SourcesSection sources={message.sources} />}
 
         {/* Timestamp and API Provider */}
-        <div className={`flex items-center gap-2 mt-1 ${isUser ? "justify-end" : ""}`}>
-          <p className="text-caption">
+        <div className={`flex items-center gap-2 mt-1.5 ${isUser ? "justify-end" : ""}`}>
+          <p className="text-chat-microcopy">
             {formattedTime}
           </p>
           {!isUser && message.apiProvider && !message.isStreaming && (
@@ -425,3 +439,6 @@ export const ChatMessage = memo(function ChatMessage({ message }: ChatMessagePro
     </motion.div>
   );
 });
+
+// Export skeleton for use in ChatPanel
+export { MessageSkeleton };

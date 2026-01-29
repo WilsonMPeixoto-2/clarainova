@@ -1,7 +1,6 @@
 import { useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Copy, Check } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import {
   Tooltip,
   TooltipContent,
@@ -44,39 +43,41 @@ export function CopyButton({ text, className = "" }: CopyButtonProps) {
   return (
     <Tooltip>
       <TooltipTrigger asChild>
-        <Button
-          variant="ghost"
-          size="icon"
+        <button
           onClick={handleCopy}
-          className={`h-7 w-7 text-muted-foreground hover:text-foreground transition-colors ${className}`}
+          className={`action-btn ${copied ? "success" : ""} ${className}`}
           aria-label={copied ? "Copiado!" : "Copiar resposta"}
         >
           <AnimatePresence mode="wait">
             {copied ? (
-              <motion.div
+              <motion.span
                 key="check"
-                initial={{ scale: 0, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                exit={{ scale: 0, opacity: 0 }}
-                transition={{ duration: 0.15 }}
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                exit={{ scale: 0 }}
+                transition={{ duration: 0.12 }}
+                className="flex items-center gap-1.5"
               >
-                <Check className="w-4 h-4 text-primary" />
-              </motion.div>
+                <Check className="w-3.5 h-3.5" aria-hidden="true" />
+                <span className="hidden sm:inline">Copiado</span>
+              </motion.span>
             ) : (
-              <motion.div
+              <motion.span
                 key="copy"
-                initial={{ scale: 0, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                exit={{ scale: 0, opacity: 0 }}
-                transition={{ duration: 0.15 }}
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                exit={{ scale: 0 }}
+                transition={{ duration: 0.12 }}
+                className="flex items-center gap-1.5"
               >
-                <Copy className="w-4 h-4" />
-              </motion.div>
+                <Copy className="w-3.5 h-3.5" aria-hidden="true" />
+                <span className="hidden sm:inline">Copiar</span>
+              </motion.span>
             )}
           </AnimatePresence>
-        </Button>
+        </button>
       </TooltipTrigger>
-      <TooltipContent side="top">
+      <TooltipContent side="top" className="text-xs">
         {copied ? "Copiado!" : "Copiar resposta"}
       </TooltipContent>
     </Tooltip>

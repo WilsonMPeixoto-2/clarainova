@@ -1,6 +1,6 @@
 import { useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { ListChecks, Check } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import {
   Tooltip,
   TooltipContent,
@@ -71,27 +71,41 @@ export function ChecklistButton({ text }: ChecklistButtonProps) {
   return (
     <Tooltip>
       <TooltipTrigger asChild>
-        <Button
-          variant="ghost"
-          size="sm"
+        <button
           onClick={handleCopy}
-          className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground gap-1"
+          className={`action-btn ${copied ? "success" : ""}`}
           aria-label="Copiar como checklist"
         >
-          {copied ? (
-            <>
-              <Check className="w-3 h-3 text-primary" aria-hidden="true" />
-              <span className="hidden sm:inline">Copiado!</span>
-            </>
-          ) : (
-            <>
-              <ListChecks className="w-3 h-3" aria-hidden="true" />
-              <span className="hidden sm:inline">Checklist</span>
-            </>
-          )}
-        </Button>
+          <AnimatePresence mode="wait">
+            {copied ? (
+              <motion.span
+                key="check"
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                exit={{ scale: 0 }}
+                transition={{ duration: 0.12 }}
+                className="flex items-center gap-1.5"
+              >
+                <Check className="w-3.5 h-3.5" aria-hidden="true" />
+                <span className="hidden sm:inline">Copiado</span>
+              </motion.span>
+            ) : (
+              <motion.span
+                key="checklist"
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                exit={{ scale: 0 }}
+                transition={{ duration: 0.12 }}
+                className="flex items-center gap-1.5"
+              >
+                <ListChecks className="w-3.5 h-3.5" aria-hidden="true" />
+                <span className="hidden sm:inline">Checklist</span>
+              </motion.span>
+            )}
+          </AnimatePresence>
+        </button>
       </TooltipTrigger>
-      <TooltipContent side="top">
+      <TooltipContent side="top" className="text-xs">
         Copiar como checklist (formato [ ] item)
       </TooltipContent>
     </Tooltip>
