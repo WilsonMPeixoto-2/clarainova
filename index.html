@@ -4,11 +4,30 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     
+    <!-- Critical CSS for FCP - inline above-the-fold styles -->
+    <style>
+      /* Critical CSS: Minimal styles for initial render */
+      :root {
+        --background: 216 45% 7%;
+        --foreground: 210 40% 98%;
+        --primary: 30 45% 64%;
+      }
+      *,*::before,*::after{box-sizing:border-box;border-width:0;border-style:solid}
+      html{line-height:1.5;-webkit-text-size-adjust:100%;font-family:'Inter',system-ui,-apple-system,sans-serif}
+      body{margin:0;line-height:inherit;background-color:hsl(216 45% 7%);color:hsl(210 40% 98%);-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}
+      #root{min-height:100vh;display:flex;flex-direction:column}
+      .loading-container{display:flex;align-items:center;justify-content:center;min-height:100vh;background:hsl(216 45% 7%)}
+      .loading-spinner{width:40px;height:40px;border:3px solid hsl(210 40% 98% / 0.1);border-top-color:hsl(30 45% 64%);border-radius:50%;animation:spin 1s linear infinite}
+      @keyframes spin{to{transform:rotate(360deg)}}
+    </style>
+    
     <!-- Preconnect for fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link rel="preload" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'" />
-    <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" /></noscript>
+    
+    <!-- Async font loading for better FCP -->
+    <link rel="preload" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'" />
+    <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" /></noscript>
     
     <!-- Primary Meta Tags -->
     <title>CLARA - Assistente de Legislação e Apoio Administrativo</title>
@@ -60,7 +79,21 @@
 </head>
 
   <body>
-    <div id="root"></div>
+    <!-- Initial loading indicator for faster perceived FCP -->
+    <div id="root">
+      <div class="loading-container" id="initial-loader">
+        <div class="loading-spinner"></div>
+      </div>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
+    <script>
+      // Remove initial loader once React mounts
+      window.addEventListener('DOMContentLoaded', function() {
+        var loader = document.getElementById('initial-loader');
+        if (loader) {
+          setTimeout(function() { loader.style.display = 'none'; }, 100);
+        }
+      });
+    </script>
   </body>
 </html>
