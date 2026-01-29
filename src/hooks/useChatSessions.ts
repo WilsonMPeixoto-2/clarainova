@@ -39,10 +39,10 @@ function messagesToJson(messages: ChatMessage[]): Json {
     role: msg.role,
     content: msg.content,
     timestamp: msg.timestamp.toISOString(),
-    sources: msg.sources || null,
+    sources: msg.sources ? JSON.parse(JSON.stringify(msg.sources)) : null,
     queryId: msg.queryId || null,
     userQuery: msg.userQuery || null,
-  })) as Json;
+  })) as unknown as Json;
 }
 
 // Convert JSON back to ChatMessage format
