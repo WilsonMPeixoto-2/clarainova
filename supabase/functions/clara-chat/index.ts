@@ -508,7 +508,7 @@ serve(async (req) => {
       );
     }
 
-    const { message, history = [], mode = "fast" } = await req.json();
+    const { message, history = [], mode = "fast", webSearchMode = "auto" } = await req.json();
     
     // Input validation - message
     if (!message || typeof message !== "string") {
@@ -545,6 +545,14 @@ serve(async (req) => {
     if (mode !== "fast" && mode !== "deep") {
       return new Response(
         JSON.stringify({ error: "Modo inválido. Use 'fast' ou 'deep'." }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+    
+    // Input validation - webSearchMode
+    if (webSearchMode !== "auto" && webSearchMode !== "deep") {
+      return new Response(
+        JSON.stringify({ error: "Modo de busca web inválido. Use 'auto' ou 'deep'." }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -640,11 +648,59 @@ serve(async (req) => {
       : 0;
     
     // Determine if we need web search fallback
+    // Force web search in "deep" webSearchMode, or auto-detect based on local RAG quality
     const needsWebSearch = 
+      webSearchMode === "deep" ||
       finalChunks.length < WEB_SEARCH_CONFIG.minChunksForLocalOnly ||
       avgTopScore < WEB_SEARCH_CONFIG.minRRFScoreThreshold;
     
-    console.log(`[clara-chat] RAG results: ${finalChunks.length} chunks, avgScore: ${avgTopScore.toFixed(4)}, needsWebSearch: ${needsWebSearch}`);
+    console.log(`[clara-chat] RAG results: ${finalChunks.length} chunks, avgScore: ${avgTopScore.toFixed(4)}, needsWebSearch: ${needsWebSearch}, webSearchMode: ${webSearchMode}`);
+    
+    // Perform structured web search if needed
+    interface WebSource {
+      url: string;
+      title: string;
+      domain?: string;
+      domain_category: "primary" | "official_mirror" | "aggregator" | "unknown";
+      confidence: "high" | "medium" | "low";
+      excerpt_used: string;
+      retrieved_at: string;
+      extraction_method?: string;
+    }
+    
+    let webSearchContext = "";
+    let webSources: WebSource[] = [];
+    let quorumMet = false;
+    
+    if (needsWebSearch) {
+      try {
+        // Call our web-search edge function internally
+        const webSearchUrl = `${supabaseUrl}/functions/v1/web-search`;
+        const webSearchResponse = await fetch(webSearchUrl, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${supabaseServiceKey}`,
+          },
+          body: JSON.stringify({
+            query: message,
+            mode: webSearchMode === "deep" ? "deep" : "auto",
+          }),
+        });
+        
+        if (webSearchResponse.ok) {
+          const webSearchResult = await webSearchResponse.json();
+          webSearchContext = webSearchResult.context_for_llm || "";
+          webSources = webSearchResult.sources || [];
+          quorumMet = webSearchResult.quorum_met || false;
+          console.log(`[clara-chat] Web search returned ${webSources.length} sources, quorum: ${quorumMet}`);
+        } else {
+          console.warn(`[clara-chat] Web search failed: ${webSearchResponse.status}`);
+        }
+      } catch (error) {
+        console.error("[clara-chat] Web search error:", error);
+      }
+    }
     
     // Buscar títulos dos documentos
     const documentIds = [...new Set(finalChunks.map(c => c.document_id))];
@@ -765,8 +821,8 @@ Sempre cite as fontes quando usar informação do contexto [Nome do Documento].$
     // Create SSE stream
     const encoder = new TextEncoder();
     
-    // Track web sources from grounding metadata
-    const webSources: string[] = [];
+    // Web sources already collected from web-search function call above
+    // Additional grounding sources from Google will be added here as simple strings
 
     // Helper function to log API usage (fire and forget)
     const logApiUsage = async (provider: "gemini" | "lovable", model: string, modeUsed: string) => {
@@ -946,20 +1002,30 @@ Sempre cite as fontes quando usar informação do contexto [Nome do Documento].$
             if (groundingMeta?.groundingChuncks) {
               for (const grChunk of groundingMeta.groundingChuncks) {
                 if (grChunk.web?.uri && grChunk.web?.title) {
-                  const webSource = `${grChunk.web.title} - ${grChunk.web.uri}`;
-                  if (!webSources.includes(webSource)) {
-                    webSources.push(webSource);
+                  // Add as structured source if not already present
+                  const exists = webSources.some((s: WebSource) => s.url === grChunk.web.uri);
+                  if (!exists) {
+                    webSources.push({
+                      url: grChunk.web.uri,
+                      title: grChunk.web.title,
+                      domain_category: "unknown",
+                      confidence: "medium",
+                      excerpt_used: "",
+                      retrieved_at: new Date().toISOString(),
+                    });
                   }
                 }
               }
             }
           }
           
-          // Enviar fontes (local + web)
-          const sourcesPayload: { local: string[]; web?: string[] } = { local: localSources };
+          // Enviar fontes (local + web structured)
+          // deno-lint-ignore no-explicit-any
+          const sourcesPayload: { local: string[]; web?: any[]; quorum_met?: boolean } = { local: localSources };
           if (webSources.length > 0) {
             sourcesPayload.web = webSources;
-            console.log(`[clara-chat] Web sources found: ${webSources.length}`);
+            sourcesPayload.quorum_met = quorumMet;
+            console.log(`[clara-chat] Web sources found: ${webSources.length}, quorum: ${quorumMet}`);
           }
           
           if (localSources.length > 0 || webSources.length > 0) {

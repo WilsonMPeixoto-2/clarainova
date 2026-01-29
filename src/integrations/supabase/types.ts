@@ -548,6 +548,33 @@ export type Database = {
         }
         Relationships: []
       }
+      trusted_domains: {
+        Row: {
+          category: string
+          created_at: string
+          description: string | null
+          domain: string
+          id: string
+          priority: number
+        }
+        Insert: {
+          category: string
+          created_at?: string
+          description?: string | null
+          domain: string
+          id?: string
+          priority?: number
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          description?: string | null
+          domain?: string
+          id?: string
+          priority?: number
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           id: string
@@ -563,6 +590,42 @@ export type Database = {
           id?: string
           role?: Database["public"]["Enums"]["app_role"]
           user_id?: string
+        }
+        Relationships: []
+      }
+      web_search_cache: {
+        Row: {
+          created_at: string
+          expires_at: string
+          fetched_pages: Json | null
+          hit_count: number
+          id: string
+          mode: string
+          query_hash: string
+          query_text: string
+          serp_results: Json | null
+        }
+        Insert: {
+          created_at?: string
+          expires_at?: string
+          fetched_pages?: Json | null
+          hit_count?: number
+          id?: string
+          mode: string
+          query_hash: string
+          query_text: string
+          serp_results?: Json | null
+        }
+        Update: {
+          created_at?: string
+          expires_at?: string
+          fetched_pages?: Json | null
+          hit_count?: number
+          id?: string
+          mode?: string
+          query_hash?: string
+          query_text?: string
+          serp_results?: Json | null
         }
         Relationships: []
       }
@@ -584,6 +647,7 @@ export type Database = {
           reset_in: number
         }[]
       }
+      cleanup_expired_web_cache: { Args: never; Returns: number }
       cleanup_old_chat_sessions: {
         Args: { days_old?: number }
         Returns: number
@@ -605,6 +669,15 @@ export type Database = {
           percentage: number
           provider: string
           total_count: number
+        }[]
+      }
+      get_cached_web_search: {
+        Args: { p_mode: string; p_query_hash: string }
+        Returns: {
+          fetched_pages: Json
+          hit_count: number
+          id: string
+          serp_results: Json
         }[]
       }
       get_chat_storage_stats: {
@@ -630,6 +703,15 @@ export type Database = {
           title: string
           total_batches: number
           updated_at: string
+        }[]
+      }
+      get_domain_info: {
+        Args: { p_url: string }
+        Returns: {
+          category: string
+          description: string
+          domain: string
+          priority: number
         }[]
       }
       get_ingestion_resume_point: {
@@ -723,6 +805,16 @@ export type Database = {
           existing_hash: string
           is_duplicate: boolean
         }[]
+      }
+      save_web_search_cache: {
+        Args: {
+          p_fetched_pages: Json
+          p_mode: string
+          p_query_hash: string
+          p_query_text: string
+          p_serp_results: Json
+        }
+        Returns: string
       }
       search_document_chunks: {
         Args: {

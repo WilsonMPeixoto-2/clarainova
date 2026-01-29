@@ -2,6 +2,7 @@ import { useState, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
 export type ResponseMode = "fast" | "deep";
+export type WebSearchMode = "auto" | "deep";
 
 export interface ApiProviderInfo {
   provider: "gemini" | "lovable";
@@ -20,15 +21,29 @@ export interface ChatNotice {
   message: string;
 }
 
+// Structured web source with evidence
+export interface WebSourceData {
+  url: string;
+  title: string;
+  domain?: string;
+  domain_category: "primary" | "official_mirror" | "aggregator" | "unknown";
+  confidence: "high" | "medium" | "low";
+  excerpt_used: string;
+  retrieved_at: string;
+}
+
+export interface ChatMessageSources {
+  local: string[];
+  web?: WebSourceData[] | string[]; // Support both structured and simple URL formats
+  quorum_met?: boolean;
+}
+
 export interface ChatMessage {
   id: string;
   role: "user" | "assistant";
   content: string;
   timestamp: Date;
-  sources?: {
-    local: string[];
-    web?: string[];
-  };
+  sources?: ChatMessageSources;
   isStreaming?: boolean;
   queryId?: string; // ID from query_analytics for feedback
   userQuery?: string; // Original user query for PDF export (only on assistant messages)
@@ -97,7 +112,7 @@ export function useChat(options: UseChatOptions = {}) {
     localStorage.removeItem(STORAGE_KEY);
   }, []);
 
-  const sendMessage = useCallback(async (content: string, mode: ResponseMode = "fast") => {
+  const sendMessage = useCallback(async (content: string, mode: ResponseMode = "fast", webSearchMode: WebSearchMode = "auto") => {
     if (!content.trim() || isLoading) return;
 
     const userQueryContent = content.trim();
@@ -127,7 +142,8 @@ export function useChat(options: UseChatOptions = {}) {
     const assistantId = crypto.randomUUID();
     let assistantContent = "";
     let localSources: string[] = [];
-    let webSources: string[] = [];
+    let webSources: WebSourceData[] | string[] = [];
+    let quorumMet: boolean | undefined;
     let apiProviderInfo: ApiProviderInfo | undefined;
     let noticeInfo: ChatNotice | undefined;
 
@@ -157,6 +173,7 @@ export function useChat(options: UseChatOptions = {}) {
             message: content,
             history: historyForApi.slice(0, -1), // Excluir a mensagem atual
             mode: mode,
+            webSearchMode: webSearchMode, // Add web search mode
           }),
           signal: abortControllerRef.current.signal
         }
@@ -248,6 +265,9 @@ export function useChat(options: UseChatOptions = {}) {
                   if (data.web) {
                     webSources = data.web;
                   }
+                  if (typeof data.quorum_met === 'boolean') {
+                    quorumMet = data.quorum_met;
+                  }
                   break;
 
                 case "notice":
@@ -302,10 +322,11 @@ export function useChat(options: UseChatOptions = {}) {
       const finalContent = assistantContent || "Desculpe, não consegui gerar uma resposta.";
       const hasLocalSources = localSources.length > 0;
       const hasWebSources = webSources.length > 0;
-      const finalSources = (hasLocalSources || hasWebSources) 
+      const finalSources: ChatMessageSources | undefined = (hasLocalSources || hasWebSources) 
         ? { 
             local: localSources,
-            ...(hasWebSources && { web: webSources })
+            ...(hasWebSources && { web: webSources }),
+            ...(quorumMet !== undefined && { quorum_met: quorumMet }),
           } 
         : undefined;
 

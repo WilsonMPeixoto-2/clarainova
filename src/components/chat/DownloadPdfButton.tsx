@@ -9,13 +9,20 @@ import {
 } from "@/components/ui/tooltip";
 import { toast } from "@/hooks/use-toast";
 import claraLogoPdf from "@/assets/clara-logo-pdf.png";
+import type { ChatMessageSources, WebSourceData } from "@/hooks/useChat";
 
 interface DownloadPdfButtonProps {
   userQuery: string;
   assistantResponse: string;
   timestamp: Date;
-  sources?: { local: string[]; web?: string[] };
+  sources?: ChatMessageSources;
   className?: string;
+}
+
+// Helper to extract URL from web source (works with both formats)
+function getWebSourceUrl(source: WebSourceData | string): string {
+  if (typeof source === 'string') return source;
+  return source.url;
 }
 
 // Function to load image and convert to base64 for jsPDF
@@ -191,8 +198,9 @@ export function DownloadPdfButton({
         
         if (hasWebSources) {
           if (hasLocalSources) currentY += 2;
-          sources.web?.forEach((url) => {
+          sources.web?.forEach((source) => {
             checkPageBreak(6);
+            const url = getWebSourceUrl(source);
             const displayUrl = url.length > 60 ? url.substring(0, 57) + "..." : url;
             doc.text(`• ${displayUrl}`, margin + 4, currentY);
             currentY += 6;

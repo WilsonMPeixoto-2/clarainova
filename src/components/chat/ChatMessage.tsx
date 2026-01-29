@@ -1,13 +1,14 @@
 import { memo, useMemo, useState } from "react";
 import { motion } from "framer-motion";
-import { Bot, User, FileText, ExternalLink, ChevronDown, ChevronUp } from "lucide-react";
-import type { ChatMessage as ChatMessageType } from "@/hooks/useChat";
+import { Bot, User, FileText, ExternalLink, ChevronDown, ChevronUp, CheckCircle2 } from "lucide-react";
+import type { ChatMessage as ChatMessageType, WebSourceData } from "@/hooks/useChat";
 import { CopyButton } from "./CopyButton";
 import { DownloadPdfButton } from "./DownloadPdfButton";
 import { FeedbackButtons } from "./FeedbackButtons";
 import { ApiProviderBadge } from "./ApiProviderBadge";
 import { ChecklistButton } from "./ChecklistButton";
 import { ResponseNotice } from "./ResponseNotice";
+import { SourceChipWeb } from "./SourceChipWeb";
 import { Button } from "@/components/ui/button";
 
 interface ChatMessageProps {
@@ -228,14 +229,23 @@ function renderInline(text: string): (string | JSX.Element)[] {
   return parts;
 }
 
+// Type guard to check if web source is structured
+function isStructuredWebSource(source: WebSourceData | string): source is WebSourceData {
+  return typeof source === 'object' && 'url' in source && 'domain_category' in source;
+}
+
 // Componente de fontes colapsável - Premium chips design
 function SourcesSection({ sources }: { sources: ChatMessageType["sources"] }) {
   const [isExpanded, setIsExpanded] = useState(false);
   
   if (!sources) return null;
   
-  const totalSources = (sources.local?.length || 0) + (sources.web?.length || 0);
+  const webSourcesCount = sources.web?.length || 0;
+  const totalSources = (sources.local?.length || 0) + webSourcesCount;
   if (totalSources === 0) return null;
+  
+  // Check if we have structured web sources
+  const hasStructuredWebSources = sources.web && sources.web.length > 0 && isStructuredWebSource(sources.web[0]);
   
   return (
     <motion.div 
@@ -244,20 +254,34 @@ function SourcesSection({ sources }: { sources: ChatMessageType["sources"] }) {
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: 0.2 }}
     >
-      <Button
-        variant="ghost"
-        size="sm"
-        onClick={() => setIsExpanded(!isExpanded)}
-        className="text-chat-microcopy hover:text-foreground gap-1.5 h-7 px-2 group focus-halo"
-      >
-        <FileText className="w-3 h-3 group-hover:text-primary transition-colors" aria-hidden="true" />
-        <span>Fontes ({totalSources})</span>
-        {isExpanded ? (
-          <ChevronUp className="w-3 h-3" aria-hidden="true" />
-        ) : (
-          <ChevronDown className="w-3 h-3" aria-hidden="true" />
+      <div className="flex items-center gap-2">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => setIsExpanded(!isExpanded)}
+          className="text-chat-microcopy hover:text-foreground gap-1.5 h-7 px-2 group focus-halo"
+        >
+          <FileText className="w-3 h-3 group-hover:text-primary transition-colors" aria-hidden="true" />
+          <span>Fontes ({totalSources})</span>
+          {isExpanded ? (
+            <ChevronUp className="w-3 h-3" aria-hidden="true" />
+          ) : (
+            <ChevronDown className="w-3 h-3" aria-hidden="true" />
+          )}
+        </Button>
+        
+        {/* Quorum badge */}
+        {sources.quorum_met && (
+          <motion.span
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30"
+          >
+            <CheckCircle2 className="w-3 h-3" aria-hidden="true" />
+            Quórum
+          </motion.span>
         )}
-      </Button>
+      </div>
       
       <motion.div
         initial={false}
@@ -269,6 +293,7 @@ function SourcesSection({ sources }: { sources: ChatMessageType["sources"] }) {
         className="overflow-hidden"
       >
         <div className="flex flex-wrap gap-2 mt-2">
+          {/* Local sources */}
           {sources.local?.map((source, i) => (
             <motion.span 
               key={`local-${i}`}
@@ -282,22 +307,37 @@ function SourcesSection({ sources }: { sources: ChatMessageType["sources"] }) {
               <span className="truncate max-w-[180px]">{source}</span>
             </motion.span>
           ))}
-          {sources.web?.map((source, i) => (
-            <motion.a 
-              key={`web-${i}`}
-              href={source}
-              target="_blank"
-              rel="noopener noreferrer"
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ delay: (sources.local?.length || 0 + i) * 0.05 }}
-              className="source-chip-web focus-halo"
-              title={source}
-            >
-              <ExternalLink className="w-3 h-3 flex-shrink-0" aria-hidden="true" />
-              <span className="truncate max-w-[150px]">Fonte web</span>
-            </motion.a>
-          ))}
+          
+          {/* Web sources - structured or simple */}
+          {sources.web?.map((source, i) => {
+            if (isStructuredWebSource(source)) {
+              return (
+                <SourceChipWeb
+                  key={`web-${i}`}
+                  source={source}
+                  index={(sources.local?.length || 0) + i}
+                />
+              );
+            }
+            
+            // Fallback to simple URL chip
+            return (
+              <motion.a 
+                key={`web-${i}`}
+                href={source}
+                target="_blank"
+                rel="noopener noreferrer"
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: ((sources.local?.length || 0) + i) * 0.05 }}
+                className="source-chip-web focus-halo"
+                title={source}
+              >
+                <ExternalLink className="w-3 h-3 flex-shrink-0" aria-hidden="true" />
+                <span className="truncate max-w-[150px]">Fonte web</span>
+              </motion.a>
+            );
+          })}
         </div>
       </motion.div>
     </motion.div>
