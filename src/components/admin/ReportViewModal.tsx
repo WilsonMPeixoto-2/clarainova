@@ -10,6 +10,7 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { generateReportPdf } from "@/utils/generateReportPdf";
 import { toast } from "@/hooks/use-toast";
+import { ReportTagBadges, type ReportTag } from "./ReportTagSelector";
 
 interface Report {
   id: string;
@@ -18,6 +19,7 @@ interface Report {
   summary: string | null;
   created_at: string;
   updated_at: string;
+  tags?: ReportTag[];
 }
 
 interface ReportViewModalProps {
@@ -161,10 +163,17 @@ export function ReportViewModal({
             <FileText className="w-5 h-5 text-primary" />
             {report.title}
           </DialogTitle>
-          <DialogDescription>
-            Criado em {formatDate(report.created_at)}
-            {report.updated_at !== report.created_at && (
-              <> • Atualizado em {formatDate(report.updated_at)}</>
+          <DialogDescription className="space-y-2">
+            <span>
+              Criado em {formatDate(report.created_at)}
+              {report.updated_at !== report.created_at && (
+                <> • Atualizado em {formatDate(report.updated_at)}</>
+              )}
+            </span>
+            {report.tags && report.tags.length > 0 && (
+              <div className="pt-1">
+                <ReportTagBadges tags={report.tags} />
+              </div>
             )}
           </DialogDescription>
         </DialogHeader>
