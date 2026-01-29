@@ -2,7 +2,11 @@ import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Search, MessageCircle, BookOpen, Sparkles } from 'lucide-react';
 import { useIsMobile } from '@/hooks/use-mobile';
-import claraHero from '@/assets/clara-hero.png';
+// Responsive WebP images for better LCP performance
+import claraHeroLarge from '@/assets/clara-hero-1920.webp';
+import claraHeroMedium from '@/assets/clara-hero-1024.webp';
+import claraHeroSmall from '@/assets/clara-hero-640.webp';
+import claraHeroFallback from '@/assets/clara-hero.png';
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -40,15 +44,33 @@ const HeroSection = ({ onOpenChat }: HeroSectionProps) => {
         transition={{ duration: isMobile ? 0.6 : 1.2, ease: "easeOut" }}
         className="absolute inset-0 z-0 pointer-events-none"
       >
-        <img 
-          src={claraHero}
-          alt=""
-          fetchPriority="high"
-          loading="eager"
-          decoding="async"
-          className="w-full h-full object-cover object-right"
-          aria-hidden="true"
-        />
+        <picture>
+          {/* WebP sources with responsive sizes for LCP optimization */}
+          <source
+            type="image/webp"
+            media="(max-width: 640px)"
+            srcSet={claraHeroSmall}
+          />
+          <source
+            type="image/webp"
+            media="(max-width: 1024px)"
+            srcSet={claraHeroMedium}
+          />
+          <source
+            type="image/webp"
+            srcSet={claraHeroLarge}
+          />
+          {/* PNG fallback for older browsers */}
+          <img 
+            src={claraHeroFallback}
+            alt=""
+            fetchPriority="high"
+            loading="eager"
+            decoding="async"
+            className="w-full h-full object-cover object-right"
+            aria-hidden="true"
+          />
+        </picture>
       </motion.div>
       
       {/* Desktop Gradient Overlay */}
