@@ -423,6 +423,63 @@ export type Database = {
         }
         Relationships: []
       }
+      report_tag_relations: {
+        Row: {
+          created_at: string
+          id: string
+          report_id: string
+          tag_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          report_id: string
+          tag_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          report_id?: string
+          tag_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "report_tag_relations_report_id_fkey"
+            columns: ["report_id"]
+            isOneToOne: false
+            referencedRelation: "development_reports"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "report_tag_relations_tag_id_fkey"
+            columns: ["tag_id"]
+            isOneToOne: false
+            referencedRelation: "report_tags"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      report_tags: {
+        Row: {
+          color: string
+          created_at: string
+          id: string
+          name: string
+        }
+        Insert: {
+          color?: string
+          created_at?: string
+          id?: string
+          name: string
+        }
+        Update: {
+          color?: string
+          created_at?: string
+          id?: string
+          name?: string
+        }
+        Relationships: []
+      }
       response_feedback: {
         Row: {
           created_at: string

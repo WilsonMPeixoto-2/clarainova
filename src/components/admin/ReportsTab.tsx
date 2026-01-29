@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { Plus, FileText, Eye, FileDown, Trash2, Search, RefreshCw } from "lucide-react";
+import { Plus, FileText, Eye, FileDown, Trash2, Search, RefreshCw, Filter } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -13,11 +13,18 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { ReportFormModal } from "./ReportFormModal";
 import { ReportViewModal } from "./ReportViewModal";
 import { generateReportPdf } from "@/utils/generateReportPdf";
+import { ReportTagBadges, getTagColorClass, type ReportTag } from "./ReportTagSelector";
+import { cn } from "@/lib/utils";
 
 interface Report {
   id: string;
@@ -28,31 +35,64 @@ interface Report {
   updated_at: string;
 }
 
+interface ReportWithTags extends Report {
+  tags: ReportTag[];
+}
+
 export function ReportsTab() {
-  const [reports, setReports] = useState<Report[]>([]);
+  const [reports, setReports] = useState<ReportWithTags[]>([]);
+  const [allTags, setAllTags] = useState<ReportTag[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
+  const [selectedFilterTags, setSelectedFilterTags] = useState<string[]>([]);
   
   // Modal states
   const [formModalOpen, setFormModalOpen] = useState(false);
   const [viewModalOpen, setViewModalOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   
-  const [selectedReport, setSelectedReport] = useState<Report | null>(null);
-  const [reportToDelete, setReportToDelete] = useState<Report | null>(null);
+  const [selectedReport, setSelectedReport] = useState<ReportWithTags | null>(null);
+  const [reportToDelete, setReportToDelete] = useState<ReportWithTags | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
   const fetchReports = useCallback(async () => {
     setIsLoading(true);
     try {
-      const { data, error } = await supabase
+      // Fetch reports
+      const { data: reportsData, error: reportsError } = await supabase
         .from("development_reports")
         .select("*")
         .order("created_at", { ascending: false });
 
-      if (error) throw error;
-      setReports(data || []);
+      if (reportsError) throw reportsError;
+
+      // Fetch all tags
+      const { data: tagsData, error: tagsError } = await supabase
+        .from("report_tags")
+        .select("*")
+        .order("name");
+
+      if (tagsError) throw tagsError;
+      setAllTags(tagsData || []);
+
+      // Fetch tag relations
+      const { data: relationsData, error: relationsError } = await supabase
+        .from("report_tag_relations")
+        .select("report_id, tag_id");
+
+      if (relationsError) throw relationsError;
+
+      // Map reports with their tags
+      const reportsWithTags: ReportWithTags[] = (reportsData || []).map((report) => {
+        const reportTagIds = (relationsData || [])
+          .filter((r) => r.report_id === report.id)
+          .map((r) => r.tag_id);
+        const tags = (tagsData || []).filter((t) => reportTagIds.includes(t.id));
+        return { ...report, tags };
+      });
+
+      setReports(reportsWithTags);
     } catch (error: any) {
       console.error("Error fetching reports:", error);
       toast({
@@ -74,17 +114,17 @@ export function ReportsTab() {
     setFormModalOpen(true);
   };
 
-  const handleEdit = (report: Report) => {
+  const handleEdit = (report: ReportWithTags) => {
     setSelectedReport(report);
     setFormModalOpen(true);
   };
 
-  const handleView = (report: Report) => {
+  const handleView = (report: ReportWithTags) => {
     setSelectedReport(report);
     setViewModalOpen(true);
   };
 
-  const handleDownloadPdf = (report: Report) => {
+  const handleDownloadPdf = (report: ReportWithTags) => {
     try {
       generateReportPdf({
         title: report.title,
@@ -105,7 +145,7 @@ export function ReportsTab() {
     }
   };
 
-  const handleDeleteClick = (report: Report) => {
+  const handleDeleteClick = (report: ReportWithTags) => {
     setReportToDelete(report);
     setDeleteDialogOpen(true);
   };
@@ -141,7 +181,7 @@ export function ReportsTab() {
     }
   };
 
-  const handleSaveReport = async (title: string, content: string) => {
+  const handleSaveReport = async (title: string, content: string, tagIds: string[]) => {
     setIsSaving(true);
     try {
       // Generate summary from first 150 chars
@@ -156,10 +196,26 @@ export function ReportsTab() {
 
         if (error) throw error;
 
+        // Update tags: delete existing, insert new
+        await supabase
+          .from("report_tag_relations")
+          .delete()
+          .eq("report_id", selectedReport.id);
+
+        if (tagIds.length > 0) {
+          await supabase.from("report_tag_relations").insert(
+            tagIds.map((tagId) => ({
+              report_id: selectedReport.id,
+              tag_id: tagId,
+            }))
+          );
+        }
+
+        const updatedTags = allTags.filter((t) => tagIds.includes(t.id));
         setReports((prev) =>
           prev.map((r) =>
             r.id === selectedReport.id
-              ? { ...r, title, content, summary, updated_at: new Date().toISOString() }
+              ? { ...r, title, content, summary, updated_at: new Date().toISOString(), tags: updatedTags }
               : r
           )
         );
@@ -177,7 +233,18 @@ export function ReportsTab() {
 
         if (error) throw error;
 
-        setReports((prev) => [data, ...prev]);
+        // Insert tag relations
+        if (tagIds.length > 0) {
+          await supabase.from("report_tag_relations").insert(
+            tagIds.map((tagId) => ({
+              report_id: data.id,
+              tag_id: tagId,
+            }))
+          );
+        }
+
+        const newTags = allTags.filter((t) => tagIds.includes(t.id));
+        setReports((prev) => [{ ...data, tags: newTags }, ...prev]);
         toast({
           title: "Relatório salvo",
           description: "O relatório foi adicionado ao histórico.",
@@ -206,11 +273,23 @@ export function ReportsTab() {
     });
   };
 
-  const filteredReports = reports.filter(
-    (report) =>
+  const toggleFilterTag = (tagId: string) => {
+    setSelectedFilterTags((prev) =>
+      prev.includes(tagId) ? prev.filter((id) => id !== tagId) : [...prev, tagId]
+    );
+  };
+
+  const filteredReports = reports.filter((report) => {
+    const matchesSearch =
       report.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      report.content.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+      report.content.toLowerCase().includes(searchQuery.toLowerCase());
+
+    const matchesTags =
+      selectedFilterTags.length === 0 ||
+      selectedFilterTags.some((tagId) => report.tags.some((t) => t.id === tagId));
+
+    return matchesSearch && matchesTags;
+  });
 
   return (
     <div className="space-y-6">
@@ -234,7 +313,7 @@ export function ReportsTab() {
           </div>
         </CardHeader>
         <CardContent>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input
@@ -244,6 +323,54 @@ export function ReportsTab() {
                 className="pl-10 bg-background/50"
               />
             </div>
+            
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className={cn(
+                    selectedFilterTags.length > 0 && "border-primary text-primary"
+                  )}
+                >
+                  <Filter className="w-4 h-4" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-64 p-2" align="end">
+                <div className="text-xs font-medium text-muted-foreground mb-2 px-1">
+                  Filtrar por tag
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {allTags.map((tag) => {
+                    const isSelected = selectedFilterTags.includes(tag.id);
+                    return (
+                      <button
+                        key={tag.id}
+                        onClick={() => toggleFilterTag(tag.id)}
+                        className={cn(
+                          "text-xs px-2 py-1 rounded-md border transition-all",
+                          getTagColorClass(tag.color),
+                          isSelected && "ring-1 ring-primary/50"
+                        )}
+                      >
+                        {tag.name}
+                      </button>
+                    );
+                  })}
+                </div>
+                {selectedFilterTags.length > 0 && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="w-full mt-2 text-xs"
+                    onClick={() => setSelectedFilterTags([])}
+                  >
+                    Limpar filtros
+                  </Button>
+                )}
+              </PopoverContent>
+            </Popover>
+
             <Button
               variant="outline"
               size="icon"
@@ -266,14 +393,16 @@ export function ReportsTab() {
           <CardContent className="py-12 text-center">
             <FileText className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
             <h3 className="text-lg font-medium mb-2">
-              {searchQuery ? "Nenhum relatório encontrado" : "Nenhum relatório ainda"}
+              {searchQuery || selectedFilterTags.length > 0
+                ? "Nenhum relatório encontrado"
+                : "Nenhum relatório ainda"}
             </h3>
             <p className="text-muted-foreground mb-4">
-              {searchQuery
-                ? "Tente uma busca diferente."
+              {searchQuery || selectedFilterTags.length > 0
+                ? "Tente uma busca diferente ou remova os filtros."
                 : "Crie seu primeiro relatório para começar o histórico."}
             </p>
-            {!searchQuery && (
+            {!searchQuery && selectedFilterTags.length === 0 && (
               <Button onClick={handleCreateNew} className="btn-clara-primary">
                 <Plus className="w-4 h-4 mr-2" />
                 Criar Primeiro Relatório
@@ -294,6 +423,11 @@ export function ReportsTab() {
                         {report.title}
                       </h3>
                     </div>
+                    {report.tags.length > 0 && (
+                      <div className="mb-2">
+                        <ReportTagBadges tags={report.tags} />
+                      </div>
+                    )}
                     <p className="text-sm text-muted-foreground line-clamp-2 mb-2">
                       {report.summary || report.content.substring(0, 150)}...
                     </p>
