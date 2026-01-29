@@ -1,11 +1,11 @@
 import { useState, lazy, Suspense } from 'react';
 import Header from '@/components/Header';
 import HeroSection from '@/components/HeroSection';
-import FeaturesSection from '@/components/FeaturesSection';
 import Footer from '@/components/Footer';
 import { SEOHead, SchemaOrg } from '@/components/SEOHead';
 
-// Lazy load ChatPanel to break the critical request chain (scroll-area is 151KB)
+// Lazy load below-the-fold and heavy components to reduce unused JS
+const FeaturesSection = lazy(() => import('@/components/FeaturesSection'));
 const ChatPanel = lazy(() => import('@/components/chat/ChatPanel').then(m => ({ default: m.ChatPanel })));
 
 const Index = () => {
@@ -37,7 +37,9 @@ const Index = () => {
       <Header onOpenChat={() => handleOpenChat()} />
       <main id="main-content">
         <HeroSection onOpenChat={handleOpenChat} />
-        <FeaturesSection />
+        <Suspense fallback={<div className="min-h-[400px]" />}>
+          <FeaturesSection />
+        </Suspense>
       </main>
       <Footer />
 
