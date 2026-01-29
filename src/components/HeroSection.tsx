@@ -33,19 +33,23 @@ const HeroSection = ({ onOpenChat }: HeroSectionProps) => {
 
   return (
     <section className="relative min-h-screen flex items-center overflow-hidden">
-      {/* Background Image Layer */}
+      {/* Background Image Layer - Using img for LCP optimization */}
       <motion.div 
         initial={isMobile ? { opacity: 0 } : { scale: 1.1, opacity: 0 }}
         animate={isMobile ? { opacity: 1 } : { scale: 1, opacity: 1 }}
         transition={{ duration: isMobile ? 0.6 : 1.2, ease: "easeOut" }}
         className="absolute inset-0 z-0 pointer-events-none"
-        style={{
-          backgroundImage: `url(${claraHero})`,
-          backgroundSize: 'cover',
-          backgroundPosition: 'center right',
-          backgroundRepeat: 'no-repeat',
-        }}
-      />
+      >
+        <img 
+          src={claraHero}
+          alt=""
+          fetchPriority="high"
+          loading="eager"
+          decoding="async"
+          className="w-full h-full object-cover object-right"
+          aria-hidden="true"
+        />
+      </motion.div>
       
       {/* Desktop Gradient Overlay */}
       <div className="absolute inset-0 z-10 pointer-events-none hidden md:block hero-overlay" />
