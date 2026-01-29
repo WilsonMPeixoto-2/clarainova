@@ -48,12 +48,12 @@ export const ResponseNotice = memo(function ResponseNotice({ type, message }: Re
       transition={{ duration: 0.2 }}
       className={`
         inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium
-        border backdrop-blur-sm mb-2
+        border backdrop-blur-sm mb-2 max-w-full sm:max-w-[90%]
         ${config.className}
       `}
     >
       <Icon className="w-3 h-3 flex-shrink-0" aria-hidden="true" />
-      <span>{message}</span>
+      <span className="truncate">{message}</span>
     </motion.div>
   );
 });

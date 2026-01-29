@@ -229,14 +229,14 @@ Garantir tamanho mínimo para interação:
 
 ## Critérios de Aceite
 
-- [ ] Mobile 360×800: Sem overflow horizontal em nenhuma resposta
-- [ ] Input sempre visível acima do teclado (Android e iOS)
-- [ ] Chips de fontes funcionam no toque (scroll suave, sem misclick)
-- [ ] ResponseNotice não estoura largura
-- [ ] Auto-scroll respeita a posição do usuário durante streaming
-- [ ] Touch targets >= 44px em elementos interativos mobile
-- [ ] Desktop 1440px: Layout com largura controlada (max-width 680px no chat)
-- [ ] PWA instala corretamente com ícone adequado
+- [x] Mobile 360×800: Sem overflow horizontal em nenhuma resposta
+- [x] Input sempre visível acima do teclado (Android e iOS)
+- [x] Chips de fontes funcionam no toque (scroll suave, sem misclick)
+- [x] ResponseNotice não estoura largura
+- [x] Auto-scroll respeita a posição do usuário durante streaming
+- [x] Touch targets >= 44px em elementos interativos mobile
+- [x] Desktop 1440px: Layout com largura controlada (max-width 680px no chat)
+- [x] PWA instala corretamente com ícone adequado
 
 ---
 

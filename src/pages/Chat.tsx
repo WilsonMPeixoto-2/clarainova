@@ -51,6 +51,8 @@ export default function Chat() {
   const navigate = useNavigate();
   const initialQuery = searchParams.get("q") || "";
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const scrollContainerRef = useRef<HTMLElement>(null);
+  const isUserAtBottom = useRef(true);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const hasAutoSent = useRef(false);
   const { toast } = useToast();
@@ -82,9 +84,21 @@ export default function Chat() {
     },
   });
 
-  // Auto-scroll para última mensagem
+  // Detectar posição do scroll
+  const handleScroll = useCallback(() => {
+    const el = scrollContainerRef.current;
+    if (el) {
+      const threshold = 100;
+      isUserAtBottom.current = 
+        el.scrollHeight - el.scrollTop - el.clientHeight < threshold;
+    }
+  }, []);
+
+  // Auto-scroll inteligente - só rola se usuário estiver no fim
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    if (isUserAtBottom.current) {
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
   }, [messages, thinking.isThinking]);
 
   // Enviar query inicial da URL
@@ -215,7 +229,13 @@ export default function Chat() {
         </motion.header>
 
         {/* Messages Area */}
-        <main className="flex-1 container max-w-4xl mx-auto px-4 py-6 overflow-y-auto" role="main" aria-label="Área de mensagens">
+        <main 
+          ref={scrollContainerRef as React.RefObject<HTMLElement>}
+          onScroll={handleScroll}
+          className="flex-1 container max-w-4xl mx-auto px-4 py-6 overflow-y-auto" 
+          role="main" 
+          aria-label="Área de mensagens"
+        >
           <AnimatePresence mode="wait">
             {messages.length === 0 ? (
               <motion.div 
@@ -303,7 +323,7 @@ export default function Chat() {
           initial={{ y: 20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           transition={{ delay: 0.2 }}
-          className="sticky bottom-0 border-t border-border/50 bg-background/80 backdrop-blur-xl"
+          className="sticky bottom-0 border-t border-border/50 bg-background/80 backdrop-blur-xl chat-input-footer"
           role="contentinfo"
         >
           <div className="container max-w-4xl mx-auto px-4 py-4">

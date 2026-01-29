@@ -155,6 +155,8 @@ function ErrorState({ message, onRetry }: { message: string; onRetry: () => void
 
 export function ChatPanel({ open, onOpenChange, initialQuery }: ChatPanelProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const scrollContainerRef = useRef<HTMLElement>(null);
+  const isUserAtBottom = useRef(true);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const lastInitialQuery = useRef<string>("");
   const { toast } = useToast();
@@ -216,9 +218,21 @@ export function ChatPanel({ open, onOpenChange, initialQuery }: ChatPanelProps) 
     onFocusInput: () => inputRef.current?.focus(),
   });
 
-  // Auto-scroll
+  // Detectar posição do scroll
+  const handleScroll = useCallback(() => {
+    const el = scrollContainerRef.current;
+    if (el) {
+      const threshold = 100;
+      isUserAtBottom.current = 
+        el.scrollHeight - el.scrollTop - el.clientHeight < threshold;
+    }
+  }, []);
+
+  // Auto-scroll inteligente - só rola se usuário estiver no fim
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    if (isUserAtBottom.current) {
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
   }, [messages, thinking.isThinking]);
 
   // Send initial query
@@ -363,7 +377,13 @@ export function ChatPanel({ open, onOpenChange, initialQuery }: ChatPanelProps) 
           </SheetHeader>
 
           {/* Messages Area */}
-          <main className="flex-1 overflow-y-auto px-4 py-4" role="main" aria-label="Área de mensagens">
+          <main 
+            ref={scrollContainerRef as React.RefObject<HTMLElement>}
+            onScroll={handleScroll}
+            className="flex-1 overflow-y-auto px-4 py-4" 
+            role="main" 
+            aria-label="Área de mensagens"
+          >
             <AnimatePresence mode="wait">
               {messages.length === 0 ? (
                 <EmptyState 
@@ -422,7 +442,7 @@ export function ChatPanel({ open, onOpenChange, initialQuery }: ChatPanelProps) 
           </main>
 
           {/* Input Area */}
-          <footer className="flex-shrink-0 border-t border-border-subtle bg-background/80 backdrop-blur-xl px-4 py-3">
+          <footer className="flex-shrink-0 border-t border-border-subtle bg-background/80 backdrop-blur-xl px-4 py-3 chat-input-footer">
             <ChatInput
               onSend={sendMessage}
               isLoading={isLoading}
