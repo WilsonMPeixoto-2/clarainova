@@ -1,90 +1,178 @@
 
+# Plano: Relatório "Chat Premium" + Sistema de Tags e Templates
 
-# ETAPA 1 — Chat Premium: Refinamentos Estratégicos
-
-## Status: ✅ IMPLEMENTADO
-
----
-
-## 1.1 Hierarquia Visual das Respostas ✅
-
-### Implementado
-- Classe `.chat-section-title` com borda lateral âmbar sutil (2px) para `<h1>`, `<h2>`, `<h3>`
-- Divisórias elegantes com gradiente sutil (`.chat-divider`)
-- Headers mantêm tipografia mais compacta para chat (text-base, text-lg, text-xl)
-- Respostas longas ficam mais "escaneáveis" visualmente
-
-### Arquivos modificados
-- `src/components/chat/ChatMessage.tsx` - Classes de hierarquia nos headers
-- `src/index.css` - Novas classes `.chat-section-title` e `.chat-divider`
+## Resumo Executivo
+Implementar a inserção do relatório consolidado "Chat Premium — Etapa 1" no banco de dados e adicionar funcionalidades de **tags/categorias** e **templates** para organização e agilidade na criação de relatórios futuros.
 
 ---
 
-## 1.2 Chips de Fontes Premium + Ações Rápidas ✅
+## Parte 1: Inserir Relatório "Chat Premium — Etapa 1"
 
-### Implementado
-- Chips de fonte redesenhados com visual premium (glass effect, backdrop-blur)
-- `.source-chip-local` - Para fontes da base interna
-- `.source-chip-web` - Para fontes web com estilo accent
-- Hover states com glow sutil
-- **Novo componente `ChecklistButton`** - Converte listas em formato `[ ] Item`
+### Ação
+Usar uma migração SQL para inserir o relatório diretamente na tabela `development_reports` com todo o conteúdo formatado em Markdown.
 
-### Arquivos criados/modificados
-- `src/components/chat/ChecklistButton.tsx` - **NOVO**
-- `src/components/chat/ChatMessage.tsx` - Integração e redesign do SourcesSection
-- `src/index.css` - Classes `.source-chip-local` e `.source-chip-web`
-
----
-
-## 1.3 Evolução do Modo de Resposta ✅
-
-### Implementado
-- Renomeado "Rápido" → "Direto" (ícone: Target)
-- Renomeado "Análise Completa" → "Didático" (ícone: BookOpen)
-- Tooltips expandidos com descrição do comportamento
-- Visual atualizado com borda sutil no container
-- **Backend**: Prompt inclui instrução de modo (`MODE_INSTRUCTIONS`)
-  - Modo Direto: bullets, citações diretas, menos analogias
-  - Modo Didático: analogias, explicações do "porquê", exemplos
-
-### Arquivos modificados
-- `src/components/chat/ResponseModeSelector.tsx` - Labels, ícones, tooltips
-- `supabase/functions/clara-chat/index.ts` - MODE_INSTRUCTIONS no prompt
+### Conteúdo do Relatório
+O relatório completo que você forneceu será formatado e inserido, incluindo:
+- Visão geral das mudanças
+- Novos componentes criados (ChecklistButton, ResponseNotice)
+- Arquivos modificados (ChatMessage, ResponseModeSelector, useChat, index.css, clara-chat)
+- Funcionalidades técnicas (Dual-Provider, Web Search Grounding, Rate Limiting)
+- Checklist de implementação confirmado
+- Logs confirmados
+- Próximos passos recomendados
 
 ---
 
-## 1.4 Transparência Elegante para Cenários Especiais ✅
+## Parte 2: Sistema de Tags/Categorias
 
-### Implementado
-- **Novo componente `ResponseNotice`** - Chip discreto com ícones contextuais
-- Suporte a tipos: `web_search`, `limited_base`, `general_guidance`, `out_of_scope`, `info`
-- Cores semânticas por tipo de aviso
-- **Backend**: Evento SSE `notice` enviado quando web search é ativado
-- **Frontend**: Hook `useChat` processa evento e armazena no estado
+### Alterações no Banco de Dados
+Criar nova tabela `report_tags` e tabela de relacionamento `report_tag_relations`:
 
-### Cenários de transparência no prompt do sistema
-- Base insuficiente → Web: "Não encontrei referência específica na base..."
-- Nenhuma resposta objetiva: "Não localizei orientação normativa definitiva..."
-- Orientação geral sem especificidade: "A base normativa geral indica X..."
+```text
++-------------------+       +------------------------+       +------------------+
+| development_      |       | report_tag_relations   |       | report_tags      |
+| reports           |       |------------------------|       |------------------|
+|-------------------|       | id                     |       | id               |
+| id (PK)           |<----->| report_id (FK)         |       | name             |
+| title             |       | tag_id (FK)            |<----->| color            |
+| content           |       | created_at             |       | created_at       |
+| summary           |       +------------------------+       +------------------+
+| created_at        |
+| updated_at        |
++-------------------+
+```
 
-### Arquivos criados/modificados
-- `src/components/chat/ResponseNotice.tsx` - **NOVO**
-- `src/hooks/useChat.ts` - Tipo `ChatNotice`, processamento do evento SSE
-- `supabase/functions/clara-chat/index.ts` - Evento `notice` e cenários no prompt
+### Tags Pré-definidas
+| Tag | Cor | Uso |
+|-----|-----|-----|
+| `chat` | Azul | Funcionalidades do chat |
+| `ux` | Verde | Melhorias de experiência |
+| `premium` | Âmbar | Features premium |
+| `observabilidade` | Roxo | Monitoramento/logs |
+| `seguranca` | Vermelho | Security hardening |
+| `performance` | Ciano | Otimizações |
+| `database` | Laranja | Alterações no banco |
+
+### Componentes Afetados
+1. **ReportsTab.tsx**: Adicionar filtro por tags na busca
+2. **ReportFormModal.tsx**: Adicionar seletor de tags com multi-select
+3. **ReportViewModal.tsx**: Exibir tags como badges coloridos
+4. **Novo arquivo**: `ReportTagSelector.tsx` - componente reutilizável
 
 ---
 
-## Resultado Final
+## Parte 3: Sistema de Templates
 
-O chat CLARA evoluiu de "assistente funcional" para **"consultoria premium acionável"**:
+### Objetivo
+Permitir criar relatórios a partir de templates pré-definidos para acelerar a documentação.
 
-1. ✅ **Respostas visualmente escaneáveis** com hierarquia clara
-2. ✅ **Fontes como chips premium** com glass effect e hover states
-3. ✅ **Modo de resposta semântico** (Direto vs Didático) conectado ao comportamento
-4. ✅ **Transparência elegante** via notices e prompt instruído
-5. ✅ **Nova ação Checklist** para copiar listas em formato acionável
+### Templates Disponíveis
+| Template | Descrição |
+|----------|-----------|
+| **Etapa de Desenvolvimento** | Estrutura para documentar features completas |
+| **Hotfix/Correção** | Template rápido para bugs corrigidos |
+| **Relatório de Sprint** | Resumo de período de trabalho |
+| **Análise Técnica** | Template para decisões arquiteturais |
 
-### Próximos passos sugeridos
-- Testar os modos Direto vs Didático com perguntas reais
-- Validar comportamento mobile
-- Considerar tooltip "Por que esta fonte?" em fase futura
+### Implementação
+1. **Novo arquivo**: `ReportTemplates.tsx` - lista de templates com preview
+2. **ReportFormModal.tsx**: Adicionar botão "Usar Template" que preenche o conteúdo
+3. **Templates armazenados localmente** (constantes) - não precisa de tabela no banco
+
+### Exemplo de Template "Etapa de Desenvolvimento"
+```markdown
+# Relatório de Desenvolvimento — CLARA
+
+## Etapa: "[NOME DA ETAPA]"
+**Status:** ⏳ Em andamento | ✅ Concluído
+**Data:** [DATA]
+
+---
+
+## 1. Visão Geral
+[Descreva as principais mudanças e objetivos]
+
+## 2. Componentes Criados
+- **ComponenteX.tsx**: [descrição]
+
+## 3. Arquivos Modificados
+- **arquivo.tsx**: [mudanças]
+
+## 4. Próximos Passos
+- [ ] Item 1
+- [ ] Item 2
+```
+
+---
+
+## Arquivos a Serem Criados/Modificados
+
+| Arquivo | Ação | Descrição |
+|---------|------|-----------|
+| `supabase/migrations/xxx_report_tags.sql` | Criar | Tabelas de tags |
+| `supabase/migrations/xxx_insert_chat_premium_report.sql` | Criar | Inserir relatório |
+| `src/components/admin/ReportTagSelector.tsx` | Criar | Componente de seleção de tags |
+| `src/components/admin/ReportTemplates.tsx` | Criar | Modal/lista de templates |
+| `src/components/admin/ReportsTab.tsx` | Modificar | Filtro por tags, exibição de tags |
+| `src/components/admin/ReportFormModal.tsx` | Modificar | Seletor de tags + botão template |
+| `src/components/admin/ReportViewModal.tsx` | Modificar | Exibir tags como badges |
+| `src/integrations/supabase/types.ts` | Auto-atualizado | Tipos das novas tabelas |
+
+---
+
+## Detalhes Técnicos
+
+### Migração SQL - Tags
+```sql
+-- Tabela de tags
+CREATE TABLE report_tags (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name TEXT NOT NULL UNIQUE,
+  color TEXT NOT NULL DEFAULT 'gray',
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- Relação many-to-many
+CREATE TABLE report_tag_relations (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  report_id UUID REFERENCES development_reports(id) ON DELETE CASCADE,
+  tag_id UUID REFERENCES report_tags(id) ON DELETE CASCADE,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  UNIQUE(report_id, tag_id)
+);
+
+-- Tags iniciais
+INSERT INTO report_tags (name, color) VALUES
+  ('chat', 'blue'),
+  ('ux', 'green'),
+  ('premium', 'amber'),
+  ('observabilidade', 'purple'),
+  ('seguranca', 'red'),
+  ('performance', 'cyan'),
+  ('database', 'orange');
+```
+
+### RLS Policies
+Ambas as tabelas terão políticas públicas de leitura/escrita já que são tabelas administrativas internas.
+
+---
+
+## Resultado Esperado
+
+1. **Relatório "Chat Premium — Etapa 1"** visível no Admin → Relatórios
+2. **Tags coloridas** nos cards de relatório para fácil identificação
+3. **Filtro por tag** na busca de relatórios
+4. **Botão "Usar Template"** no modal de criação com opções pré-formatadas
+5. **Experiência mais ágil** para documentar futuras etapas
+
+---
+
+## Ordem de Execução
+
+1. Criar migração para inserir o relatório Chat Premium
+2. Criar migração para sistema de tags
+3. Criar componente ReportTagSelector
+4. Criar componente ReportTemplates
+5. Atualizar ReportsTab com filtro por tags
+6. Atualizar ReportFormModal com tags + templates
+7. Atualizar ReportViewModal com exibição de tags
