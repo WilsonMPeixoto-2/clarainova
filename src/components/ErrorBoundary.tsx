@@ -35,15 +35,14 @@ export class ErrorBoundary extends Component<Props, State> {
   private async logErrorToAnalytics(error: Error, errorInfo: ErrorInfo): Promise<void> {
     try {
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-      const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
       
-      if (!supabaseUrl || !anonKey) return;
+      if (!supabaseUrl) return;
       
+      // Call edge function directly (no auth header needed - public endpoint with rate limit)
       await fetch(`${supabaseUrl}/functions/v1/log-frontend-error`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${anonKey}`,
         },
         body: JSON.stringify({
           error_message: error.message?.slice(0, 500) || "Unknown error",

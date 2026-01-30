@@ -70,15 +70,28 @@ async function hashIdentifier(value: string, salt: string): Promise<string> {
 }
 
 // Hash session fingerprint before storing (privacy-preserving)
+// Returns null if salt not configured (graceful degradation - no persistence without salt)
 async function hashFingerprint(fingerprint: string | null): Promise<string | null> {
   if (!fingerprint) return null;
-  const salt = Deno.env.get("FINGERPRINT_SALT") || "clara-fp-default-salt-2026";
+  
+  const salt = Deno.env.get("FINGERPRINT_SALT");
+  if (!salt) {
+    console.warn("[clara-chat] FINGERPRINT_SALT not configured - fingerprint will not be persisted");
+    return null; // Don't persist unhashed fingerprints
+  }
+  
   return await hashIdentifier(fingerprint, salt);
 }
 
 // Hash IP address for rate limiting (LGPD compliance)
+// Returns fallback key if salt not configured (more permissive rate limiting)
 async function hashClientIp(ip: string): Promise<string> {
-  const salt = Deno.env.get("RATELIMIT_SALT") || "clara-rl-default-salt-2026";
+  const salt = Deno.env.get("RATELIMIT_SALT");
+  if (!salt) {
+    console.warn("[clara-chat] RATELIMIT_SALT not configured - using fallback rate limit key");
+    return "unknown-salt-missing"; // All requests share same bucket (permissive)
+  }
+  
   return await hashIdentifier(ip, salt);
 }
 
