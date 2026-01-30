@@ -6,20 +6,61 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// Browser family categorization (privacy-preserving)
+// Rate limit configuration for error logging
+const RATE_LIMIT_CONFIG = {
+  maxRequests: 10, // 10 errors per minute (generous for legitimate use)
+  windowSeconds: 60,
+};
+
+// Browser family categorization (privacy-preserving, order matters)
 function categorizeBrowser(userAgent: string | null): string {
-  if (!userAgent) return "unknown";
+  if (!userAgent) return "Unknown";
   
   const ua = userAgent.toLowerCase();
   
-  if (ua.includes("firefox")) return "Firefox";
+  // Order matters: Edge contains "chrome", Safari check must exclude Chrome
   if (ua.includes("edg/")) return "Edge";
   if (ua.includes("opr/") || ua.includes("opera")) return "Opera";
-  if (ua.includes("chrome") || ua.includes("chromium")) return "Chrome";
-  if (ua.includes("safari")) return "Safari";
-  if (ua.includes("mobile")) return "Mobile Browser";
+  if (ua.includes("firefox/")) return "Firefox";
+  if (ua.includes("chrome/") || ua.includes("chromium/")) return "Chrome";
+  if (ua.includes("safari/") && !ua.includes("chrome")) return "Safari";
+  
+  // Mobile-specific detection
+  if (ua.includes("android")) return "Android Browser";
+  if (ua.includes("iphone") || ua.includes("ipad")) return "iOS WebKit";
+  
+  // Bots and crawlers
+  if (ua.includes("bot") || ua.includes("crawler") || ua.includes("spider")) return "Bot";
   
   return "Other";
+}
+
+// Get raw client IP from request headers
+function getRawClientIp(req: Request): string {
+  const forwarded = req.headers.get("x-forwarded-for");
+  const cfIp = req.headers.get("cf-connecting-ip");
+  const realIp = req.headers.get("x-real-ip");
+  
+  if (forwarded) {
+    return forwarded.split(",")[0].trim();
+  }
+  if (cfIp) return cfIp;
+  if (realIp) return realIp;
+  
+  return "unknown";
+}
+
+// Hash client IP for rate limiting (LGPD compliance)
+async function hashClientIp(ip: string): Promise<string> {
+  const salt = Deno.env.get("RATELIMIT_SALT");
+  if (!salt) {
+    console.warn("[log-frontend-error] RATELIMIT_SALT not configured - using degraded identifier");
+    return "no-salt-configured";
+  }
+  const data = new TextEncoder().encode(ip + salt);
+  const hashBuffer = await crypto.subtle.digest("SHA-256", data);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('').slice(0, 32);
 }
 
 // Sanitize error message (remove potential PII)
@@ -103,6 +144,25 @@ serve(async (req) => {
     }
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    // Rate limit check (prevent spam/DoS)
+    const rawIp = getRawClientIp(req);
+    const hashedIp = await hashClientIp(rawIp);
+    
+    const { data: rateLimitResult } = await supabase.rpc("check_rate_limit", {
+      p_client_key: hashedIp,
+      p_endpoint: "log-frontend-error",
+      p_max_requests: RATE_LIMIT_CONFIG.maxRequests,
+      p_window_seconds: RATE_LIMIT_CONFIG.windowSeconds,
+    });
+
+    if (rateLimitResult?.[0]?.allowed === false) {
+      console.warn(`[log-frontend-error] Rate limited: ${hashedIp.slice(0, 8)}...`);
+      return new Response(
+        JSON.stringify({ error: "Rate limit exceeded" }),
+        { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
 
     // Insert sanitized error data
     const { error: insertError } = await supabase.from("frontend_errors").insert({
