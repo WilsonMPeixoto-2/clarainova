@@ -1,6 +1,7 @@
 import { Component, ErrorInfo, ReactNode } from "react";
 import { AlertTriangle, RefreshCw, Home } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { supabase } from "@/integrations/supabase/client";
 
 interface Props {
   children: ReactNode;
@@ -25,8 +26,24 @@ export class ErrorBoundary extends Component<Props, State> {
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo): void {
     this.setState({ errorInfo });
-    // Log para debugging (pode ser enviado para serviço de monitoramento)
+    // Log para debugging local
     console.error("ErrorBoundary caught an error:", error, errorInfo);
+    
+    // Log para analytics (sem dados sensíveis) - fire and forget
+    this.logErrorToAnalytics(error, errorInfo);
+  }
+  
+  private async logErrorToAnalytics(error: Error, errorInfo: ErrorInfo): Promise<void> {
+    try {
+      await supabase.from("frontend_errors").insert({
+        error_message: error.message?.slice(0, 500) || "Unknown error",
+        component_stack: errorInfo.componentStack?.slice(0, 1000) || null,
+        url: window.location.pathname,
+        user_agent: navigator.userAgent?.slice(0, 200) || null,
+      });
+    } catch {
+      // Silently fail - não impactar UX por falha de logging
+    }
   }
 
   handleReload = (): void => {

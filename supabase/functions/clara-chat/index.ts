@@ -42,6 +42,52 @@ const RATE_LIMIT_CONFIG = {
   windowSeconds: 60, // 1 minute window
 };
 
+// Chat metrics interface for observability
+interface ChatMetricsPayload {
+  requestId: string;
+  sessionFingerprint: string | null;
+  embeddingLatencyMs: number;
+  searchLatencyMs: number;
+  llmFirstTokenMs: number;
+  llmTotalMs: number;
+  provider: "gemini" | "lovable";
+  model: string;
+  mode: string;
+  webSearchUsed: boolean;
+  localChunksFound: number;
+  webSourcesCount: number;
+  fallbackTriggered: boolean;
+  rateLimitHit: boolean;
+  errorType: string | null;
+}
+
+// Helper to log chat metrics (fire and forget)
+// deno-lint-ignore no-explicit-any
+async function logChatMetrics(supabase: any, metrics: ChatMetricsPayload): Promise<void> {
+  try {
+    await supabase.from("chat_metrics").insert({
+      request_id: metrics.requestId,
+      session_fingerprint: metrics.sessionFingerprint,
+      embedding_latency_ms: metrics.embeddingLatencyMs,
+      search_latency_ms: metrics.searchLatencyMs,
+      llm_first_token_ms: metrics.llmFirstTokenMs,
+      llm_total_ms: metrics.llmTotalMs,
+      provider: metrics.provider,
+      model: metrics.model,
+      mode: metrics.mode,
+      web_search_used: metrics.webSearchUsed,
+      local_chunks_found: metrics.localChunksFound,
+      web_sources_count: metrics.webSourcesCount,
+      fallback_triggered: metrics.fallbackTriggered,
+      rate_limit_hit: metrics.rateLimitHit,
+      error_type: metrics.errorType,
+    });
+    console.log(`[metrics] Logged request ${metrics.requestId.slice(0, 8)}... (${metrics.provider}/${metrics.model})`);
+  } catch (err) {
+    console.warn("[metrics] Failed to log:", err);
+  }
+}
+
 // Helper to get client identifier for rate limiting
 function getClientKey(req: Request): string {
   // Try multiple headers for client identification
@@ -475,6 +521,14 @@ serve(async (req) => {
   const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
   try {
+    // === OBSERVABILITY: Start timing ===
+    const requestId = crypto.randomUUID();
+    const requestStartTime = performance.now();
+    let embeddingLatencyMs = 0;
+    let searchLatencyMs = 0;
+    let llmFirstTokenMs = 0;
+    let rateLimitHit = false;
+    
     // Rate limiting check
     const clientKey = getClientKey(req);
     const { data: rateLimitResult, error: rateLimitError } = await supabase.rpc(
@@ -492,6 +546,27 @@ serve(async (req) => {
       // Continue without rate limiting if there's an error
     } else if (rateLimitResult && rateLimitResult.length > 0 && !rateLimitResult[0].allowed) {
       const resetIn = rateLimitResult[0].reset_in || RATE_LIMIT_CONFIG.windowSeconds;
+      rateLimitHit = true;
+      
+      // Log rate limit hit to metrics
+      logChatMetrics(supabase, {
+        requestId,
+        sessionFingerprint: clientKey,
+        embeddingLatencyMs: 0,
+        searchLatencyMs: 0,
+        llmFirstTokenMs: 0,
+        llmTotalMs: Math.round(performance.now() - requestStartTime),
+        provider: "gemini",
+        model: "N/A",
+        mode: "fast",
+        webSearchUsed: false,
+        localChunksFound: 0,
+        webSourcesCount: 0,
+        fallbackTriggered: false,
+        rateLimitHit: true,
+        errorType: "rate_limit",
+      });
+      
       return new Response(
         JSON.stringify({
           error: "Limite de requisições excedido. Por favor, aguarde um momento.",
@@ -509,6 +584,9 @@ serve(async (req) => {
     }
 
     const { message, history = [], mode = "fast", webSearchMode = "auto" } = await req.json();
+    
+    // Extract session fingerprint from request if available
+    const sessionFingerprint = req.headers.get("x-session-fingerprint") || clientKey;
     
     // Input validation - message
     if (!message || typeof message !== "string") {
@@ -583,6 +661,9 @@ serve(async (req) => {
     const embeddingResult = await embeddingModel.embedContent(message);
     const queryEmbedding = embeddingResult.embedding.values;
     
+    // === OBSERVABILITY: Record embedding latency ===
+    embeddingLatencyMs = Math.round(performance.now() - requestStartTime);
+    
     // Busca semântica via pgvector
     const { data: semanticChunks, error: searchError } = await supabase.rpc(
       "search_document_chunks",
@@ -653,6 +734,9 @@ serve(async (req) => {
       webSearchMode === "deep" ||
       finalChunks.length < WEB_SEARCH_CONFIG.minChunksForLocalOnly ||
       avgTopScore < WEB_SEARCH_CONFIG.minRRFScoreThreshold;
+    
+    // === OBSERVABILITY: Record search latency (after RRF fusion) ===
+    searchLatencyMs = Math.round(performance.now() - requestStartTime - embeddingLatencyMs);
     
     console.log(`[clara-chat] RAG results: ${finalChunks.length} chunks, avgScore: ${avgTopScore.toFixed(4)}, needsWebSearch: ${needsWebSearch}, webSearchMode: ${webSearchMode}`);
     
@@ -910,6 +994,7 @@ Sempre cite as fontes quando usar informação do contexto [Nome do Documento].$
             controller.enqueue(encoder.encode(`event: thinking\ndata: ${JSON.stringify({ status: "searching", step: "Usando API de fallback..." })}\n\n`));
             
             let buffer = "";
+            let isFirstToken = true;
             
             while (true) {
               const { done, value } = await gatewayReader.read();
@@ -933,6 +1018,11 @@ Sempre cite as fontes quando usar informação do contexto [Nome do Documento].$
                   const parsed = JSON.parse(jsonStr);
                   const content = parsed.choices?.[0]?.delta?.content;
                   if (content) {
+                    // === OBSERVABILITY: Record first token time ===
+                    if (isFirstToken) {
+                      llmFirstTokenMs = Math.round(performance.now() - requestStartTime);
+                      isFirstToken = false;
+                    }
                     controller.enqueue(encoder.encode(`event: delta\ndata: ${JSON.stringify({ content })}\n\n`));
                   }
                 } catch {
@@ -949,11 +1039,50 @@ Sempre cite as fontes quando usar informação do contexto [Nome do Documento].$
             // Log API usage (fire and forget)
             logApiUsage("lovable", activeModelName, mode);
             
+            // === OBSERVABILITY: Log complete metrics ===
+            logChatMetrics(supabase, {
+              requestId,
+              sessionFingerprint,
+              embeddingLatencyMs,
+              searchLatencyMs,
+              llmFirstTokenMs,
+              llmTotalMs: Math.round(performance.now() - requestStartTime),
+              provider: "lovable",
+              model: activeModelName,
+              mode,
+              webSearchUsed: needsWebSearch,
+              localChunksFound: finalChunks.length,
+              webSourcesCount: 0, // No web sources in fallback
+              fallbackTriggered: true,
+              rateLimitHit: false,
+              errorType: null,
+            });
+            
             controller.enqueue(encoder.encode(`event: done\ndata: {}\n\n`));
             controller.close();
           } catch (error) {
             console.error("Erro no streaming (fallback):", error);
             const errorMessage = error instanceof Error ? error.message : "Erro desconhecido";
+            
+            // Log error metrics
+            logChatMetrics(supabase, {
+              requestId,
+              sessionFingerprint,
+              embeddingLatencyMs,
+              searchLatencyMs,
+              llmFirstTokenMs,
+              llmTotalMs: Math.round(performance.now() - requestStartTime),
+              provider: "lovable",
+              model: activeModelName,
+              mode,
+              webSearchUsed: needsWebSearch,
+              localChunksFound: finalChunks.length,
+              webSourcesCount: 0,
+              fallbackTriggered: true,
+              rateLimitHit: false,
+              errorType: "streaming_error",
+            });
+            
             controller.enqueue(encoder.encode(`event: error\ndata: ${JSON.stringify({ message: errorMessage })}\n\n`));
             controller.close();
           }
@@ -988,10 +1117,17 @@ Sempre cite as fontes quando usar informação do contexto [Nome do Documento].$
             : "Buscando na base de conhecimento...";
           controller.enqueue(encoder.encode(`event: thinking\ndata: ${JSON.stringify({ status: "searching", step: thinkingStep })}\n\n`));
           
+          let isFirstToken = true;
+          
           // Process streaming response
           for await (const chunk of result!.stream) {
             const text = chunk.text();
             if (text) {
+              // === OBSERVABILITY: Record first token time ===
+              if (isFirstToken) {
+                llmFirstTokenMs = Math.round(performance.now() - requestStartTime);
+                isFirstToken = false;
+              }
               controller.enqueue(encoder.encode(`event: delta\ndata: ${JSON.stringify({ content: text })}\n\n`));
             }
             
@@ -1035,12 +1171,51 @@ Sempre cite as fontes quando usar informação do contexto [Nome do Documento].$
           // Log API usage (fire and forget)
           logApiUsage("gemini", activeModelName, mode);
           
+          // === OBSERVABILITY: Log complete metrics ===
+          logChatMetrics(supabase, {
+            requestId,
+            sessionFingerprint,
+            embeddingLatencyMs,
+            searchLatencyMs,
+            llmFirstTokenMs,
+            llmTotalMs: Math.round(performance.now() - requestStartTime),
+            provider: "gemini",
+            model: activeModelName,
+            mode,
+            webSearchUsed: needsWebSearch,
+            localChunksFound: finalChunks.length,
+            webSourcesCount: webSources.length,
+            fallbackTriggered: false,
+            rateLimitHit: false,
+            errorType: null,
+          });
+          
           // Enviar evento de conclusão
           controller.enqueue(encoder.encode(`event: done\ndata: {}\n\n`));
           controller.close();
         } catch (error) {
           console.error("Erro no streaming:", error);
           const errorMessage = error instanceof Error ? error.message : "Erro desconhecido";
+          
+          // Log error metrics
+          logChatMetrics(supabase, {
+            requestId,
+            sessionFingerprint,
+            embeddingLatencyMs,
+            searchLatencyMs,
+            llmFirstTokenMs,
+            llmTotalMs: Math.round(performance.now() - requestStartTime),
+            provider: "gemini",
+            model: activeModelName,
+            mode,
+            webSearchUsed: needsWebSearch,
+            localChunksFound: finalChunks.length,
+            webSourcesCount: webSources.length,
+            fallbackTriggered: useFallback,
+            rateLimitHit: false,
+            errorType: "streaming_error",
+          });
+          
           controller.enqueue(encoder.encode(`event: error\ndata: ${JSON.stringify({ message: errorMessage })}\n\n`));
           controller.close();
         }

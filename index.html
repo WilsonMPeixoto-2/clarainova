@@ -21,9 +21,15 @@
       @keyframes spin{to{transform:rotate(360deg)}}
     </style>
     
-    <!-- Preconnect for fonts -->
+    <!-- Preconnect for fonts and API -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="preconnect" href="https://pypqlqnfonixeocvmeoy.supabase.co" />
+    
+    <!-- Preload hero image para LCP (responsive) -->
+    <link rel="preload" href="/src/assets/clara-hero-1920.webp" as="image" type="image/webp" media="(min-width: 1024px)" />
+    <link rel="preload" href="/src/assets/clara-hero-1024.webp" as="image" type="image/webp" media="(min-width: 640px) and (max-width: 1023px)" />
+    <link rel="preload" href="/src/assets/clara-hero-640.webp" as="image" type="image/webp" media="(max-width: 639px)" />
     
     <!-- Async font loading for better FCP -->
     <link rel="preload" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'" />
