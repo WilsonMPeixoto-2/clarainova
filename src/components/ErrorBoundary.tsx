@@ -1,7 +1,6 @@
 import { Component, ErrorInfo, ReactNode } from "react";
 import { AlertTriangle, RefreshCw, Home } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { supabase } from "@/integrations/supabase/client";
 
 interface Props {
   children: ReactNode;
@@ -29,17 +28,28 @@ export class ErrorBoundary extends Component<Props, State> {
     // Log para debugging local
     console.error("ErrorBoundary caught an error:", error, errorInfo);
     
-    // Log para analytics (sem dados sensíveis) - fire and forget
+    // Log para analytics via edge function (sem dados sensíveis) - fire and forget
     this.logErrorToAnalytics(error, errorInfo);
   }
   
   private async logErrorToAnalytics(error: Error, errorInfo: ErrorInfo): Promise<void> {
     try {
-      await supabase.from("frontend_errors").insert({
-        error_message: error.message?.slice(0, 500) || "Unknown error",
-        component_stack: errorInfo.componentStack?.slice(0, 1000) || null,
-        url: window.location.pathname,
-        user_agent: navigator.userAgent?.slice(0, 200) || null,
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+      
+      if (!supabaseUrl || !anonKey) return;
+      
+      await fetch(`${supabaseUrl}/functions/v1/log-frontend-error`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${anonKey}`,
+        },
+        body: JSON.stringify({
+          error_message: error.message?.slice(0, 500) || "Unknown error",
+          component_stack: errorInfo.componentStack?.slice(0, 1000) || null,
+          url: window.location.pathname,
+        }),
       });
     } catch {
       // Silently fail - não impactar UX por falha de logging

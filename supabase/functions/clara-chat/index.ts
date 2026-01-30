@@ -61,13 +61,58 @@ interface ChatMetricsPayload {
   errorType: string | null;
 }
 
+// Helper to hash sensitive identifiers (SHA-256, truncated)
+async function hashIdentifier(value: string, salt: string): Promise<string> {
+  const data = new TextEncoder().encode(value + salt);
+  const hashBuffer = await crypto.subtle.digest("SHA-256", data);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('').slice(0, 32);
+}
+
+// Hash session fingerprint before storing (privacy-preserving)
+async function hashFingerprint(fingerprint: string | null): Promise<string | null> {
+  if (!fingerprint) return null;
+  const salt = Deno.env.get("FINGERPRINT_SALT") || "clara-fp-default-salt-2026";
+  return await hashIdentifier(fingerprint, salt);
+}
+
+// Hash IP address for rate limiting (LGPD compliance)
+async function hashClientIp(ip: string): Promise<string> {
+  const salt = Deno.env.get("RATELIMIT_SALT") || "clara-rl-default-salt-2026";
+  return await hashIdentifier(ip, salt);
+}
+
+// Helper to get raw client IP (before hashing)
+function getRawClientIp(req: Request): string {
+  const forwarded = req.headers.get("x-forwarded-for");
+  const cfIp = req.headers.get("cf-connecting-ip");
+  const realIp = req.headers.get("x-real-ip");
+  
+  if (forwarded) {
+    return forwarded.split(",")[0].trim();
+  }
+  if (cfIp) return cfIp;
+  if (realIp) return realIp;
+  
+  return "unknown";
+}
+
+// Helper to get hashed client key for rate limiting
+async function getHashedClientKey(req: Request): Promise<string> {
+  const rawIp = getRawClientIp(req);
+  return await hashClientIp(rawIp);
+}
+
 // Helper to log chat metrics (fire and forget)
 // deno-lint-ignore no-explicit-any
 async function logChatMetrics(supabase: any, metrics: ChatMetricsPayload): Promise<void> {
   try {
+    // Hash fingerprint before storing
+    const hashedFingerprint = await hashFingerprint(metrics.sessionFingerprint);
+    
     await supabase.from("chat_metrics").insert({
       request_id: metrics.requestId,
-      session_fingerprint: metrics.sessionFingerprint,
+      session_fingerprint: hashedFingerprint,
       embedding_latency_ms: metrics.embeddingLatencyMs,
       search_latency_ms: metrics.searchLatencyMs,
       llm_first_token_ms: metrics.llmFirstTokenMs,
@@ -86,22 +131,6 @@ async function logChatMetrics(supabase: any, metrics: ChatMetricsPayload): Promi
   } catch (err) {
     console.warn("[metrics] Failed to log:", err);
   }
-}
-
-// Helper to get client identifier for rate limiting
-function getClientKey(req: Request): string {
-  // Try multiple headers for client identification
-  const forwarded = req.headers.get("x-forwarded-for");
-  const cfIp = req.headers.get("cf-connecting-ip");
-  const realIp = req.headers.get("x-real-ip");
-  
-  if (forwarded) {
-    return forwarded.split(",")[0].trim();
-  }
-  if (cfIp) return cfIp;
-  if (realIp) return realIp;
-  
-  return "unknown";
 }
 
 // =============================================
@@ -530,7 +559,7 @@ serve(async (req) => {
     let rateLimitHit = false;
     
     // Rate limiting check
-    const clientKey = getClientKey(req);
+    const clientKey = await getHashedClientKey(req);
     const { data: rateLimitResult, error: rateLimitError } = await supabase.rpc(
       "check_rate_limit",
       {

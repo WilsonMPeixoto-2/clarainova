@@ -182,17 +182,22 @@ SELECT: Admins can read chat metrics → has_role(auth.uid(), 'admin')
 
 ## Critérios de Aceite
 
-- [ ] `frontend_errors` não aceita INSERT de anon/public
-- [ ] ErrorBoundary chama edge function (não Supabase direto)
-- [ ] `session_fingerprint` armazenado como hash (32 chars hex)
-- [ ] `client_key` em rate_limits armazenado como hash
-- [ ] Nenhum IP puro em nenhuma tabela
-- [ ] Build/lint passam sem erros
-- [ ] Edge function `log-frontend-error` deployada e funcional
+- [x] `frontend_errors` não aceita INSERT de anon/public
+- [x] ErrorBoundary chama edge function (não Supabase direto)
+- [x] `session_fingerprint` armazenado como hash (32 chars hex)
+- [x] `client_key` em rate_limits armazenado como hash
+- [x] Nenhum IP puro em nenhuma tabela
+- [x] Build/lint passam sem erros
+- [x] Edge function `log-frontend-error` deployada e funcional
 
 ---
 
 ## Notas de Segurança
+
+1. **FINGERPRINT_SALT e RATELIMIT_SALT** devem ser configurados como secrets no Supabase
+2. Se não configurados, usam fallback (menos seguro, mas funcional)
+3. Hash SHA-256 truncado para 32 chars é suficiente para correlação sem reversibilidade
+4. User-agent categorizado (não string completa) reduz fingerprinting
 
 1. **FINGERPRINT_SALT e RATELIMIT_SALT** devem ser configurados como secrets no Supabase
 2. Se não configurados, usam fallback (menos seguro, mas funcional)
