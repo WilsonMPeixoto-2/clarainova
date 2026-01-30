@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Upload, FileText, Trash2, RefreshCw, Lock, Check, X, AlertCircle, BarChart3, ClipboardList, Eye, EyeOff, Loader2, Play, RotateCcw, FileWarning } from 'lucide-react';
+import { ArrowLeft, Upload, FileText, Trash2, RefreshCw, Lock, Check, X, AlertCircle, BarChart3, ClipboardList, Eye, EyeOff, Loader2, Play, RotateCcw, FileWarning, Activity } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -12,6 +12,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { AnalyticsTab } from '@/components/admin/AnalyticsTab';
 import { ReportsTab } from '@/components/admin/ReportsTab';
 import { ProcessingStatsTab } from '@/components/admin/ProcessingStatsTab';
+import { ChatMetricsDashboard } from '@/components/admin/ChatMetricsDashboard';
 import { extractPdfTextClient, extractTxtContent, isPdfFile, isTxtFile, isDocxFile, splitTextIntoBatches, calculatePayloadMetrics } from '@/utils/extractPdfText';
 import { loadPdfDocument, renderPagesAsImages, getPageBatches, type PageImage } from '@/utils/renderPdfPages';
 import {
@@ -1262,6 +1263,10 @@ const Admin = () => {
                 <RefreshCw className="w-4 h-4" />
                 Observabilidade
               </TabsTrigger>
+              <TabsTrigger value="metrics" className="flex items-center gap-2">
+                <Activity className="w-4 h-4" />
+                Métricas
+              </TabsTrigger>
             </TabsList>
 
             <TabsContent value="documents" className="space-y-8">
@@ -1495,6 +1500,10 @@ const Admin = () => {
 
             <TabsContent value="observability">
               <ProcessingStatsTab adminKey={adminKey} />
+            </TabsContent>
+
+            <TabsContent value="metrics">
+              <ChatMetricsDashboard />
             </TabsContent>
           </Tabs>
         </main>

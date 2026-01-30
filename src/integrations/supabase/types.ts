@@ -767,6 +767,23 @@ export type Database = {
           serp_results: Json
         }[]
       }
+      get_chat_metrics_summary: {
+        Args: { p_days?: number }
+        Returns: {
+          avg_embedding_ms: number
+          avg_llm_first_token_ms: number
+          avg_llm_total_ms: number
+          avg_search_ms: number
+          date: string
+          error_count: number
+          fallback_count: number
+          gemini_count: number
+          lovable_count: number
+          rate_limit_hits: number
+          total_requests: number
+          web_search_count: number
+        }[]
+      }
       get_chat_storage_stats: {
         Args: never
         Returns: {
@@ -799,6 +816,20 @@ export type Database = {
           description: string
           domain: string
           priority: number
+        }[]
+      }
+      get_frontend_errors_summary: {
+        Args: { p_days?: number }
+        Returns: {
+          chrome_count: number
+          date: string
+          edge_count: number
+          firefox_count: number
+          mobile_count: number
+          other_count: number
+          safari_count: number
+          total_errors: number
+          unique_messages: number
         }[]
       }
       get_ingestion_resume_point: {
