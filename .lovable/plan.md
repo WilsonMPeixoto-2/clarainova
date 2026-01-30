@@ -1,160 +1,97 @@
 
-# ✅ IMPLEMENTADO: Upgrade Super Premium — Performance + Observabilidade + Governança
+# Plano de Saneamento de Segurança e Observabilidade
 
-**Status:** Concluído em 30/01/2026
+## Diagnóstico Completo
 
-## Resumo das Entregas
+### Status dos Artefatos de Patch
+**RESULTADO: Limpo** - Nenhum artefato de patch encontrado no código fonte. Buscas por `"replace":`, `"search":`, `"Plan approved"` e `"Implementando o upgrade"` retornaram zero ocorrências em `/src`.
 
-### ✅ Fase 1: Performance — Preloads Críticos
-- Preload de hero image responsiva (640w/1024w/1920w WebP)
-- Preconnect para API Supabase
-- Fonts já otimizadas com preload + async loading
-
-### ✅ Fase 2: Observabilidade Leve
-
-#### Tabelas criadas:
-- `chat_metrics` — métricas de latência por request
-- `frontend_errors` — erros capturados pelo Error Boundary
-
-#### Edge Function instrumentada:
-- `embeddingLatencyMs` — tempo de geração de embedding
-- `searchLatencyMs` — tempo de busca híbrida (RRF)
-- `llmFirstTokenMs` — tempo até primeiro token
-- `llmTotalMs` — tempo total de resposta
-- Tracking de fallback, rate limits, erros
-
-#### Error Boundary atualizado:
-- Logging automático para `frontend_errors` (sem dados sensíveis)
-
-### ✅ Fase 3: Governança do Projeto
-- `CHANGELOG.md` — histórico formal de versões
-- `REGRESSION_CHECKLIST.md` — roteiro de validação pré-publish
-- `DOCUMENTATION.md` — política de release adicionada
+### Arquivos de Governança
+**RESULTADO: Correto** - Os arquivos `CHANGELOG.md` e `REGRESSION_CHECKLIST.md` estão na raiz do projeto (não contaminaram componentes).
 
 ---
 
-## Próximos Passos (Futuros)
+## Problemas Identificados (Críticos)
 
-1. Dashboard de observabilidade no Admin (componente visual)
-2. Alertas automáticos (taxa de erro > 5%)
-3. Métricas em tempo real com Supabase Realtime
-4. Testes E2E automatizados com Playwright
+### 1. RLS Permissiva: frontend_errors aceita INSERT público
+**Situação atual:**
+```sql
+Policy: "Anyone can insert frontend errors"
+With Check Expression: true  -- ABERTA PARA TODOS
+```
+
+**Risco:** Qualquer pessoa pode inserir dados na tabela, potencialmente usada para:
+- Poluição de dados (garbage data)
+- Ataque de exaustão de armazenamento
+- Injeção de conteúdo malicioso
+
+**Solução recomendada:** Frontend NÃO grava direto. Usar Edge Function intermediária.
+
+### 2. sessionFingerprint armazenado sem hash
+**Situação atual:**
+- Frontend gera fingerprint: `sess_${Date.now()}_${crypto.randomUUID().slice(0, 8)}`
+- Backend armazena em `chat_metrics.session_fingerprint` sem transformação
+
+**Risco:** Fingerprint pode ser correlacionado entre requests, criando perfil de uso.
+
+**Solução:** Hash SHA-256 do fingerprint antes de persistir.
+
+### 3. IP usado para rate limit sem proteção
+**Situação atual:**
+```typescript
+function getClientKey(req: Request): string {
+  const forwarded = req.headers.get("x-forwarded-for");
+  // ... retorna IP "cru"
+}
+```
+
+**Uso:** IP é passado para `check_rate_limit` que armazena em `rate_limits.client_key`.
+
+**Risco:** IP armazenado pode ser dado pessoal (LGPD).
+
+**Solução:** Hash do IP antes de armazenar.
+
+### 4. user_agent armazenado em frontend_errors
+**Situação atual:**
+```typescript
+user_agent: navigator.userAgent?.slice(0, 200) || null
+```
+
+**Risco:** User-agent pode identificar usuário (fingerprinting).
+
+**Solução:** Truncar para categoria genérica (browser family apenas).
 
 ---
 
-## Plano Original (Referência)
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  created_at TIMESTAMPTZ DEFAULT now(),
-  
-  -- Identificação
-  session_fingerprint TEXT,
-  request_id UUID,
-  
-  -- Performance (ms)
-  embedding_latency_ms INTEGER,
-  search_latency_ms INTEGER,
-  llm_first_token_ms INTEGER,
-  llm_total_ms INTEGER,
-  
-  -- Operacionais
-  provider TEXT,              -- 'gemini' | 'lovable'
-  model TEXT,
-  mode TEXT,                   -- 'fast' | 'deep'
-  web_search_used BOOLEAN,
-  local_chunks_found INTEGER,
-  web_sources_count INTEGER,
-  
-  -- Qualidade
-  fallback_triggered BOOLEAN DEFAULT FALSE,
-  rate_limit_hit BOOLEAN DEFAULT FALSE,
-  error_type TEXT,             -- NULL = sucesso
-  
-  CONSTRAINT valid_provider CHECK (provider IN ('gemini', 'lovable'))
-);
+## Implementação em 3 Fases
 
--- Index para queries de dashboard
-CREATE INDEX idx_chat_metrics_created ON chat_metrics(created_at DESC);
-CREATE INDEX idx_chat_metrics_provider ON chat_metrics(provider, created_at DESC);
-```
+### Fase 1: Edge Function para Error Logging (Segurança)
 
-### 2.2 Edge Function — Instrumentação
+Criar nova Edge Function `log-frontend-error` que:
+1. Recebe payload do frontend (error_message, component_stack, url)
+2. Sanitiza dados (remove qualquer identificador)
+3. Agrupa user_agent em categorias (Chrome, Firefox, Safari, etc.)
+4. Insere com `service_role` (RLS não é problema)
 
-**Arquivo:** `supabase/functions/clara-chat/index.ts`
+**Arquivos:**
+- Criar `supabase/functions/log-frontend-error/index.ts`
+- Atualizar `src/components/ErrorBoundary.tsx`
 
-Adicionar coleta de métricas:
-
+**Mudança no ErrorBoundary:**
 ```typescript
-// No início do request
-const requestId = crypto.randomUUID();
-const startTime = performance.now();
-let embeddingLatency = 0;
-let searchLatency = 0;
-let firstTokenTime = 0;
-
-// Após embedding
-embeddingLatency = performance.now() - startTime;
-
-// Após busca
-searchLatency = performance.now() - startTime - embeddingLatency;
-
-// No primeiro token do streaming
-if (!firstTokenTime) firstTokenTime = performance.now() - startTime;
-
-// Ao final, salvar métricas
-const logMetrics = async () => {
+private async logErrorToAnalytics(error: Error, errorInfo: ErrorInfo): Promise<void> {
   try {
-    await supabase.from("chat_metrics").insert({
-      request_id: requestId,
-      session_fingerprint: sessionFingerprint || null,
-      embedding_latency_ms: Math.round(embeddingLatency),
-      search_latency_ms: Math.round(searchLatency),
-      llm_first_token_ms: Math.round(firstTokenTime),
-      llm_total_ms: Math.round(performance.now() - startTime),
-      provider: apiProvider,
-      model: activeModelName,
-      mode,
-      web_search_used: needsWebSearch,
-      local_chunks_found: mergedChunks.length,
-      web_sources_count: webSources.length,
-      fallback_triggered: useFallback,
-      rate_limit_hit: false,
-      error_type: null,
-    });
-  } catch (err) {
-    console.warn("[metrics] Failed to log:", err);
-  }
-};
-```
-
-### 2.3 Dashboard de Observabilidade (Admin)
-
-**Arquivo:** `src/components/admin/ObservabilityDashboard.tsx`
-
-Componente que exibe:
-
-| Métrica | Visualização |
-|---------|--------------|
-| Tempo médio de resposta | Linha temporal (7 dias) |
-| Taxa de fallback Gemini → Lovable | Barra de % |
-| Taxa de web search | Barra de % |
-| Erros 429 (rate limit) | Contador + trend |
-| Latência por etapa | Breakdown (embed/search/LLM) |
-
-### 2.4 Error Boundary com Reporting
-
-**Arquivo:** `src/components/ErrorBoundary.tsx`
-
-Já existe, mas vamos adicionar logging para analytics:
-
-```typescript
-componentDidCatch(error: Error, errorInfo: ErrorInfo): void {
-  // Log para analytics (sem dados sensíveis)
-  try {
-    supabase.from("frontend_errors").insert({
-      error_message: error.message.slice(0, 500),
-      component_stack: errorInfo.componentStack?.slice(0, 1000),
-      url: window.location.pathname,
-      user_agent: navigator.userAgent.slice(0, 200),
+    await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/log-frontend-error`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`
+      },
+      body: JSON.stringify({
+        error_message: error.message?.slice(0, 500) || "Unknown error",
+        component_stack: errorInfo.componentStack?.slice(0, 1000) || null,
+        url: window.location.pathname,
+      })
     });
   } catch {
     // Silently fail
@@ -162,132 +99,52 @@ componentDidCatch(error: Error, errorInfo: ErrorInfo): void {
 }
 ```
 
-**Nova tabela:** `frontend_errors`
+### Fase 2: Hash de Identificadores (Privacidade)
 
+**2.1. Hash do sessionFingerprint no backend:**
+
+Em `supabase/functions/clara-chat/index.ts`:
+```typescript
+// Função de hash simples para fingerprint
+async function hashFingerprint(fingerprint: string): Promise<string> {
+  const salt = Deno.env.get("FINGERPRINT_SALT") || "clara-default-salt";
+  const data = new TextEncoder().encode(fingerprint + salt);
+  const hashBuffer = await crypto.subtle.digest("SHA-256", data);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('').slice(0, 32);
+}
+
+// Uso antes de persistir:
+const hashedFingerprint = sessionFingerprint 
+  ? await hashFingerprint(sessionFingerprint) 
+  : null;
+```
+
+**2.2. Hash do IP para rate limit:**
+
+Modificar `getClientKey`:
+```typescript
+async function getHashedClientKey(req: Request): Promise<string> {
+  const ip = getRawClientIp(req);
+  const salt = Deno.env.get("RATELIMIT_SALT") || "clara-rate-salt";
+  const data = new TextEncoder().encode(ip + salt);
+  const hashBuffer = await crypto.subtle.digest("SHA-256", data);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('').slice(0, 32);
+}
+```
+
+### Fase 3: Restringir RLS do frontend_errors
+
+**Migração SQL:**
 ```sql
-CREATE TABLE IF NOT EXISTS frontend_errors (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  created_at TIMESTAMPTZ DEFAULT now(),
-  error_message TEXT,
-  component_stack TEXT,
-  url TEXT,
-  user_agent TEXT
-);
-```
+-- Remover policy pública
+DROP POLICY IF EXISTS "Anyone can insert frontend errors" ON public.frontend_errors;
 
----
-
-## Fase 3: Governança do Projeto
-
-### 3.1 CHANGELOG.md
-
-**Novo arquivo:** `CHANGELOG.md`
-
-```markdown
-# Changelog
-
-Todas as mudanças notáveis deste projeto serão documentadas aqui.
-
-O formato segue [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/).
-
-## [2.0.0] - 2026-01-30
-
-### Adicionado
-- Responsividade mobile premium (anti-overflow, smart scroll, safe-area)
-- Hero image otimizada com WebP responsivo (640w/1024w/1920w)
-- Source chips com scroll horizontal snap no mobile
-- Dashboard de observabilidade no Admin
-- Métricas de performance por request
-
-### Alterado
-- `useIsMobile` agora usa `matchMedia.matches` (sem forced reflow)
-- Auto-scroll inteligente respeita posição do usuário durante streaming
-- Touch targets aumentados para 44px mínimo
-
-### Corrigido
-- Forced reflow no carregamento inicial
-- Overflow horizontal em mensagens com URLs longas
-
-### Segurança
-- Auditoria de erros frontend sem dados sensíveis
-
-## [1.0.0] - 2026-01-25
-
-### Adicionado
-- Chat RAG com streaming SSE
-- Busca híbrida (semântica + keywords)
-- Google Search grounding automático
-- Interface administrativa para documentos
-- PWA com instalação standalone
-```
-
-### 3.2 Checklist de Regressão
-
-**Novo arquivo:** `REGRESSION_CHECKLIST.md`
-
-```markdown
-# Checklist de Regressão — CLARA
-
-## Pré-Publicação (10 min)
-
-### Mobile (360×800)
-- [ ] Chat abre sem overflow horizontal
-- [ ] Input visível acima do teclado
-- [ ] Chips de fontes com scroll suave
-- [ ] Botões com touch target adequado
-
-### Desktop (1440px)
-- [ ] Layout centralizado (max-width 4xl)
-- [ ] Streaming SSE funcional
-- [ ] Fontes citadas expandíveis
-
-### Chat Core
-- [ ] Mensagem curta → resposta OK
-- [ ] Mensagem longa (5000 chars) → resposta OK
-- [ ] Modo Direto funciona
-- [ ] Modo Didático funciona
-- [ ] Web search ativado quando necessário
-
-### Admin
-- [ ] Login com chave válida
-- [ ] Lista de documentos carrega
-- [ ] Upload de PDF processa
-- [ ] Analytics exibe métricas
-
-### PWA
-- [ ] Android: botão "Instalar" aparece
-- [ ] iOS: "Adicionar à Tela de Início" funciona
-- [ ] Ícone correto após instalação
-
-### Performance
-- [ ] FCP < 1.5s (PageSpeed)
-- [ ] LCP < 2.5s (PageSpeed)
-- [ ] Sem forced reflow no Lighthouse
-```
-
-### 3.3 Política de Release
-
-**Adicionar ao:** `DOCUMENTATION.md`
-
-```markdown
-## Política de Release
-
-### Ambientes
-1. **Preview** — Builds automáticos por commit (desenvolvimento)
-2. **Staging** — Preview validado com checklist completo
-3. **Production** — Publish manual após aprovação
-
-### Processo
-1. Implementar feature no Preview
-2. Executar REGRESSION_CHECKLIST.md
-3. Se OK → Publicar para Production
-4. Atualizar CHANGELOG.md
-5. Se falha crítica → Rollback imediato
-
-### Rollback
-- Lovable mantém histórico de versões
-- Em caso de falha crítica: reverter para commit anterior
-- Comunicar equipe sobre incidente
+-- Nova policy: apenas service_role pode inserir
+CREATE POLICY "Service role can insert frontend errors" 
+ON public.frontend_errors FOR INSERT
+WITH CHECK (auth.role() = 'service_role');
 ```
 
 ---
@@ -296,91 +153,48 @@ O formato segue [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/).
 
 | Arquivo | Ação |
 |---------|------|
-| `index.html` | Adicionar preloads de hero image e Supabase |
-| `CHANGELOG.md` | **Criar** — histórico formal de versões |
-| `REGRESSION_CHECKLIST.md` | **Criar** — roteiro de validação |
-| `DOCUMENTATION.md` | Adicionar seção "Política de Release" |
-| `supabase/functions/clara-chat/index.ts` | Adicionar instrumentação de métricas |
-| `src/components/ErrorBoundary.tsx` | Adicionar logging de erros |
-| Nova migração SQL | Criar tabelas `chat_metrics` e `frontend_errors` |
-| `src/components/admin/ObservabilityDashboard.tsx` | **Criar** — dashboard de métricas |
+| `supabase/functions/log-frontend-error/index.ts` | **Criar** — Edge function para logging seguro |
+| `src/components/ErrorBoundary.tsx` | Modificar — Chamar edge function em vez de Supabase direto |
+| `supabase/functions/clara-chat/index.ts` | Modificar — Hash de fingerprint e IP |
+| Nova migração SQL | Restringir RLS de frontend_errors |
+
+---
+
+## Validação de Implementação Existente
+
+### Tabelas criadas corretamente
+- `chat_metrics`: Existe com estrutura correta
+- `frontend_errors`: Existe, mas RLS precisa ajuste
+
+### RLS de chat_metrics (OK)
+```
+INSERT: Service role can insert chat metrics → (auth.role() = 'service_role')
+SELECT: Admins can read chat metrics → has_role(auth.uid(), 'admin')
+```
+**Conclusão:** Segura. Apenas edge function (service_role) insere, apenas admins leem.
+
+### Instrumentação no clara-chat (OK)
+- `llmFirstTokenMs` é setado corretamente no primeiro chunk do streaming
+- Latências são capturadas em pontos corretos (embedding, search, LLM)
+- `logChatMetrics` é fire-and-forget (não bloqueia streaming)
 
 ---
 
 ## Critérios de Aceite
 
-- [ ] Hero image carrega com preload (verificar Network tab)
-- [ ] Tabela `chat_metrics` recebe dados após cada chat
-- [ ] Admin > Observabilidade exibe métricas reais
-- [ ] CHANGELOG.md documenta versão 2.0.0
-- [ ] REGRESSION_CHECKLIST.md cobre todos os fluxos críticos
+- [ ] `frontend_errors` não aceita INSERT de anon/public
+- [ ] ErrorBoundary chama edge function (não Supabase direto)
+- [ ] `session_fingerprint` armazenado como hash (32 chars hex)
+- [ ] `client_key` em rate_limits armazenado como hash
+- [ ] Nenhum IP puro em nenhuma tabela
+- [ ] Build/lint passam sem erros
+- [ ] Edge function `log-frontend-error` deployada e funcional
 
 ---
 
-## Relatório para "Relatórios de Desenvolvimento"
+## Notas de Segurança
 
-O relatório institucional a ser gerado após implementação:
-
-```markdown
-# Relatório de Desenvolvimento — Release 2.0.0
-
-**Data:** 30/01/2026
-**Versão:** 2.0.0
-**Tipo:** Feature Release
-
-## Resumo Executivo
-
-Esta release consolida melhorias de performance, responsividade mobile e 
-estabelece infraestrutura de observabilidade para operação sustentável.
-
-## Entregas
-
-### Performance
-- LCP otimizado com preloads de hero image (WebP responsivo)
-- Eliminação de forced reflow no carregamento
-
-### Mobile
-- Anti-overflow global para mensagens de chat
-- Smart scroll que respeita posição do usuário
-- Safe-area para iPhones modernos
-- Touch targets de 44px mínimo
-
-### Observabilidade
-- Tabela `chat_metrics` com latências por etapa
-- Dashboard administrativo de métricas
-- Logging de erros frontend (sem dados sensíveis)
-
-### Governança
-- CHANGELOG.md formalizado
-- Checklist de regressão documentado
-- Política de release Preview → Production
-
-## Critérios de Aceite — Mobile/PWA
-
-| Critério | Status |
-|----------|--------|
-| Mobile 360×800 sem overflow | ✅ |
-| Input visível acima do teclado | ✅ |
-| PWA instala em Android/iOS | ✅ |
-| Ícone correto após instalação | ✅ |
-
-## Riscos Residuais
-
-1. **Quota Gemini:** Fallback para Lovable Gateway funcional
-2. **Firecrawl:** Dependência externa para web search
-
-## Próximos Passos
-
-1. Implementar alertas automáticos (taxa de erro > 5%)
-2. Dashboard de métricas em tempo real
-3. Testes E2E automatizados com Playwright
-```
-
----
-
-## Notas Técnicas
-
-- A instrumentação adiciona ~5ms de overhead (negligível)
-- Tabelas de métricas sem RLS (dados operacionais, não sensíveis)
-- Logging é "fire and forget" — não bloqueia fluxo principal
-- Error boundary captura apenas stack técnico, nunca dados de usuário
+1. **FINGERPRINT_SALT e RATELIMIT_SALT** devem ser configurados como secrets no Supabase
+2. Se não configurados, usam fallback (menos seguro, mas funcional)
+3. Hash SHA-256 truncado para 32 chars é suficiente para correlação sem reversibilidade
+4. User-agent categorizado (não string completa) reduz fingerprinting
