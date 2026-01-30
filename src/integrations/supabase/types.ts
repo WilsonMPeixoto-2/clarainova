@@ -38,6 +38,66 @@ export type Database = {
         }
         Relationships: []
       }
+      chat_metrics: {
+        Row: {
+          created_at: string | null
+          embedding_latency_ms: number | null
+          error_type: string | null
+          fallback_triggered: boolean | null
+          id: string
+          llm_first_token_ms: number | null
+          llm_total_ms: number | null
+          local_chunks_found: number | null
+          mode: string | null
+          model: string | null
+          provider: string | null
+          rate_limit_hit: boolean | null
+          request_id: string | null
+          search_latency_ms: number | null
+          session_fingerprint: string | null
+          web_search_used: boolean | null
+          web_sources_count: number | null
+        }
+        Insert: {
+          created_at?: string | null
+          embedding_latency_ms?: number | null
+          error_type?: string | null
+          fallback_triggered?: boolean | null
+          id?: string
+          llm_first_token_ms?: number | null
+          llm_total_ms?: number | null
+          local_chunks_found?: number | null
+          mode?: string | null
+          model?: string | null
+          provider?: string | null
+          rate_limit_hit?: boolean | null
+          request_id?: string | null
+          search_latency_ms?: number | null
+          session_fingerprint?: string | null
+          web_search_used?: boolean | null
+          web_sources_count?: number | null
+        }
+        Update: {
+          created_at?: string | null
+          embedding_latency_ms?: number | null
+          error_type?: string | null
+          fallback_triggered?: boolean | null
+          id?: string
+          llm_first_token_ms?: number | null
+          llm_total_ms?: number | null
+          local_chunks_found?: number | null
+          mode?: string | null
+          model?: string | null
+          provider?: string | null
+          rate_limit_hit?: boolean | null
+          request_id?: string | null
+          search_latency_ms?: number | null
+          session_fingerprint?: string | null
+          web_search_used?: boolean | null
+          web_sources_count?: number | null
+        }
+        Relationships: []
+      }
       chat_sessions: {
         Row: {
           created_at: string
@@ -298,6 +358,33 @@ export type Database = {
           title?: string
           updated_at?: string
           version?: number | null
+        }
+        Relationships: []
+      }
+      frontend_errors: {
+        Row: {
+          component_stack: string | null
+          created_at: string | null
+          error_message: string | null
+          id: string
+          url: string | null
+          user_agent: string | null
+        }
+        Insert: {
+          component_stack?: string | null
+          created_at?: string | null
+          error_message?: string | null
+          id?: string
+          url?: string | null
+          user_agent?: string | null
+        }
+        Update: {
+          component_stack?: string | null
+          created_at?: string | null
+          error_message?: string | null
+          id?: string
+          url?: string | null
+          user_agent?: string | null
         }
         Relationships: []
       }

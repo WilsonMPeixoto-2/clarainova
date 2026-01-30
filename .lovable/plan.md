@@ -1,54 +1,48 @@
 
-# Plano: Upgrade Super Premium — Performance + Observabilidade + Governança
+# ✅ IMPLEMENTADO: Upgrade Super Premium — Performance + Observabilidade + Governança
 
-## Resumo Executivo
+**Status:** Concluído em 30/01/2026
 
-Este plano implementa três eixos críticos para transformar a CLARA em um produto "operável" e profissionalmente mantido:
+## Resumo das Entregas
 
-1. **Performance (FCP/LCP)** — Otimização de preloads para percepção de velocidade
-2. **Observabilidade** — Telemetria estruturada para diagnósticos sem "reclamação"
-3. **Governança** — Changelog formal, checklist de regressão e política de release
+### ✅ Fase 1: Performance — Preloads Críticos
+- Preload de hero image responsiva (640w/1024w/1920w WebP)
+- Preconnect para API Supabase
+- Fonts já otimizadas com preload + async loading
 
----
+### ✅ Fase 2: Observabilidade Leve
 
-## Fase 1: Performance — Preloads Críticos
+#### Tabelas criadas:
+- `chat_metrics` — métricas de latência por request
+- `frontend_errors` — erros capturados pelo Error Boundary
 
-### Diagnóstico Atual
-- Fonts já usam `preload` + async loading
-- Hero image otimizada com WebP responsivo
-- Critical CSS inline no `index.html`
-- **Gap:** Falta preload do hero image e módulos críticos
+#### Edge Function instrumentada:
+- `embeddingLatencyMs` — tempo de geração de embedding
+- `searchLatencyMs` — tempo de busca híbrida (RRF)
+- `llmFirstTokenMs` — tempo até primeiro token
+- `llmTotalMs` — tempo total de resposta
+- Tracking de fallback, rate limits, erros
 
-### Implementação
+#### Error Boundary atualizado:
+- Logging automático para `frontend_errors` (sem dados sensíveis)
 
-**Arquivo:** `index.html`
-
-Adicionar preloads para recursos críticos:
-
-```html
-<!-- Preload hero image para LCP -->
-<link rel="preload" href="/src/assets/clara-hero-1920.webp" as="image" type="image/webp" media="(min-width: 1024px)" />
-<link rel="preload" href="/src/assets/clara-hero-1024.webp" as="image" type="image/webp" media="(min-width: 640px) and (max-width: 1023px)" />
-<link rel="preload" href="/src/assets/clara-hero-640.webp" as="image" type="image/webp" media="(max-width: 639px)" />
-
-<!-- Preconnect Supabase API -->
-<link rel="preconnect" href="https://pypqlqnfonixeocvmeoy.supabase.co" />
-```
-
-**Resultado Esperado:** LCP reduzido em 200-400ms
+### ✅ Fase 3: Governança do Projeto
+- `CHANGELOG.md` — histórico formal de versões
+- `REGRESSION_CHECKLIST.md` — roteiro de validação pré-publish
+- `DOCUMENTATION.md` — política de release adicionada
 
 ---
 
-## Fase 2: Observabilidade Leve
+## Próximos Passos (Futuros)
 
-### 2.1 Métricas de Chat (Já Existente — Expandir)
+1. Dashboard de observabilidade no Admin (componente visual)
+2. Alertas automáticos (taxa de erro > 5%)
+3. Métricas em tempo real com Supabase Realtime
+4. Testes E2E automatizados com Playwright
 
-A tabela `api_usage_stats` já captura `provider`, `model` e `mode`. Vamos expandir para incluir métricas de performance.
+---
 
-**Nova tabela:** `chat_metrics`
-
-```sql
-CREATE TABLE IF NOT EXISTS chat_metrics (
+## Plano Original (Referência)
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   created_at TIMESTAMPTZ DEFAULT now(),
   

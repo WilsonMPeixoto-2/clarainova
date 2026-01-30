@@ -295,4 +295,37 @@ User Query → Edge Function → Embedding da Query
 
 ---
 
-*Relatório gerado em 24/01/2026*
+## 🚀 Política de Release
+
+### Ambientes
+
+| Ambiente | Descrição | Acesso |
+|----------|-----------|--------|
+| **Preview** | Builds automáticos por commit (desenvolvimento) | Equipe interna |
+| **Production** | Publish manual após validação | Usuários finais |
+
+### Processo de Release
+
+1. **Implementar feature** no Preview
+2. **Executar REGRESSION_CHECKLIST.md** completo
+3. **Se todos os testes ✅** → Publicar para Production
+4. **Atualizar CHANGELOG.md** com a nova versão
+5. **Se falha crítica** → Rollback imediato
+
+### Rollback
+
+- Lovable mantém histórico de versões no Git
+- Em caso de falha crítica: reverter para commit anterior via interface
+- Documentar incidente no CHANGELOG.md (seção "Corrigido")
+- Comunicar equipe sobre ações tomadas
+
+### Critérios para Publicação
+
+- [ ] Todos os itens do REGRESSION_CHECKLIST.md validados
+- [ ] Nenhum erro crítico no console
+- [ ] Performance aceitável (FCP < 1.5s, LCP < 2.5s)
+- [ ] Funcionalidades core operacionais (chat, admin, feedback)
+
+---
+
+*Relatório atualizado em 30/01/2026*
