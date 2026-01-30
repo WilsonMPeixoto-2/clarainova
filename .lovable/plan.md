@@ -1,248 +1,392 @@
 
-# Plano de Otimização de Responsividade e Mobile
+# Plano: Upgrade Super Premium — Performance + Observabilidade + Governança
 
 ## Resumo Executivo
 
-Este plano aborda melhorias de diagramação e proporção em todas as versões (desktop e mobile), com foco especial na usabilidade em dispositivos móveis. O objetivo é garantir uma experiência "Premium" fluida e sem quebras visuais, seguindo as diretrizes do Design System v3.0 estabelecido.
+Este plano implementa três eixos críticos para transformar a CLARA em um produto "operável" e profissionalmente mantido:
+
+1. **Performance (FCP/LCP)** — Otimização de preloads para percepção de velocidade
+2. **Observabilidade** — Telemetria estruturada para diagnósticos sem "reclamação"
+3. **Governança** — Changelog formal, checklist de regressão e política de release
 
 ---
 
-## Diagnóstico Atual
+## Fase 1: Performance — Preloads Críticos
 
-### Pontos Fortes Identificados
-- Design System bem estruturado com tokens semânticos
-- PWA já configurada com manifest.json e Service Worker
-- Componentes já utilizam `useIsMobile` para otimizações condicionais
-- Botões de ação já ocultam labels no mobile (`hidden sm:inline`)
+### Diagnóstico Atual
+- Fonts já usam `preload` + async loading
 - Hero image otimizada com WebP responsivo
+- Critical CSS inline no `index.html`
+- **Gap:** Falta preload do hero image e módulos críticos
 
-### Gaps Identificados
+### Implementação
 
-| Categoria | Problema | Impacto |
-|-----------|----------|---------|
-| **Overflow** | Falta regras anti-overflow globais para chat | URLs longas e código podem quebrar layout |
-| **Source Chips** | Sem scroll horizontal suave no mobile | Chips "empurram" conteúdo para fora |
-| **Input Area** | Sem `safe-area-inset-bottom` para iPhone | Input fica colado na barra inferior |
-| **ResponseNotice** | Largura não limitada | Pode estourar em telas estreitas |
-| **Auto-scroll** | Sempre força scroll para o final | Frustra usuário que quer reler durante streaming |
-| **Touch Targets** | Alguns botões menores que 44px | Dificuldade de toque em mobile |
-| **PWA** | Falta ícone maskable dedicado | Ícone Android pode ficar cortado |
+**Arquivo:** `index.html`
 
----
+Adicionar preloads para recursos críticos:
 
-## Implementação em 4 Fases
+```html
+<!-- Preload hero image para LCP -->
+<link rel="preload" href="/src/assets/clara-hero-1920.webp" as="image" type="image/webp" media="(min-width: 1024px)" />
+<link rel="preload" href="/src/assets/clara-hero-1024.webp" as="image" type="image/webp" media="(min-width: 640px) and (max-width: 1023px)" />
+<link rel="preload" href="/src/assets/clara-hero-640.webp" as="image" type="image/webp" media="(max-width: 639px)" />
 
-### Fase 1: CSS Global Anti-Overflow (Crítico)
-
-**Arquivo:** `src/index.css`
-
-Adicionar regras globais para prevenir overflow horizontal em mensagens de chat:
-
-```css
-/* Anti-overflow para mensagens de chat */
-.chat-content-container,
-.chat-content-container * {
-  overflow-wrap: anywhere;
-  word-break: break-word;
-}
-
-/* Código/trechos longos */
-.chat-content-container pre,
-.chat-content-container code {
-  max-width: 100%;
-  overflow-x: auto;
-}
-
-/* Imagens/iframes (segurança) */
-.chat-content-container img,
-.chat-content-container video,
-.chat-content-container iframe {
-  max-width: 100%;
-  height: auto;
-}
+<!-- Preconnect Supabase API -->
+<link rel="preconnect" href="https://pypqlqnfonixeocvmeoy.supabase.co" />
 ```
 
+**Resultado Esperado:** LCP reduzido em 200-400ms
+
 ---
 
-### Fase 2: Source Chips Mobile Premium
+## Fase 2: Observabilidade Leve
 
-**Arquivo:** `src/components/chat/ChatMessage.tsx` (SourcesSection)
+### 2.1 Métricas de Chat (Já Existente — Expandir)
 
-Implementar scroll horizontal com snap no mobile:
+A tabela `api_usage_stats` já captura `provider`, `model` e `mode`. Vamos expandir para incluir métricas de performance.
 
-```css
-/* Em index.css */
-.sources-row {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-}
+**Nova tabela:** `chat_metrics`
 
-@media (max-width: 520px) {
-  .sources-row {
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-    scroll-snap-type: x mandatory;
-    padding-bottom: 6px;
-    scrollbar-width: none;
-  }
+```sql
+CREATE TABLE IF NOT EXISTS chat_metrics (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  created_at TIMESTAMPTZ DEFAULT now(),
   
-  .sources-row::-webkit-scrollbar {
-    display: none;
-  }
+  -- Identificação
+  session_fingerprint TEXT,
+  request_id UUID,
   
-  .sources-row > * {
-    scroll-snap-align: start;
-    flex: 0 0 auto;
-  }
-}
+  -- Performance (ms)
+  embedding_latency_ms INTEGER,
+  search_latency_ms INTEGER,
+  llm_first_token_ms INTEGER,
+  llm_total_ms INTEGER,
+  
+  -- Operacionais
+  provider TEXT,              -- 'gemini' | 'lovable'
+  model TEXT,
+  mode TEXT,                   -- 'fast' | 'deep'
+  web_search_used BOOLEAN,
+  local_chunks_found INTEGER,
+  web_sources_count INTEGER,
+  
+  -- Qualidade
+  fallback_triggered BOOLEAN DEFAULT FALSE,
+  rate_limit_hit BOOLEAN DEFAULT FALSE,
+  error_type TEXT,             -- NULL = sucesso
+  
+  CONSTRAINT valid_provider CHECK (provider IN ('gemini', 'lovable'))
+);
+
+-- Index para queries de dashboard
+CREATE INDEX idx_chat_metrics_created ON chat_metrics(created_at DESC);
+CREATE INDEX idx_chat_metrics_provider ON chat_metrics(provider, created_at DESC);
 ```
 
-**Mudança no componente:**
-- Adicionar className `sources-row` ao container de chips
-- Garantir touch target mínimo de 44px altura
+### 2.2 Edge Function — Instrumentação
 
----
+**Arquivo:** `supabase/functions/clara-chat/index.ts`
 
-### Fase 3: Input Area Seguro para Mobile
+Adicionar coleta de métricas:
 
-**Arquivo:** `src/pages/Chat.tsx` e `src/components/chat/ChatPanel.tsx`
+```typescript
+// No início do request
+const requestId = crypto.randomUUID();
+const startTime = performance.now();
+let embeddingLatency = 0;
+let searchLatency = 0;
+let firstTokenTime = 0;
 
-Adicionar safe-area para iPhones modernos:
+// Após embedding
+embeddingLatency = performance.now() - startTime;
 
-```css
-/* Em index.css */
-.chat-input-footer {
-  padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 12px);
-}
-```
+// Após busca
+searchLatency = performance.now() - startTime - embeddingLatency;
 
-**Mudanças nos componentes:**
-- Chat.tsx: Adicionar classe `chat-input-footer` ao footer
-- ChatPanel.tsx: Aplicar mesma classe ao footer do Sheet
+// No primeiro token do streaming
+if (!firstTokenTime) firstTokenTime = performance.now() - startTime;
 
----
-
-### Fase 4: ResponseNotice Compacto
-
-**Arquivo:** `src/components/chat/ResponseNotice.tsx`
-
-Ajustar para limitar largura e melhorar legibilidade no mobile:
-
-```tsx
-<motion.div
-  className={`
-    inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium
-    border backdrop-blur-sm mb-2
-    max-w-full sm:max-w-[90%]  /* Limitar largura */
-    ${config.className}
-  `}
->
-  <Icon className="w-3 h-3 flex-shrink-0" aria-hidden="true" />
-  <span className="truncate">{message}</span>  {/* Truncar texto longo */}
-</motion.div>
-```
-
----
-
-## Melhorias Adicionais
-
-### Auto-scroll Inteligente
-
-**Arquivo:** `src/pages/Chat.tsx` e `src/components/chat/ChatPanel.tsx`
-
-Implementar lógica que só faz auto-scroll se o usuário estiver no final:
-
-```tsx
-const scrollAreaRef = useRef<HTMLElement>(null);
-const isUserAtBottom = useRef(true);
-
-// Detectar posição do scroll
-const handleScroll = () => {
-  const el = scrollAreaRef.current;
-  if (el) {
-    const threshold = 100;
-    isUserAtBottom.current = 
-      el.scrollHeight - el.scrollTop - el.clientHeight < threshold;
+// Ao final, salvar métricas
+const logMetrics = async () => {
+  try {
+    await supabase.from("chat_metrics").insert({
+      request_id: requestId,
+      session_fingerprint: sessionFingerprint || null,
+      embedding_latency_ms: Math.round(embeddingLatency),
+      search_latency_ms: Math.round(searchLatency),
+      llm_first_token_ms: Math.round(firstTokenTime),
+      llm_total_ms: Math.round(performance.now() - startTime),
+      provider: apiProvider,
+      model: activeModelName,
+      mode,
+      web_search_used: needsWebSearch,
+      local_chunks_found: mergedChunks.length,
+      web_sources_count: webSources.length,
+      fallback_triggered: useFallback,
+      rate_limit_hit: false,
+      error_type: null,
+    });
+  } catch (err) {
+    console.warn("[metrics] Failed to log:", err);
   }
 };
-
-// Auto-scroll condicional
-useEffect(() => {
-  if (isUserAtBottom.current) {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }
-}, [messages, thinking.isThinking]);
 ```
 
-### Touch Targets Adequados
+### 2.3 Dashboard de Observabilidade (Admin)
 
-**Arquivo:** `src/index.css`
+**Arquivo:** `src/components/admin/ObservabilityDashboard.tsx`
 
-Garantir tamanho mínimo para interação:
+Componente que exibe:
 
-```css
-.action-btn {
-  min-height: 44px;
-  min-width: 44px;
-}
+| Métrica | Visualização |
+|---------|--------------|
+| Tempo médio de resposta | Linha temporal (7 dias) |
+| Taxa de fallback Gemini → Lovable | Barra de % |
+| Taxa de web search | Barra de % |
+| Erros 429 (rate limit) | Contador + trend |
+| Latência por etapa | Breakdown (embed/search/LLM) |
 
-@media (min-width: 640px) {
-  .action-btn {
-    min-height: auto;
-    min-width: auto;
+### 2.4 Error Boundary com Reporting
+
+**Arquivo:** `src/components/ErrorBoundary.tsx`
+
+Já existe, mas vamos adicionar logging para analytics:
+
+```typescript
+componentDidCatch(error: Error, errorInfo: ErrorInfo): void {
+  // Log para analytics (sem dados sensíveis)
+  try {
+    supabase.from("frontend_errors").insert({
+      error_message: error.message.slice(0, 500),
+      component_stack: errorInfo.componentStack?.slice(0, 1000),
+      url: window.location.pathname,
+      user_agent: navigator.userAgent.slice(0, 200),
+    });
+  } catch {
+    // Silently fail
   }
 }
 ```
 
-### PWA: Ícone Maskable
+**Nova tabela:** `frontend_errors`
 
-**Arquivos necessários:**
-- Criar `public/icon-512-maskable.png` (ícone com padding interno de 20%)
-
-**Atualizar:** `public/manifest.json`
-```json
-{
-  "icons": [
-    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" },
-    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png" },
-    { "src": "/icon-512-maskable.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
-  ]
-}
+```sql
+CREATE TABLE IF NOT EXISTS frontend_errors (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  created_at TIMESTAMPTZ DEFAULT now(),
+  error_message TEXT,
+  component_stack TEXT,
+  url TEXT,
+  user_agent TEXT
+);
 ```
 
 ---
 
-## Arquivos a Modificar
+## Fase 3: Governança do Projeto
 
-| Arquivo | Tipo de Mudança |
-|---------|-----------------|
-| `src/index.css` | Adicionar regras anti-overflow, sources-row, input-footer, touch targets |
-| `src/components/chat/ChatMessage.tsx` | Aplicar classe sources-row, ajustar touch targets |
-| `src/components/chat/ResponseNotice.tsx` | Adicionar max-width e truncate |
-| `src/pages/Chat.tsx` | Adicionar classe input-footer, implementar smart scroll |
-| `src/components/chat/ChatPanel.tsx` | Adicionar classe input-footer, implementar smart scroll |
-| `public/manifest.json` | Adicionar ícone maskable (quando disponível) |
+### 3.1 CHANGELOG.md
+
+**Novo arquivo:** `CHANGELOG.md`
+
+```markdown
+# Changelog
+
+Todas as mudanças notáveis deste projeto serão documentadas aqui.
+
+O formato segue [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/).
+
+## [2.0.0] - 2026-01-30
+
+### Adicionado
+- Responsividade mobile premium (anti-overflow, smart scroll, safe-area)
+- Hero image otimizada com WebP responsivo (640w/1024w/1920w)
+- Source chips com scroll horizontal snap no mobile
+- Dashboard de observabilidade no Admin
+- Métricas de performance por request
+
+### Alterado
+- `useIsMobile` agora usa `matchMedia.matches` (sem forced reflow)
+- Auto-scroll inteligente respeita posição do usuário durante streaming
+- Touch targets aumentados para 44px mínimo
+
+### Corrigido
+- Forced reflow no carregamento inicial
+- Overflow horizontal em mensagens com URLs longas
+
+### Segurança
+- Auditoria de erros frontend sem dados sensíveis
+
+## [1.0.0] - 2026-01-25
+
+### Adicionado
+- Chat RAG com streaming SSE
+- Busca híbrida (semântica + keywords)
+- Google Search grounding automático
+- Interface administrativa para documentos
+- PWA com instalação standalone
+```
+
+### 3.2 Checklist de Regressão
+
+**Novo arquivo:** `REGRESSION_CHECKLIST.md`
+
+```markdown
+# Checklist de Regressão — CLARA
+
+## Pré-Publicação (10 min)
+
+### Mobile (360×800)
+- [ ] Chat abre sem overflow horizontal
+- [ ] Input visível acima do teclado
+- [ ] Chips de fontes com scroll suave
+- [ ] Botões com touch target adequado
+
+### Desktop (1440px)
+- [ ] Layout centralizado (max-width 4xl)
+- [ ] Streaming SSE funcional
+- [ ] Fontes citadas expandíveis
+
+### Chat Core
+- [ ] Mensagem curta → resposta OK
+- [ ] Mensagem longa (5000 chars) → resposta OK
+- [ ] Modo Direto funciona
+- [ ] Modo Didático funciona
+- [ ] Web search ativado quando necessário
+
+### Admin
+- [ ] Login com chave válida
+- [ ] Lista de documentos carrega
+- [ ] Upload de PDF processa
+- [ ] Analytics exibe métricas
+
+### PWA
+- [ ] Android: botão "Instalar" aparece
+- [ ] iOS: "Adicionar à Tela de Início" funciona
+- [ ] Ícone correto após instalação
+
+### Performance
+- [ ] FCP < 1.5s (PageSpeed)
+- [ ] LCP < 2.5s (PageSpeed)
+- [ ] Sem forced reflow no Lighthouse
+```
+
+### 3.3 Política de Release
+
+**Adicionar ao:** `DOCUMENTATION.md`
+
+```markdown
+## Política de Release
+
+### Ambientes
+1. **Preview** — Builds automáticos por commit (desenvolvimento)
+2. **Staging** — Preview validado com checklist completo
+3. **Production** — Publish manual após aprovação
+
+### Processo
+1. Implementar feature no Preview
+2. Executar REGRESSION_CHECKLIST.md
+3. Se OK → Publicar para Production
+4. Atualizar CHANGELOG.md
+5. Se falha crítica → Rollback imediato
+
+### Rollback
+- Lovable mantém histórico de versões
+- Em caso de falha crítica: reverter para commit anterior
+- Comunicar equipe sobre incidente
+```
+
+---
+
+## Arquivos a Criar/Modificar
+
+| Arquivo | Ação |
+|---------|------|
+| `index.html` | Adicionar preloads de hero image e Supabase |
+| `CHANGELOG.md` | **Criar** — histórico formal de versões |
+| `REGRESSION_CHECKLIST.md` | **Criar** — roteiro de validação |
+| `DOCUMENTATION.md` | Adicionar seção "Política de Release" |
+| `supabase/functions/clara-chat/index.ts` | Adicionar instrumentação de métricas |
+| `src/components/ErrorBoundary.tsx` | Adicionar logging de erros |
+| Nova migração SQL | Criar tabelas `chat_metrics` e `frontend_errors` |
+| `src/components/admin/ObservabilityDashboard.tsx` | **Criar** — dashboard de métricas |
 
 ---
 
 ## Critérios de Aceite
 
-- [x] Mobile 360×800: Sem overflow horizontal em nenhuma resposta
-- [x] Input sempre visível acima do teclado (Android e iOS)
-- [x] Chips de fontes funcionam no toque (scroll suave, sem misclick)
-- [x] ResponseNotice não estoura largura
-- [x] Auto-scroll respeita a posição do usuário durante streaming
-- [x] Touch targets >= 44px em elementos interativos mobile
-- [x] Desktop 1440px: Layout com largura controlada (max-width 680px no chat)
-- [x] PWA instala corretamente com ícone adequado
+- [ ] Hero image carrega com preload (verificar Network tab)
+- [ ] Tabela `chat_metrics` recebe dados após cada chat
+- [ ] Admin > Observabilidade exibe métricas reais
+- [ ] CHANGELOG.md documenta versão 2.0.0
+- [ ] REGRESSION_CHECKLIST.md cobre todos os fluxos críticos
+
+---
+
+## Relatório para "Relatórios de Desenvolvimento"
+
+O relatório institucional a ser gerado após implementação:
+
+```markdown
+# Relatório de Desenvolvimento — Release 2.0.0
+
+**Data:** 30/01/2026
+**Versão:** 2.0.0
+**Tipo:** Feature Release
+
+## Resumo Executivo
+
+Esta release consolida melhorias de performance, responsividade mobile e 
+estabelece infraestrutura de observabilidade para operação sustentável.
+
+## Entregas
+
+### Performance
+- LCP otimizado com preloads de hero image (WebP responsivo)
+- Eliminação de forced reflow no carregamento
+
+### Mobile
+- Anti-overflow global para mensagens de chat
+- Smart scroll que respeita posição do usuário
+- Safe-area para iPhones modernos
+- Touch targets de 44px mínimo
+
+### Observabilidade
+- Tabela `chat_metrics` com latências por etapa
+- Dashboard administrativo de métricas
+- Logging de erros frontend (sem dados sensíveis)
+
+### Governança
+- CHANGELOG.md formalizado
+- Checklist de regressão documentado
+- Política de release Preview → Production
+
+## Critérios de Aceite — Mobile/PWA
+
+| Critério | Status |
+|----------|--------|
+| Mobile 360×800 sem overflow | ✅ |
+| Input visível acima do teclado | ✅ |
+| PWA instala em Android/iOS | ✅ |
+| Ícone correto após instalação | ✅ |
+
+## Riscos Residuais
+
+1. **Quota Gemini:** Fallback para Lovable Gateway funcional
+2. **Firecrawl:** Dependência externa para web search
+
+## Próximos Passos
+
+1. Implementar alertas automáticos (taxa de erro > 5%)
+2. Dashboard de métricas em tempo real
+3. Testes E2E automatizados com Playwright
+```
 
 ---
 
 ## Notas Técnicas
 
-- Todas as mudanças CSS utilizam os tokens existentes do Design System v3.0
-- As animações respeitam `prefers-reduced-motion` já implementado
-- Transições mantêm 150-220ms conforme padrão estabelecido
-- Nenhuma mudança afeta a lógica de negócio ou fluxo de dados
+- A instrumentação adiciona ~5ms de overhead (negligível)
+- Tabelas de métricas sem RLS (dados operacionais, não sensíveis)
+- Logging é "fire and forget" — não bloqueia fluxo principal
+- Error boundary captura apenas stack técnico, nunca dados de usuário
