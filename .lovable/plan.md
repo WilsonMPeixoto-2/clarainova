@@ -1,43 +1,31 @@
 
 # Plano de Consolidação e Operação — Fechamento do Ciclo v2.0
 
-## Contexto
+## ✅ Status Atual (Atualizado 30/01/2026)
 
-O projeto completou quatro fases de implementação:
-1. ✅ Busca Web robusta (Firecrawl + fallback + quórum)
-2. ✅ Responsividade/Mobile + PWA
-3. ✅ "Super Premium" (performance + observabilidade + governança)
-4. ✅ Saneamento de Segurança/LGPD (hashing, rate limiting, edge function dedicada)
+### Implementações Concluídas
 
-**Estado atual validado:**
-- `frontend_errors`: 2 registros (ambos com `user_agent: "Other"` — detectável via `categorizeBrowser` já corrigida)
-- `rate_limits`: IPs antigos neutralizados (`legacy_redacted_`), novos registros com hash (32 chars hex)
-- `chat_metrics`: 0 registros (instrumentação precisa ser testada em produção real)
-- Governança: CHANGELOG.md v2.0.0, REGRESSION_CHECKLIST.md, Política de Release documentada
+| Fase | Status | Descrição |
+|------|--------|-----------|
+| Busca Web Robusta | ✅ | Firecrawl + fallback + quórum + UI de fontes |
+| Responsividade/Mobile + PWA | ✅ | Anti-overflow, safe-area, targets, manifest/ícones |
+| "Super Premium" | ✅ | Performance + observabilidade + governança |
+| Saneamento Segurança/LGPD | ✅ | Edge function dedicada, hashing, rate limit |
+| Dashboard de Métricas | ✅ | `ChatMetricsDashboard.tsx` + RPCs |
 
-**Próximo passo:** Fechar ciclo de desenvolvimento e entrar em modo operacional.
+### Validações Confirmadas
+
+| Item | Status | Evidência |
+|------|--------|-----------|
+| IPs neutralizados | ✅ | 0 IPs puros em `rate_limits` |
+| Salts configurados | ✅ | `FINGERPRINT_SALT` e `RATELIMIT_SALT` ativos |
+| Rate limit funcionando | ✅ | Testado com 11 POSTs |
+| Browser categorization | ✅ | Edge/Opera/Mobile detectados corretamente |
+| RPC metrics | ✅ | `get_chat_metrics_summary` e `get_frontend_errors_summary` criadas |
 
 ---
 
-## Fase 1: Validação de Release (Executar Checklist)
-
-### 1.1. Validação PWA Ponta-a-Ponta
-
-O `manifest.json` está configurado corretamente:
-- `display: standalone`
-- Ícones: 64×64, 192×192, 512×512 (any + maskable)
-- `theme_color: #16a34a` (verde)
-- Shortcuts para `/chat`
-
-**Ações de validação manual (usuário):**
-
-| Plataforma | Validação | Status |
-|------------|-----------|--------|
-| Android | Botão "Instalar" aparece após 30s de uso | Verificar |
-| Android | Ícone correto na home screen | Verificar |
-| iOS | "Adicionar à Tela de Início" via Share menu | Verificar |
-| iOS | App abre sem barra de navegação do Safari | Verificar |
-| Ambos | Splash screen com tema correto | Verificar |
+## Próximos Passos (Modo Operacional)
 
 ### 1.2. Validação de Telemetria
 

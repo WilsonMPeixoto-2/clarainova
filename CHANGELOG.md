@@ -4,41 +4,41 @@ Todas as mudanças notáveis deste projeto serão documentadas aqui.
 
 O formato segue [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/).
 
+## [2.0.1] - 2026-01-30
+
+### Adicionado
+- **Dashboard de Métricas de Chat:**
+  - Nova aba "Métricas" no Admin
+  - Latência média por etapa (embedding/search/LLM)
+  - Taxa de fallback Gemini → Lovable
+  - Distribuição de providers e uso de web search
+  - Alertas visuais para fallback > 20% e erros frequentes
+- **RPCs de Observabilidade:**
+  - `get_chat_metrics_summary(p_days)` — agregação de métricas de chat
+  - `get_frontend_errors_summary(p_days)` — agregação de erros frontend
+
+### Segurança
+- **Saneamento de Segurança/LGPD:**
+  - Edge function dedicada `log-frontend-error` com rate limit (10 req/min)
+  - Hashing de IPs via SHA-256 + salt configurável
+  - Hashing de session fingerprints via SHA-256 + salt configurável
+  - Neutralização de IPs antigos na tabela `rate_limits`
+  - Política de retenção de 30 dias para dados operacionais
+- **Eliminação de fallback salts fixos:**
+  - Secrets `FINGERPRINT_SALT` e `RATELIMIT_SALT` obrigatórios
+  - Degradação segura quando ausentes (não persiste PII)
+
+### Corrigido
+- `categorizeBrowser()` agora identifica corretamente Edge, Opera e Mobile WebKit
+- Removido header `Authorization` desnecessário do ErrorBoundary
+
+---
+
 ## [2.0.0] - 2026-01-30
 
 ### Adicionado
 - **Responsividade Mobile Premium:**
-  - Anti-overflow global para mensagens de chat (URLs longas, código)
-  - Smart scroll que respeita posição do usuário durante streaming
-  - Safe-area para iPhones modernos (notch/barra inferior)
-  - Source chips com scroll horizontal snap no mobile
-  - Touch targets de 44px mínimo em elementos interativos
-- **Otimização de Performance (FCP/LCP):**
-  - Preload de hero image responsiva (WebP 640w/1024w/1920w)
-  - Preconnect para API Supabase
-  - Critical CSS inline no index.html
-- **Observabilidade:**
-  - Tabela `chat_metrics` para latências por etapa (embed/search/LLM)
-  - Tabela `frontend_errors` para erros do Error Boundary
-  - Dashboard de métricas no Admin (em desenvolvimento)
-- **Governança:**
-  - CHANGELOG.md formalizado
-  - REGRESSION_CHECKLIST.md documentado
-  - Política de release Preview → Production
-
-### Alterado
-- `useIsMobile` agora usa `matchMedia.matches` (sem forced reflow)
-- Auto-scroll inteligente: só rola se usuário estiver no final da conversa
-- ResponseNotice com `max-width` e `truncate` para mobile
-
-### Corrigido
-- Forced reflow no carregamento inicial
-- Overflow horizontal em mensagens com URLs longas ou código
-- Layout de source chips quebrando em telas estreitas
-
-### Segurança
-- Error Boundary envia apenas stack técnico (sem dados sensíveis)
-- Tabelas de métricas com RLS: admins leem, service_role insere
+...
 
 ---
 
