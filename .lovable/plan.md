@@ -1,303 +1,212 @@
 
+# Plano de Consolidação e Operação — Fechamento do Ciclo v2.0
 
-# Plano de Blindagem Final — Correções Críticas de Segurança e Observabilidade
+## Contexto
 
-## Diagnóstico Completo
+O projeto completou quatro fases de implementação:
+1. ✅ Busca Web robusta (Firecrawl + fallback + quórum)
+2. ✅ Responsividade/Mobile + PWA
+3. ✅ "Super Premium" (performance + observabilidade + governança)
+4. ✅ Saneamento de Segurança/LGPD (hashing, rate limiting, edge function dedicada)
 
-### Verificações Positivas (OK)
+**Estado atual validado:**
+- `frontend_errors`: 2 registros (ambos com `user_agent: "Other"` — detectável via `categorizeBrowser` já corrigida)
+- `rate_limits`: IPs antigos neutralizados (`legacy_redacted_`), novos registros com hash (32 chars hex)
+- `chat_metrics`: 0 registros (instrumentação precisa ser testada em produção real)
+- Governança: CHANGELOG.md v2.0.0, REGRESSION_CHECKLIST.md, Política de Release documentada
 
-| Verificação | Status | Evidência |
-|-------------|--------|-----------|
-| Artefatos de patch no código | **Limpo** | Busca por `"replace":` e `"search":` retornou zero em `/src` e `/supabase/functions` |
-| Arquivos de governança | **Correto** | `CHANGELOG.md` e `REGRESSION_CHECKLIST.md` na raiz |
-| RLS de `frontend_errors` | **Corrigida** | `INSERT → auth.role() = 'service_role'` |
-| RLS de `rate_limits` | **Corrigida** | Deny para todas operações anon |
-| Hash de fingerprint | **Implementado** | Função `hashFingerprint()` existe |
-| Hash de IP para rate limit | **Implementado** | Função `getHashedClientKey()` existe |
-| ErrorBoundary usa Edge Function | **Correto** | Chama `fetch(...log-frontend-error)` |
-
----
-
-## Problemas Críticos Encontrados
-
-### 1. IPs NÃO-HASHEADOS na tabela `rate_limits` (LGPD)
-
-**Evidência direta da query:**
-```
-client_key: "44.247.181.160"
-client_key: "191.57.19.69:admin-auth"
-client_key: "20.124.127.7"
-```
-
-**Problema:** A função `getHashedClientKey()` foi criada, mas os registros antigos (e possivelmente novos de outros endpoints) ainda contêm IPs puros.
-
-**Impacto:** Violação LGPD — IP é dado pessoal.
+**Próximo passo:** Fechar ciclo de desenvolvimento e entrar em modo operacional.
 
 ---
 
-### 2. `log-frontend-error` sem Rate Limit (Vetor de Spam)
+## Fase 1: Validação de Release (Executar Checklist)
 
-**Situação atual:** Endpoint público aceita POST sem limite, permitindo:
-- Poluição de dados (inserções massivas)
-- Exaustão de armazenamento
-- Ataque de negação de serviço
+### 1.1. Validação PWA Ponta-a-Ponta
 
-**Solução:** Reutilizar `check_rate_limit` RPC com IP hasheado.
+O `manifest.json` está configurado corretamente:
+- `display: standalone`
+- Ícones: 64×64, 192×192, 512×512 (any + maskable)
+- `theme_color: #16a34a` (verde)
+- Shortcuts para `/chat`
 
----
+**Ações de validação manual (usuário):**
 
-### 3. Fallback Salts Fixos em Produção
+| Plataforma | Validação | Status |
+|------------|-----------|--------|
+| Android | Botão "Instalar" aparece após 30s de uso | Verificar |
+| Android | Ícone correto na home screen | Verificar |
+| iOS | "Adicionar à Tela de Início" via Share menu | Verificar |
+| iOS | App abre sem barra de navegação do Safari | Verificar |
+| Ambos | Splash screen com tema correto | Verificar |
 
-**Código atual:**
-```typescript
-const salt = Deno.env.get("FINGERPRINT_SALT") || "clara-fp-default-salt-2026";
-const salt = Deno.env.get("RATELIMIT_SALT") || "clara-rl-default-salt-2026";
-```
+### 1.2. Validação de Telemetria
 
-**Problema:** Fallback fixo é previsível. Em produção, se o secret não existir, o hash é "quebrável" por rainbow table.
+**Objetivo:** Confirmar que a instrumentação está funcionando:
 
-**Solução:** Exigir secrets ou usar hash diferente (sem persistência) quando ausente.
+1. Fazer um chat real no Preview
+2. Verificar se `chat_metrics` recebe registro com:
+   - `session_fingerprint` hasheado (32 chars) ou NULL
+   - `embedding_latency_ms`, `search_latency_ms`, `llm_first_token_ms` > 0
+   - `provider` = "gemini" ou "lovable"
 
----
+### 1.3. Validação de Segurança
 
-### 4. `categorizeBrowser()` Classificando Incorretamente
+**Checklist técnico:**
 
-**Evidência:** Registro mostra `user_agent: "Other"` mesmo para browsers comuns.
-
-**Problema:** A ordem de verificação e os patterns estão incorretos:
-- `edg/` precisa vir antes de `chrome` (Edge contém "chrome")
-- Falta padrão para `android` e `ios`
-- "Mobile Browser" é muito genérico
-
----
-
-### 5. `Authorization: Bearer ${anonKey}` é Teatral
-
-**Situação:** O ErrorBoundary envia `Authorization: Bearer ${anonKey}`.
-
-**Problema:** Se `verify_jwt = false` (provável, pois não está configurado), o header não faz nada. Se `verify_jwt = true`, o anon key não é um JWT válido de usuário.
-
-**Solução:** Remover o header (clareza) ou configurar `verify_jwt = false` explicitamente.
+| Item | Query de Verificação | Resultado Esperado |
+|------|----------------------|-------------------|
+| IPs puros | `SELECT COUNT(*) FROM rate_limits WHERE client_key ~ '^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}'` | 0 |
+| Rate limit log-frontend-error | 11 POSTs em 60s | 11º retorna 429 |
+| RLS frontend_errors | INSERT via anon key | Deve falhar |
+| Salts configurados | Edge function logs | Sem warnings de salt missing |
 
 ---
 
-### 6. `chat_metrics` vazia (Instrumentação não está persistindo)
+## Fase 2: Dashboard de Observabilidade
 
-**Evidência:** Query retornou `[]` — nenhum registro após implementação.
+### 2.1. Componente: ChatMetricsDashboard
 
-**Possíveis causas:**
-- A função `logChatMetrics` pode estar falhando silenciosamente
-- O deploy da edge function pode não ter acontecido
+**Local:** `src/components/admin/ChatMetricsDashboard.tsx`
 
----
+Exibir:
+- **Latência média por etapa** (embed/search/LLM) — gráfico de barras empilhadas
+- **Taxa de fallback** (Gemini → Lovable) — gauge ou %
+- **Rate limit hits** por dia — linha temporal
+- **Volume de chats** por dia/modo — área empilhada
+- **Erros por tipo** — tabela com contagem
 
-## Implementação em 4 Fases
+### 2.2. RPC Functions Necessárias
 
-### Fase 1: Rate Limit no `log-frontend-error`
-
-**Arquivo:** `supabase/functions/log-frontend-error/index.ts`
-
-Adicionar rate limit usando o mesmo padrão do clara-chat:
-
-```typescript
-// Reutilizar funções de hash
-async function hashClientIp(ip: string): Promise<string> {
-  const salt = Deno.env.get("RATELIMIT_SALT");
-  if (!salt) {
-    console.warn("[log-frontend-error] RATELIMIT_SALT not configured, using request-only identifier");
-    return "no-salt-configured";
-  }
-  const data = new TextEncoder().encode(ip + salt);
-  const hashBuffer = await crypto.subtle.digest("SHA-256", data);
-  const hashArray = Array.from(new Uint8Array(hashBuffer));
-  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('').slice(0, 32);
-}
-
-// No handler, antes do insert:
-const clientKey = await hashClientIp(getRawClientIp(req));
-
-const { data: rateLimitResult } = await supabase.rpc("check_rate_limit", {
-  p_client_key: clientKey,
-  p_endpoint: "log-frontend-error",
-  p_max_requests: 10,  // 10 erros por minuto (limite alto)
-  p_window_seconds: 60,
-});
-
-if (rateLimitResult?.[0]?.allowed === false) {
-  return new Response(
-    JSON.stringify({ error: "Rate limit exceeded" }),
-    { status: 429, headers: corsHeaders }
-  );
-}
-```
-
----
-
-### Fase 2: Eliminar Fallback Salts
-
-**Arquivo:** `supabase/functions/clara-chat/index.ts`
-
-Modificar funções de hash para exigir secrets ou degradar com segurança:
-
-```typescript
-async function hashFingerprint(fingerprint: string | null): Promise<string | null> {
-  if (!fingerprint) return null;
-  
-  const salt = Deno.env.get("FINGERPRINT_SALT");
-  if (!salt) {
-    console.warn("[clara-chat] FINGERPRINT_SALT not configured - fingerprint will not be persisted");
-    return null;  // Não persiste sem salt
-  }
-  
-  return await hashIdentifier(fingerprint, salt);
-}
-
-async function hashClientIp(ip: string): Promise<string> {
-  const salt = Deno.env.get("RATELIMIT_SALT");
-  if (!salt) {
-    console.warn("[clara-chat] RATELIMIT_SALT not configured - using fallback rate limit key");
-    return "unknown-salt-missing";  // Todos caem no mesmo bucket (mais permissivo)
-  }
-  
-  return await hashIdentifier(ip, salt);
-}
-```
-
-**Criar secrets no Supabase:**
-- `FINGERPRINT_SALT` — valor aleatório (ex: `openssl rand -hex 32`)
-- `RATELIMIT_SALT` — valor aleatório diferente
-
----
-
-### Fase 3: Melhorar `categorizeBrowser()`
-
-**Arquivo:** `supabase/functions/log-frontend-error/index.ts`
-
-Substituir função atual por versão mais precisa:
-
-```typescript
-function categorizeBrowser(userAgent: string | null): string {
-  if (!userAgent) return "Unknown";
-  
-  const ua = userAgent.toLowerCase();
-  
-  // Ordem importa: Edge contém "chrome", Safari contém "safari" mas Chrome também
-  if (ua.includes("edg/")) return "Edge";
-  if (ua.includes("opr/") || ua.includes("opera")) return "Opera";
-  if (ua.includes("firefox/")) return "Firefox";
-  if (ua.includes("chrome/") || ua.includes("chromium/")) return "Chrome";
-  if (ua.includes("safari/") && !ua.includes("chrome")) return "Safari";
-  
-  // Mobile específico
-  if (ua.includes("android")) return "Android Browser";
-  if (ua.includes("iphone") || ua.includes("ipad")) return "iOS WebKit";
-  
-  // Bots e crawlers
-  if (ua.includes("bot") || ua.includes("crawler") || ua.includes("spider")) return "Bot";
-  
-  return "Other";
-}
-```
-
----
-
-### Fase 4: Limpeza/Neutralização de IPs Antigos
-
-**Migração SQL:**
+Criar função `get_chat_metrics_summary`:
 
 ```sql
--- Neutralizar IPs antigos na tabela rate_limits
--- Substituir IPs puros por hash indicativo
-UPDATE public.rate_limits
-SET client_key = 'legacy_redacted_' || id::text
-WHERE client_key ~ '^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}';
-
--- Adicionar política de retenção (opcional, mas recomendado)
--- Limpar registros com mais de 30 dias
-DELETE FROM public.rate_limits
-WHERE window_start < NOW() - INTERVAL '30 days';
+CREATE OR REPLACE FUNCTION get_chat_metrics_summary(p_days INTEGER DEFAULT 7)
+RETURNS TABLE (
+  date DATE,
+  total_requests INTEGER,
+  avg_embedding_ms NUMERIC,
+  avg_search_ms NUMERIC,
+  avg_llm_first_token_ms NUMERIC,
+  avg_llm_total_ms NUMERIC,
+  fallback_count INTEGER,
+  rate_limit_hits INTEGER,
+  gemini_count INTEGER,
+  lovable_count INTEGER
+) AS $$
+  SELECT 
+    DATE(created_at) as date,
+    COUNT(*)::INTEGER as total_requests,
+    ROUND(AVG(embedding_latency_ms), 0) as avg_embedding_ms,
+    ROUND(AVG(search_latency_ms), 0) as avg_search_ms,
+    ROUND(AVG(llm_first_token_ms), 0) as avg_llm_first_token_ms,
+    ROUND(AVG(llm_total_ms), 0) as avg_llm_total_ms,
+    COUNT(*) FILTER (WHERE fallback_triggered)::INTEGER as fallback_count,
+    COUNT(*) FILTER (WHERE rate_limit_hit)::INTEGER as rate_limit_hits,
+    COUNT(*) FILTER (WHERE provider = 'gemini')::INTEGER as gemini_count,
+    COUNT(*) FILTER (WHERE provider = 'lovable')::INTEGER as lovable_count
+  FROM chat_metrics
+  WHERE created_at >= NOW() - (p_days || ' days')::INTERVAL
+  GROUP BY DATE(created_at)
+  ORDER BY date DESC;
+$$ LANGUAGE SQL STABLE SECURITY DEFINER;
 ```
 
----
+### 2.3. Integração no Admin
 
-### Fase 5: Remover Authorization Header Desnecessário
-
-**Arquivo:** `src/components/ErrorBoundary.tsx`
-
-Simplificar chamada (header não é necessário se verify_jwt = false):
-
-```typescript
-await fetch(`${supabaseUrl}/functions/v1/log-frontend-error`, {
-  method: "POST",
-  headers: {
-    "Content-Type": "application/json",
-    // Removido: Authorization header não necessário para função pública
-  },
-  body: JSON.stringify({
-    error_message: error.message?.slice(0, 500) || "Unknown error",
-    component_stack: errorInfo.componentStack?.slice(0, 1000) || null,
-    url: window.location.pathname,
-  }),
-});
-```
+Adicionar nova aba "Métricas de Chat" no `/admin` que exibe:
+- Cards de resumo (últimas 24h)
+- Gráficos de tendência (7 dias)
+- Alertas visuais se: fallback > 20% ou rate_limit > 10/h
 
 ---
 
-## Arquivos a Modificar
+## Fase 3: Validação de Busca Web (Casos Reais)
 
-| Arquivo | Ação |
-|---------|------|
-| `supabase/functions/log-frontend-error/index.ts` | Adicionar rate limit + melhorar `categorizeBrowser()` |
-| `supabase/functions/clara-chat/index.ts` | Eliminar fallback salts, exigir secrets |
-| `src/components/ErrorBoundary.tsx` | Remover Authorization header |
-| Nova migração SQL | Neutralizar IPs antigos + política de retenção |
+### 3.1. Cenários de Teste
 
----
+| Cenário | Query de Teste | Verificação |
+|---------|----------------|-------------|
+| Normativo simples | "Qual o prazo para prestar contas de diárias?" | Modo Deep ativado, quórum de 2+ fontes |
+| PDF oficial | "Decreto 44.698 diárias servidor" | Extração de PDF funciona |
+| Site JS pesado | "PCDP sistema comprasnet" | Firecrawl fallback ativado |
+| Múltiplas fontes | "Valor diária servidor federal 2024" | Deduplicação, prioridade oficial |
 
-## Secrets a Configurar
+### 3.2. Melhorias Pendentes (Backlog)
 
-| Secret | Descrição | Comando para gerar |
-|--------|-----------|-------------------|
-| `FINGERPRINT_SALT` | Salt para hash de session fingerprint | `openssl rand -hex 32` |
-| `RATELIMIT_SALT` | Salt para hash de IP (rate limit) | `openssl rand -hex 32` |
-
----
-
-## Validação Pós-Implementação (Checklist de 10 minutos)
-
-1. **Rate limit funciona no log-frontend-error:**
-   - Fazer 11 POSTs em sequência
-   - Verificar que o 11º retorna 429
-
-2. **IPs não estão sendo armazenados puros:**
-   - Fazer um chat
-   - Query: `SELECT client_key FROM rate_limits ORDER BY window_start DESC LIMIT 1`
-   - Resultado deve ser hash (32 chars hex) ou `unknown-salt-missing`
-
-3. **Fingerprints estão hasheados:**
-   - Fazer um chat
-   - Query: `SELECT session_fingerprint FROM chat_metrics ORDER BY created_at DESC LIMIT 1`
-   - Resultado deve ser hash (32 chars) ou NULL
-
-4. **Browser categorizado corretamente:**
-   - Forçar erro no frontend
-   - Query: `SELECT user_agent FROM frontend_errors ORDER BY created_at DESC LIMIT 1`
-   - Resultado deve ser "Chrome", "Firefox", etc. (não "Other" para browsers comuns)
-
-5. **IPs antigos neutralizados:**
-   - Query: `SELECT COUNT(*) FROM rate_limits WHERE client_key ~ '^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}'`
-   - Resultado deve ser 0
+| Melhoria | Prioridade | Descrição |
+|----------|------------|-----------|
+| Lista de domínios confiáveis | Alta | Tabela `trusted_domains` editável no Admin |
+| Estratégia de quórum configurável | Média | 2+ oficiais para normativo, 1+ para informativo |
+| Extração de excerpt melhorada | Média | Capturar trecho específico que justifica citação |
+| Cache de busca web | Baixa | Já implementado (24h) — monitorar hit rate |
 
 ---
 
-## Notas de Segurança
+## Fase 4: Governança de Mudanças
 
-1. **Rotação de salts:** Trocar o salt invalida a correlação histórica. Isso pode ser desejável (fresh start) ou não (perde métricas de sessão).
+### 4.1. Congelamento de Escopo (Imediato)
 
-2. **`unknown-salt-missing`:** Se o salt não estiver configurado, todos os requests caem no mesmo bucket de rate limit. Isso é mais permissivo, mas evita falsos positivos.
+**Regra:** Por 48h após este release, apenas correções de bug/regressão. Nenhuma feature nova.
 
-3. **Política de retenção:** Recomendado implementar job de limpeza (30-90 dias) para:
-   - `rate_limits` (já sugerido)
-   - `frontend_errors` (dados operacionais)
-   - `chat_metrics` (agregar antes de limpar)
+### 4.2. Atualização do CHANGELOG
 
+Adicionar ao v2.0.0:
+- Saneamento de segurança (edge function log-frontend-error)
+- Hashing de identificadores (LGPD)
+- Rate limiting em todos os endpoints públicos
+
+### 4.3. Roteiro de Rollback
+
+| Cenário | Ação | Responsável |
+|---------|------|-------------|
+| Chat não responde | Verificar logs clara-chat, fallback para Lovable Gateway | Automático |
+| Rate limit excessivo | Ajustar `RATE_LIMIT_CONFIG` e redeploy | Manual |
+| Erro crítico no frontend | Restaurar versão anterior via History | Manual |
+| Migração quebrou tabela | Restaurar backup Supabase (automático diário) | Manual |
+
+---
+
+## Resumo de Implementação
+
+### Arquivos a Criar
+
+| Arquivo | Descrição |
+|---------|-----------|
+| `src/components/admin/ChatMetricsDashboard.tsx` | Dashboard de métricas de chat |
+| Migração SQL | RPC `get_chat_metrics_summary` |
+
+### Arquivos a Modificar
+
+| Arquivo | Modificação |
+|---------|-------------|
+| `src/pages/Admin.tsx` | Adicionar aba "Métricas de Chat" |
+| `CHANGELOG.md` | Documentar saneamento de segurança v2.0.1 |
+
+### Validações (Usuário)
+
+| Validação | Método |
+|-----------|--------|
+| PWA Android/iOS | Teste manual em dispositivos |
+| Telemetria funcionando | Fazer chat → verificar `chat_metrics` |
+| Rate limit | 11 POSTs para log-frontend-error |
+
+---
+
+## Critérios de "OK para Produção"
+
+- [ ] REGRESSION_CHECKLIST.md 100% validado
+- [ ] PWA instala e abre corretamente em Android e iOS
+- [ ] `chat_metrics` recebendo dados após chat
+- [ ] Nenhum IP puro em `rate_limits`
+- [ ] Console sem warnings de salt missing
+- [ ] FCP < 1.5s, LCP < 2.5s no PageSpeed Insights
+- [ ] Fallback Gemini → Lovable testado (simular 429)
+
+---
+
+## Próximos Passos (Pós-Produção)
+
+1. **Monitoramento 24h** — Observar métricas de chat, taxa de fallback, erros
+2. **Alertas automáticos** — Configurar quando fallback > 20% ou erro > 5/h
+3. **Política de fontes** — Criar tabela editável de domínios confiáveis
+4. **Play Store** — Avaliar empacotamento com TWA/Capacitor (próxima fase)
