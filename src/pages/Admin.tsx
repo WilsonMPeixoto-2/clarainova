@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Upload, FileText, Trash2, RefreshCw, Lock, Check, X, AlertCircle, BarChart3, ClipboardList, Eye, EyeOff, Loader2, Play, RotateCcw, FileWarning, Activity } from 'lucide-react';
+import { ArrowLeft, Upload, FileText, Trash2, RefreshCw, Lock, Check, X, AlertCircle, BarChart3, ClipboardList, Eye, EyeOff, Loader2, Play, RotateCcw, FileWarning, Activity, MessageSquareWarning } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -13,6 +13,7 @@ import { AnalyticsTab } from '@/components/admin/AnalyticsTab';
 import { ReportsTab } from '@/components/admin/ReportsTab';
 import { ProcessingStatsTab } from '@/components/admin/ProcessingStatsTab';
 import { ChatMetricsDashboard } from '@/components/admin/ChatMetricsDashboard';
+import { FeedbackTab } from '@/components/admin/FeedbackTab';
 import { extractPdfTextClient, extractTxtContent, isPdfFile, isTxtFile, isDocxFile, splitTextIntoBatches, calculatePayloadMetrics } from '@/utils/extractPdfText';
 import { loadPdfDocument, renderPagesAsImages, getPageBatches, type PageImage } from '@/utils/renderPdfPages';
 import {
@@ -1246,26 +1247,30 @@ const Admin = () => {
 
         <main className="container mx-auto px-4 py-8">
           <Tabs defaultValue="documents" className="space-y-6">
-            <TabsList className="grid w-full max-w-2xl grid-cols-4">
+            <TabsList className="grid w-full max-w-3xl grid-cols-6">
               <TabsTrigger value="documents" className="flex items-center gap-2">
                 <FileText className="w-4 h-4" />
-                Documentos
+                <span className="hidden sm:inline">Documentos</span>
               </TabsTrigger>
               <TabsTrigger value="analytics" className="flex items-center gap-2">
                 <BarChart3 className="w-4 h-4" />
-                Analytics
+                <span className="hidden sm:inline">Analytics</span>
+              </TabsTrigger>
+              <TabsTrigger value="feedback" className="flex items-center gap-2">
+                <MessageSquareWarning className="w-4 h-4" />
+                <span className="hidden sm:inline">Feedback</span>
               </TabsTrigger>
               <TabsTrigger value="reports" className="flex items-center gap-2">
                 <ClipboardList className="w-4 h-4" />
-                Relatórios
+                <span className="hidden sm:inline">Relatórios</span>
               </TabsTrigger>
               <TabsTrigger value="observability" className="flex items-center gap-2">
                 <RefreshCw className="w-4 h-4" />
-                Observabilidade
+                <span className="hidden sm:inline">Observab.</span>
               </TabsTrigger>
               <TabsTrigger value="metrics" className="flex items-center gap-2">
                 <Activity className="w-4 h-4" />
-                Métricas
+                <span className="hidden sm:inline">Métricas</span>
               </TabsTrigger>
             </TabsList>
 
@@ -1492,6 +1497,10 @@ const Admin = () => {
 
             <TabsContent value="analytics">
               <AnalyticsTab />
+            </TabsContent>
+
+            <TabsContent value="feedback">
+              <FeedbackTab />
             </TabsContent>
 
             <TabsContent value="reports">
