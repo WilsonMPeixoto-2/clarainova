@@ -102,80 +102,202 @@ export async function generateReportPdf(report: ReportData): Promise<void> {
   currentY += 4;
   
   // Content - process markdown-like formatting
-  doc.setFontSize(11);
+  doc.setFontSize(10);
   doc.setFont("helvetica", "normal");
   doc.setTextColor(40);
   
-  // Clean and format content
-  const cleanContent = report.content
-    .replace(/^#{1,6}\s+(.+)$/gm, "\n$1\n") // Convert headers to plain text with spacing
-    .replace(/\*\*(.+?)\*\*/g, "$1")        // Remove bold markers (we'll handle styling differently)
-    .replace(/\*(.+?)\*/g, "$1")            // Remove italic markers
-    .replace(/`([^`]+)`/g, "$1")            // Remove inline code
-    .replace(/```[\s\S]*?```/g, "")         // Remove code blocks
-    .replace(/^\s*[-*]\s+/gm, "• ")         // Convert list markers to bullets
-    .replace(/^\s*\d+\.\s+/gm, (match, offset, string) => {
-      // Keep numbered lists but clean them up
-      return match.trim() + " ";
-    })
-    .replace(/\n{3,}/g, "\n\n")             // Normalize multiple line breaks
-    .trim();
-  
-  const lines = cleanContent.split('\n');
+  const lines = report.content.split('\n');
+  let inCodeBlock = false;
+  let inTable = false;
   
   lines.forEach((line) => {
     const trimmedLine = line.trim();
     
+    // Handle code blocks - skip them but add placeholder
+    if (trimmedLine.startsWith('```')) {
+      if (!inCodeBlock) {
+        inCodeBlock = true;
+        checkPageBreak(8);
+        doc.setFillColor(245, 245, 245);
+        doc.rect(margin, currentY - 2, contentWidth, 6, 'F');
+        doc.setFont("courier", "normal");
+        doc.setFontSize(8);
+        doc.setTextColor(100);
+        doc.text("[Bloco de código - ver documento original]", margin + 2, currentY + 2);
+        currentY += 8;
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(10);
+        doc.setTextColor(40);
+      } else {
+        inCodeBlock = false;
+      }
+      return;
+    }
+    
+    if (inCodeBlock) return; // Skip code block content
+    
+    // Handle tables - detect and skip with placeholder
+    if (trimmedLine.startsWith('|') && trimmedLine.endsWith('|')) {
+      if (!inTable) {
+        inTable = true;
+        checkPageBreak(8);
+        doc.setFillColor(240, 248, 255);
+        doc.rect(margin, currentY - 2, contentWidth, 6, 'F');
+        doc.setFontSize(8);
+        doc.setTextColor(100);
+        doc.text("[Tabela - ver documento original para formatação completa]", margin + 2, currentY + 2);
+        currentY += 8;
+        doc.setFontSize(10);
+        doc.setTextColor(40);
+      }
+      return;
+    } else {
+      inTable = false;
+    }
+    
+    // Empty lines
     if (!trimmedLine) {
+      currentY += 3;
+      return;
+    }
+    
+    // H1 headers
+    if (trimmedLine.startsWith('# ')) {
+      checkPageBreak(12);
+      currentY += 4;
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(14);
+      doc.setTextColor(0);
+      const headerText = trimmedLine.substring(2);
+      const headerLines = doc.splitTextToSize(headerText, contentWidth);
+      headerLines.forEach((hl: string) => {
+        doc.text(hl, margin, currentY);
+        currentY += 7;
+      });
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(10);
+      doc.setTextColor(40);
+      return;
+    }
+    
+    // H2 headers
+    if (trimmedLine.startsWith('## ')) {
+      checkPageBreak(10);
+      currentY += 3;
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(12);
+      doc.setTextColor(30);
+      const headerText = trimmedLine.substring(3);
+      const headerLines = doc.splitTextToSize(headerText, contentWidth);
+      headerLines.forEach((hl: string) => {
+        doc.text(hl, margin, currentY);
+        currentY += 6;
+      });
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(10);
+      doc.setTextColor(40);
+      return;
+    }
+    
+    // H3+ headers
+    if (trimmedLine.startsWith('### ')) {
+      checkPageBreak(8);
+      currentY += 2;
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(11);
+      doc.setTextColor(50);
+      const headerText = trimmedLine.substring(4);
+      const headerLines = doc.splitTextToSize(headerText, contentWidth);
+      headerLines.forEach((hl: string) => {
+        doc.text(hl, margin, currentY);
+        currentY += 5;
+      });
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(10);
+      doc.setTextColor(40);
+      return;
+    }
+    
+    // H4 headers
+    if (trimmedLine.startsWith('#### ')) {
+      checkPageBreak(8);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(10);
+      const headerText = trimmedLine.substring(5);
+      const headerLines = doc.splitTextToSize(headerText, contentWidth);
+      headerLines.forEach((hl: string) => {
+        doc.text(hl, margin, currentY);
+        currentY += 5;
+      });
+      doc.setFont("helvetica", "normal");
+      return;
+    }
+    
+    // Horizontal rule
+    if (trimmedLine === '---' || trimmedLine === '***') {
+      checkPageBreak(6);
+      currentY += 2;
+      doc.setDrawColor(200);
+      doc.line(margin, currentY, pageWidth - margin, currentY);
       currentY += 4;
       return;
     }
     
-    // Check if it's a header-like line (all caps or short line followed by content)
-    const isHeader = trimmedLine.length < 60 && 
-                     !trimmedLine.startsWith("•") && 
-                     !trimmedLine.match(/^\d+\./) &&
-                     trimmedLine.toUpperCase() === trimmedLine;
-    
-    if (isHeader) {
-      checkPageBreak(10);
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(12);
-      doc.text(trimmedLine, margin, currentY);
-      currentY += 7;
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(11);
-    } else if (trimmedLine.startsWith("•")) {
-      // Bullet point
-      const bulletContent = trimmedLine.substring(1).trim();
-      const bulletLines = doc.splitTextToSize(bulletContent, contentWidth - 8);
+    // Bullet points
+    if (trimmedLine.startsWith('- ') || trimmedLine.startsWith('* ')) {
+      const bulletContent = trimmedLine.substring(2)
+        .replace(/\*\*(.+?)\*\*/g, "$1")
+        .replace(/\*(.+?)\*/g, "$1")
+        .replace(/`([^`]+)`/g, "$1");
+      const bulletLines = doc.splitTextToSize(bulletContent, contentWidth - 10);
       bulletLines.forEach((bulletLine: string, idx: number) => {
-        checkPageBreak(6);
+        checkPageBreak(5);
         if (idx === 0) {
           doc.text("•", margin + 2, currentY);
           doc.text(bulletLine, margin + 8, currentY);
         } else {
           doc.text(bulletLine, margin + 8, currentY);
         }
-        currentY += 6;
+        currentY += 5;
       });
-    } else if (trimmedLine.match(/^\d+\./)) {
-      // Numbered item
-      const contentLines = doc.splitTextToSize(trimmedLine, contentWidth - 4);
-      contentLines.forEach((contentLine: string) => {
-        checkPageBreak(6);
-        doc.text(contentLine, margin + 4, currentY);
-        currentY += 6;
-      });
-    } else {
-      // Regular paragraph
-      const paragraphLines = doc.splitTextToSize(trimmedLine, contentWidth);
-      paragraphLines.forEach((paragraphLine: string) => {
-        checkPageBreak(6);
-        doc.text(paragraphLine, margin, currentY);
-        currentY += 6;
-      });
+      return;
     }
+    
+    // Numbered items
+    const numberedMatch = trimmedLine.match(/^(\d+)\.\s+(.+)$/);
+    if (numberedMatch) {
+      const num = numberedMatch[1];
+      const content = numberedMatch[2]
+        .replace(/\*\*(.+?)\*\*/g, "$1")
+        .replace(/\*(.+?)\*/g, "$1")
+        .replace(/`([^`]+)`/g, "$1");
+      const contentLines = doc.splitTextToSize(content, contentWidth - 12);
+      contentLines.forEach((contentLine: string, idx: number) => {
+        checkPageBreak(5);
+        if (idx === 0) {
+          doc.text(`${num}.`, margin + 2, currentY);
+          doc.text(contentLine, margin + 10, currentY);
+        } else {
+          doc.text(contentLine, margin + 10, currentY);
+        }
+        currentY += 5;
+      });
+      return;
+    }
+    
+    // Regular paragraph - clean inline formatting
+    const cleanLine = trimmedLine
+      .replace(/\*\*(.+?)\*\*/g, "$1")
+      .replace(/\*(.+?)\*/g, "$1")
+      .replace(/`([^`]+)`/g, "$1")
+      .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1"); // Remove links but keep text
+    
+    const paragraphLines = doc.splitTextToSize(cleanLine, contentWidth);
+    paragraphLines.forEach((paragraphLine: string) => {
+      checkPageBreak(5);
+      doc.text(paragraphLine, margin, currentY);
+      currentY += 5;
+    });
   });
   
   // Footer on all pages
