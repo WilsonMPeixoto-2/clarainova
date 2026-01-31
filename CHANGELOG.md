@@ -4,6 +4,27 @@ Todas as mudanças notáveis deste projeto serão documentadas aqui.
 
 O formato segue [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/).
 
+## [2.1.0] - 2026-01-31
+
+### Adicionado
+- **Chat Controls (Stop/Regenerate/Continue):**
+  - Botão "Parar" durante streaming para interromper resposta
+  - Botão "Regenerar" para gerar nova resposta
+  - Botão "Continuar" para continuar resposta interrompida
+  - Estado `stopped` com notice visual "Resposta interrompida"
+  - Tracking de `request_id` via SSE para observabilidade
+- **Interface ChatMessage Aprimorada:**
+  - Novo componente `MessageControls` para ações de controle
+  - Status de mensagem (`streaming`, `done`, `stopped`, `error`)
+  - Suporte a continuação de respostas no backend
+
+### Alterado
+- `useChat` hook refatorado com refs para regenerate/continue
+- Backend `clara-chat` emite `request_id` via SSE
+- Backend suporta flag `continuation: true` para continuar respostas
+
+---
+
 ## [2.0.1] - 2026-01-30
 
 ### Adicionado

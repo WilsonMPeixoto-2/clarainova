@@ -4,6 +4,9 @@ import { supabase } from "@/integrations/supabase/client";
 export type ResponseMode = "fast" | "deep";
 export type WebSearchMode = "auto" | "deep";
 
+// Message status for UI rendering
+export type MessageStatus = "streaming" | "done" | "stopped" | "error";
+
 export interface ApiProviderInfo {
   provider: "gemini" | "lovable";
   model: string;
@@ -14,7 +17,8 @@ export type NoticeType =
   | "limited_base" 
   | "general_guidance" 
   | "out_of_scope"
-  | "info";
+  | "info"
+  | "stopped"; // New: for interrupted responses
 
 export interface ChatNotice {
   type: NoticeType;
@@ -44,11 +48,13 @@ export interface ChatMessage {
   content: string;
   timestamp: Date;
   sources?: ChatMessageSources;
-  isStreaming?: boolean;
+  isStreaming?: boolean; // @deprecated - use status instead
+  status?: MessageStatus; // New: explicit message status
   queryId?: string; // ID from query_analytics for feedback
   userQuery?: string; // Original user query for PDF export (only on assistant messages)
   apiProvider?: ApiProviderInfo; // Which API was used for this response
   notice?: ChatNotice; // Transparency notice (web search, limited base, etc.)
+  requestId?: string; // New: backend request ID for tracking
 }
 
 interface ThinkingState {
@@ -58,6 +64,11 @@ interface ThinkingState {
 
 interface UseChatOptions {
   onError?: (error: string) => void;
+}
+
+// Options for sendMessage to support continuation
+interface SendMessageOptions {
+  continuation?: boolean;
 }
 
 const STORAGE_KEY = "clara-chat-history";
@@ -106,16 +117,40 @@ export function useChat(options: UseChatOptions = {}) {
   const [isLoading, setIsLoading] = useState(false);
   const [thinking, setThinking] = useState<ThinkingState>({ isThinking: false, step: "" });
   const abortControllerRef = useRef<AbortController | null>(null);
+  
+  // Refs for regenerate/continue functionality
+  const lastUserMessageRef = useRef<string>("");
+  const lastModeRef = useRef<ResponseMode>("fast");
+  const lastWebSearchModeRef = useRef<WebSearchMode>("auto");
+  const activeRequestIdRef = useRef<string | null>(null);
 
   const clearHistory = useCallback(() => {
     setMessages([]);
     localStorage.removeItem(STORAGE_KEY);
+    lastUserMessageRef.current = "";
+    activeRequestIdRef.current = null;
   }, []);
 
-  const sendMessage = useCallback(async (content: string, mode: ResponseMode = "fast", webSearchMode: WebSearchMode = "auto") => {
-    if (!content.trim() || isLoading) return;
+  const sendMessage = useCallback(async (
+    content: string, 
+    mode: ResponseMode = "fast", 
+    webSearchMode: WebSearchMode = "auto",
+    sendOptions: SendMessageOptions = {}
+  ) => {
+    const isContinuation = sendOptions.continuation === true;
+    
+    // For continuation, we don't need new content
+    if (!isContinuation && (!content.trim() || isLoading)) return;
+    if (isContinuation && isLoading) return;
 
-    const userQueryContent = content.trim();
+    const userQueryContent = isContinuation ? lastUserMessageRef.current : content.trim();
+    
+    // Store last user message for regenerate/continue
+    if (!isContinuation) {
+      lastUserMessageRef.current = userQueryContent;
+      lastModeRef.current = mode;
+      lastWebSearchModeRef.current = webSearchMode;
+    }
 
     // Adicionar mensagem do usuário
     const userMessage: ChatMessage = {
@@ -146,6 +181,7 @@ export function useChat(options: UseChatOptions = {}) {
     let quorumMet: boolean | undefined;
     let apiProviderInfo: ApiProviderInfo | undefined;
     let noticeInfo: ChatNotice | undefined;
+    let backendRequestId: string | undefined;
 
     setMessages(prev => [
       ...prev,
@@ -154,7 +190,8 @@ export function useChat(options: UseChatOptions = {}) {
         role: "assistant",
         content: "",
         timestamp: new Date(),
-        isStreaming: true
+        isStreaming: true,
+        status: "streaming"
       }
     ]);
 
@@ -170,10 +207,11 @@ export function useChat(options: UseChatOptions = {}) {
             "Authorization": `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`
           },
           body: JSON.stringify({
-            message: content,
+            message: isContinuation ? "" : content,
             history: historyForApi.slice(0, -1), // Excluir a mensagem atual
             mode: mode,
-            webSearchMode: webSearchMode, // Add web search mode
+            webSearchMode: webSearchMode,
+            continuation: isContinuation, // Signal backend to continue previous response
           }),
           signal: abortControllerRef.current.signal
         }
@@ -227,6 +265,21 @@ export function useChat(options: UseChatOptions = {}) {
               const data = JSON.parse(jsonStr);
 
               switch (eventType) {
+                case "request_id":
+                  // Store backend request ID for tracking
+                  if (data.id) {
+                    backendRequestId = data.id;
+                    activeRequestIdRef.current = data.id;
+                    setMessages(prev => 
+                      prev.map(msg => 
+                        msg.id === assistantId 
+                          ? { ...msg, requestId: backendRequestId }
+                          : msg
+                      )
+                    );
+                  }
+                  break;
+
                 case "api_provider":
                   if (data.provider && data.model) {
                     apiProviderInfo = { provider: data.provider, model: data.model };
@@ -357,11 +410,13 @@ export function useChat(options: UseChatOptions = {}) {
                 ...msg, 
                 content: finalContent,
                 isStreaming: false,
+                status: "done" as MessageStatus,
                 sources: finalSources,
                 queryId: savedQueryId || undefined,
-                userQuery: userQueryContent, // Store original query for PDF export
-                apiProvider: apiProviderInfo, // Store which API was used
-                notice: noticeInfo, // Store transparency notice
+                userQuery: userQueryContent,
+                apiProvider: apiProviderInfo,
+                notice: noticeInfo,
+                requestId: backendRequestId,
               }
             : msg
         );
@@ -371,8 +426,22 @@ export function useChat(options: UseChatOptions = {}) {
 
     } catch (error) {
       if (error instanceof Error && error.name === "AbortError") {
-        // Cancelado pelo usuário
-        setMessages(prev => prev.filter(msg => msg.id !== assistantId));
+        // Cancelado pelo usuário - mark as stopped instead of removing
+        setMessages(prev => {
+          const final = prev.map(msg => 
+            msg.id === assistantId 
+              ? { 
+                  ...msg, 
+                  isStreaming: false,
+                  status: "stopped" as MessageStatus,
+                  notice: { type: "stopped" as NoticeType, message: "Resposta interrompida" },
+                  userQuery: userQueryContent, // Keep for potential continue
+                }
+              : msg
+          );
+          saveMessagesToStorage(final);
+          return final;
+        });
         return;
       }
 
@@ -385,8 +454,9 @@ export function useChat(options: UseChatOptions = {}) {
           msg.id === assistantId 
             ? { 
                 ...msg, 
-                content: `Desculpe, ocorreu um erro: ${errorMessage}. Por favor, tente novamente.`,
-                isStreaming: false
+                content: msg.content || `Desculpe, ocorreu um erro: ${errorMessage}. Por favor, tente novamente.`,
+                isStreaming: false,
+                status: "error" as MessageStatus,
               }
             : msg
         );
@@ -406,6 +476,41 @@ export function useChat(options: UseChatOptions = {}) {
     abortControllerRef.current?.abort();
   }, []);
 
+  // Regenerate the last response
+  const regenerateLast = useCallback(() => {
+    if (!lastUserMessageRef.current || isLoading) return;
+    
+    // Remove the last assistant message (polyfill for findLastIndex)
+    setMessages(prev => {
+      let lastAssistantIdx = -1;
+      for (let i = prev.length - 1; i >= 0; i--) {
+        if (prev[i].role === "assistant") {
+          lastAssistantIdx = i;
+          break;
+        }
+      }
+      if (lastAssistantIdx > -1) {
+        const updated = prev.slice(0, lastAssistantIdx);
+        saveMessagesToStorage(updated);
+        return updated;
+      }
+      return prev;
+    });
+    
+    // Re-send with same parameters (use setTimeout to ensure state update)
+    setTimeout(() => {
+      sendMessage(lastUserMessageRef.current, lastModeRef.current, lastWebSearchModeRef.current);
+    }, 50);
+  }, [isLoading, sendMessage]);
+
+  // Continue the last (stopped) response
+  const continueLast = useCallback(() => {
+    if (!lastUserMessageRef.current || isLoading) return;
+    
+    // Send with continuation flag
+    sendMessage("", lastModeRef.current, lastWebSearchModeRef.current, { continuation: true });
+  }, [isLoading, sendMessage]);
+
   return {
     messages,
     isLoading,
@@ -413,6 +518,8 @@ export function useChat(options: UseChatOptions = {}) {
     sendMessage,
     clearHistory,
     cancelStream,
+    regenerateLast,
+    continueLast,
     setMessages
   };
 }
