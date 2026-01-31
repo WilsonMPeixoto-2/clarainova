@@ -17,11 +17,33 @@ O formato segue [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/).
   - Novo componente `MessageControls` para ações de controle
   - Status de mensagem (`streaming`, `done`, `stopped`, `error`)
   - Suporte a continuação de respostas no backend
+- **Histórico de Sessões Persistente:**
+  - Integração do `useChatSessions` no Chat.tsx
+  - Sidebar `ChatHistory` para usuários autenticados
+  - Botão "Nova Conversa" no header
+  - Auto-save de sessões com debounce de 1s
+- **Ações de Mensagem Unificadas:**
+  - Novo componente `MessageActions` com dropdown
+  - Opções: Copiar Texto, Copiar Markdown, Copiar Checklist
+  - Menu "..." responsivo para mobile
+
+- **Admin Feedback Dashboard:**
+  - Nova aba "Feedback" no painel administrativo
+  - Cards de métricas (total, positivos, negativos, taxa de aprovação)
+  - Gráfico de categorias de feedback negativo
+  - Lista de feedback negativo recente com contexto expandível
+- **Knowledge Base Versioning (Schema):**
+  - Coluna `version_label` para identificador de versão humano
+  - Coluna `effective_date` para data de vigência
+  - Coluna `supersedes_document_id` para cadeia de versões
+  - Coluna `tags[]` para categorização com índice GIN
 
 ### Alterado
 - `useChat` hook refatorado com refs para regenerate/continue
 - Backend `clara-chat` emite `request_id` via SSE
 - Backend suporta flag `continuation: true` para continuar respostas
+- Header do Chat.tsx reorganizado com ChatHistory e botão Nova Conversa
+- Admin TabsList expandida para 6 colunas com ícones responsivos
 
 ---
 

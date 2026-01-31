@@ -1,19 +1,20 @@
 import { useEffect, useRef, useCallback } from "react";
 import { useSearchParams, Link, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { ArrowLeft, Trash2, MessageSquare, Keyboard } from "lucide-react";
+import { ArrowLeft, Trash2, MessageSquare, Keyboard, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useChat } from "@/hooks/useChat";
+import { useChatSessions } from "@/hooks/useChatSessions";
 import { useAuth } from "@/contexts/AuthContext";
 import { ChatMessage } from "@/components/chat/ChatMessage";
 import { ChatInput } from "@/components/chat/ChatInput";
 import { ThinkingIndicator } from "@/components/chat/ThinkingIndicator";
+import { ChatHistory } from "@/components/chat/ChatHistory";
 import { OfflineIndicator } from "@/components/OfflineIndicator";
 import { useToast } from "@/hooks/use-toast";
 import { SEOHead } from "@/components/SEOHead";
 import { useChatShortcuts } from "@/hooks/useKeyboardShortcuts";
 import UserMenu from "@/components/auth/UserMenu";
-import GoogleLoginButton from "@/components/auth/GoogleLoginButton";
 import {
   Tooltip,
   TooltipContent,
@@ -58,7 +59,18 @@ export default function Chat() {
   const { toast } = useToast();
   const { user, loading: authLoading } = useAuth();
 
-  const { messages, isLoading, thinking, sendMessage, clearHistory, cancelStream, regenerateLast, continueLast } = useChat({
+  // Chat hook with session persistence
+  const { 
+    messages, 
+    isLoading, 
+    thinking, 
+    sendMessage, 
+    clearHistory, 
+    cancelStream, 
+    regenerateLast, 
+    continueLast,
+    setMessages,
+  } = useChat({
     onError: (error) => {
       toast({
         variant: "destructive",
@@ -68,12 +80,58 @@ export default function Chat() {
     }
   });
 
+  // Session persistence (only for authenticated users)
+  const {
+    sessions,
+    currentSessionId,
+    isLoading: sessionsLoading,
+    createSession,
+    updateSession,
+    loadSession,
+    deleteSession,
+    refreshSessions,
+  } = useChatSessions();
+
+  // Auto-save session when messages change (debounced)
+  useEffect(() => {
+    if (!user || messages.length === 0) return;
+    
+    const timeoutId = setTimeout(async () => {
+      if (currentSessionId) {
+        await updateSession(currentSessionId, messages);
+      } else if (messages.length >= 2) {
+        // Create new session after first exchange
+        await createSession(messages);
+      }
+    }, 1000); // Debounce 1s
+    
+    return () => clearTimeout(timeoutId);
+  }, [messages, user, currentSessionId, updateSession, createSession]);
+
+  // Load session handler
+  const handleLoadSession = useCallback(async (sessionId: string) => {
+    const loadedMessages = await loadSession(sessionId);
+    if (loadedMessages) {
+      setMessages(loadedMessages);
+      toast({ title: "Conversa carregada" });
+    }
+  }, [loadSession, setMessages, toast]);
+
+  // Delete session handler
+  const handleDeleteSession = useCallback(async (sessionId: string) => {
+    await deleteSession(sessionId);
+    toast({ title: "Conversa excluída" });
+  }, [deleteSession, toast]);
+
+  // New chat handler
+  const handleNewChat = useCallback(() => {
+    clearHistory();
+    toast({ title: "Nova conversa iniciada" });
+  }, [clearHistory, toast]);
+
   // Keyboard shortcuts
   useChatShortcuts({
-    onNewChat: () => {
-      clearHistory();
-      toast({ title: "Nova conversa iniciada" });
-    },
+    onNewChat: handleNewChat,
     onClearHistory: () => {
       if (messages.length > 0) {
         handleClearHistory();
@@ -173,6 +231,33 @@ export default function Chat() {
             </div>
 
             <div className="flex items-center gap-2">
+              {/* Chat History - only for authenticated users */}
+              {user && (
+                <ChatHistory
+                  sessions={sessions}
+                  currentSessionId={currentSessionId}
+                  isLoading={sessionsLoading}
+                  onLoadSession={handleLoadSession}
+                  onDeleteSession={handleDeleteSession}
+                  onNewChat={handleNewChat}
+                />
+              )}
+
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={handleNewChat}
+                    className="rounded-full text-muted-foreground hover:text-foreground"
+                    aria-label="Nova conversa"
+                  >
+                    <Plus className="w-5 h-5" aria-hidden="true" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Nova conversa (Ctrl+N)</TooltipContent>
+              </Tooltip>
+
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button

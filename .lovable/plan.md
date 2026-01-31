@@ -2,7 +2,7 @@
 
 # Plano de Implementação v2.1.0 — Chat Controls & Premium Features
 
-**Status Atual**: Sprint 1 Completo ✅
+**Status Atual**: Sprint 2 Completo ✅
 
 ## Sprints Concluídos
 
@@ -28,21 +28,70 @@
 
 ---
 
+### ✅ Sprint 2: Integração de Sessões (Fase 2.1-2.2) — IMPLEMENTADO
+**Data**: 2026-01-31
+
+**Arquivos modificados**:
+- `src/pages/Chat.tsx` - Integração `useChatSessions`, `ChatHistory`, auto-save com debounce
+- `src/components/chat/MessageActions.tsx` - **NOVO** componente com dropdown de ações
+- `src/components/chat/ChatMessage.tsx` - Usa `MessageActions` em vez de botões separados
+
+**Features implementadas**:
+- ✅ ChatHistory sidebar para usuários autenticados
+- ✅ Botão "Nova Conversa" no header
+- ✅ Auto-save de sessões (debounce 1s)
+- ✅ Carregar/excluir sessões anteriores
+- ✅ MessageActions com dropdown (Copiar Texto/Markdown/Checklist)
+- ✅ Menu "..." responsivo para mobile
+
+---
+
+### ✅ Sprint 3: Admin Feedback Dashboard (Fase 3.2) — IMPLEMENTADO
+**Data**: 2026-01-31
+
+**Arquivos modificados**:
+- `src/components/admin/FeedbackTab.tsx` - **NOVO** componente com métricas e lista de feedback
+- `src/pages/Admin.tsx` - Adicionada aba "Feedback" com nova TabsTrigger
+
+**Features implementadas**:
+- ✅ Cards de resumo (Total, Positivos, Negativos, Taxa de Aprovação)
+- ✅ Gráfico de barras com categorias de feedback negativo
+- ✅ Lista de feedback negativo recente com contexto expandível
+- ✅ Seletor de período (7d, 30d, 90d)
+
+---
+
 ## Próximos Sprints
 
-### Sprint 2: Integração de Sessões (Fase 2.1-2.2 parcial)
-- [ ] Chat.tsx: integrar useChatSessions hook
-- [ ] MessageActions.tsx: agrupar CopyButton, ChecklistButton, etc.
-- [ ] Menu "..." para mobile com DropdownMenu
+### ✅ Sprint 4: Knowledge Base Versioning (Fase 5) — IMPLEMENTADO
+**Data**: 2026-01-31
 
-### Sprint 3: Admin Feedback Dashboard (Fase 3.2)
-- [ ] FeedbackTab.tsx: componente com métricas
-- [ ] Admin.tsx: adicionar aba "Feedback"
+**Arquivos modificados**:
+- Migração SQL executada — novas colunas na tabela documents
 
-### Sprint 4: Knowledge Base Enhancements (Fase 5)
-- [ ] Migração SQL: version_label, effective_date, supersedes_document_id, tags
-- [ ] Admin UI: filtros e ação "Marcar como substituída"
-- [ ] Reprocessamento com motivo
+**Colunas adicionadas**:
+- ✅ `version_label TEXT` — identificador humano de versão (ex: "v3.2")
+- ✅ `effective_date DATE` — data de vigência do documento
+- ✅ `supersedes_document_id UUID` — FK para documento substituído
+- ✅ `tags TEXT[]` — array de tags para categorização
+- ✅ Índices GIN para tags e índices para effective_date e supersedes_document_id
+
+---
+
+## Backlog (Futuro)
+
+### Sprint 5 (Opcional): Admin UI para Versionamento
+- [ ] Filtros por tags no Admin
+- [ ] Ação "Marcar como substituída" com modal
+- [ ] Reprocessamento com motivo no processing_metrics
+
+### Fase 2.3: Compartilhamento por Link (v2.2)
+- [ ] Tabela shared_items
+- [ ] Rota /share/:token
+- [ ] Botão Compartilhar
+
+### Fase 6.1: Virtualização da Lista (sob demanda)
+- [ ] react-virtual ou similar para sessões longas
 
 ---
 

@@ -317,15 +317,19 @@ export type Database = {
           content_hash: string | null
           content_text: string | null
           created_at: string
+          effective_date: string | null
           error_reason: string | null
           file_path: string | null
           id: string
           processed_at: string | null
           source_file_name: string | null
           status: string
+          supersedes_document_id: string | null
+          tags: string[] | null
           title: string
           updated_at: string
           version: number | null
+          version_label: string | null
         }
         Insert: {
           category?: string
@@ -333,15 +337,19 @@ export type Database = {
           content_hash?: string | null
           content_text?: string | null
           created_at?: string
+          effective_date?: string | null
           error_reason?: string | null
           file_path?: string | null
           id?: string
           processed_at?: string | null
           source_file_name?: string | null
           status?: string
+          supersedes_document_id?: string | null
+          tags?: string[] | null
           title: string
           updated_at?: string
           version?: number | null
+          version_label?: string | null
         }
         Update: {
           category?: string
@@ -349,17 +357,29 @@ export type Database = {
           content_hash?: string | null
           content_text?: string | null
           created_at?: string
+          effective_date?: string | null
           error_reason?: string | null
           file_path?: string | null
           id?: string
           processed_at?: string | null
           source_file_name?: string | null
           status?: string
+          supersedes_document_id?: string | null
+          tags?: string[] | null
           title?: string
           updated_at?: string
           version?: number | null
+          version_label?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "documents_supersedes_document_id_fkey"
+            columns: ["supersedes_document_id"]
+            isOneToOne: false
+            referencedRelation: "documents"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       frontend_errors: {
         Row: {

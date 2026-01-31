@@ -1,12 +1,11 @@
-import { memo, useMemo } from "react";
+import { memo, useMemo, useCallback } from "react";
 import { motion } from "framer-motion";
 import { Bot, User, FileText, ExternalLink, ChevronDown, ChevronUp, CheckCircle2 } from "lucide-react";
 import type { ChatMessage as ChatMessageType, WebSourceData, MessageStatus } from "@/hooks/useChat";
-import { CopyButton } from "./CopyButton";
+import { MessageActions } from "./MessageActions";
 import { DownloadPdfButton } from "./DownloadPdfButton";
 import { FeedbackButtons } from "./FeedbackButtons";
 import { ApiProviderBadge } from "./ApiProviderBadge";
-import { ChecklistButton } from "./ChecklistButton";
 import { ResponseNotice } from "./ResponseNotice";
 import { SourceChipWeb } from "./SourceChipWeb";
 import { MessageControls } from "./MessageControls";
@@ -464,8 +463,7 @@ export const ChatMessage = memo(function ChatMessage({
             animate={{ opacity: 1 }}
             transition={{ delay: 0.2 }}
           >
-            <CopyButton text={message.content} />
-            <ChecklistButton text={message.content} />
+            <MessageActions message={message} />
             {message.userQuery && (
               <DownloadPdfButton
                 userQuery={message.userQuery}
