@@ -625,13 +625,13 @@ serve(async (req) => {
       );
     }
 
-    const { message, history = [], mode = "fast", webSearchMode = "auto" } = await req.json();
+    const { message, history = [], mode = "fast", webSearchMode = "auto", continuation = false } = await req.json();
     
     // Extract session fingerprint from request if available
     const sessionFingerprint = req.headers.get("x-session-fingerprint") || clientKey;
     
-    // Input validation - message
-    if (!message || typeof message !== "string") {
+    // Input validation - message (allow empty for continuation)
+    if (!continuation && (!message || typeof message !== "string")) {
       return new Response(
         JSON.stringify({ error: "Mensagem é obrigatória" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -639,7 +639,7 @@ serve(async (req) => {
     }
     
     // Input validation - message length (max 10,000 characters)
-    if (message.length > 10000) {
+    if (message && message.length > 10000) {
       return new Response(
         JSON.stringify({ error: "Mensagem muito longa. Máximo de 10.000 caracteres permitidos." }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -676,6 +676,21 @@ serve(async (req) => {
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
+    
+    // Continuation mode: inject special instruction
+    const continuationInstruction = continuation ? `
+
+## INSTRUÇÃO ESPECIAL: CONTINUAÇÃO
+O usuário solicitou que você CONTINUE sua resposta anterior que foi interrompida.
+REGRAS CRÍTICAS:
+1. Continue EXATAMENTE de onde parou, sem repetir o que já foi dito
+2. Mantenha a mesma estrutura, tom e formatação
+3. Se estava no meio de uma lista, continue a numeração
+4. Se estava no meio de um parágrafo, complete-o naturalmente
+5. NÃO faça introduções como "Continuando..." ou "Como eu estava dizendo..."
+6. Apenas continue o conteúdo de forma fluida
+
+` : "";
 
     // Get API keys
     const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
@@ -866,7 +881,7 @@ INICIE a resposta mencionando que consultou fontes externas.`
     const modeInstruction = MODE_INSTRUCTIONS[mode] || MODE_INSTRUCTIONS["fast"];
 
     const userPrompt = `${modeInstruction}
-
+${continuationInstruction}
 ## Contexto da Base de Conhecimento
 
 ${context || "Nenhum documento relevante encontrado na base de conhecimento."}
@@ -875,7 +890,7 @@ ${context || "Nenhum documento relevante encontrado na base de conhecimento."}
 
 ## Pergunta do Usuário
 
-${message}
+${continuation ? "(Continuação da resposta anterior)" : message}
 
 ---
 
@@ -1029,8 +1044,16 @@ Sempre cite as fontes quando usar informação do contexto [Nome do Documento].$
       const stream = new ReadableStream({
         async start(controller) {
           try {
+            // Enviar request_id primeiro para tracking no frontend
+            controller.enqueue(encoder.encode(`event: request_id\ndata: ${JSON.stringify({ id: requestId })}\n\n`));
+            
             // Enviar evento de provedor de API (fallback)
             controller.enqueue(encoder.encode(`event: api_provider\ndata: ${JSON.stringify({ provider: apiProvider, model: activeModelName })}\n\n`));
+            
+            // Enviar notice se for continuação
+            if (continuation) {
+              controller.enqueue(encoder.encode(`event: notice\ndata: ${JSON.stringify({ type: "info", message: "Continuando resposta anterior..." })}\n\n`));
+            }
             
             // Enviar evento de início
             controller.enqueue(encoder.encode(`event: thinking\ndata: ${JSON.stringify({ status: "searching", step: "Usando API de fallback..." })}\n\n`));
@@ -1145,6 +1168,9 @@ Sempre cite as fontes quando usar informação do contexto [Nome do Documento].$
     const stream = new ReadableStream({
       async start(controller) {
         try {
+          // Enviar request_id primeiro para tracking no frontend
+          controller.enqueue(encoder.encode(`event: request_id\ndata: ${JSON.stringify({ id: requestId })}\n\n`));
+          
           // Enviar evento de provedor de API
           controller.enqueue(encoder.encode(`event: api_provider\ndata: ${JSON.stringify({ provider: apiProvider, model: activeModelName })}\n\n`));
           
@@ -1153,10 +1179,17 @@ Sempre cite as fontes quando usar informação do contexto [Nome do Documento].$
             controller.enqueue(encoder.encode(`event: notice\ndata: ${JSON.stringify({ type: "web_search", message: "Consultando fontes externas..." })}\n\n`));
           }
           
+          // Enviar notice se for continuação
+          if (continuation) {
+            controller.enqueue(encoder.encode(`event: notice\ndata: ${JSON.stringify({ type: "info", message: "Continuando resposta anterior..." })}\n\n`));
+          }
+          
           // Enviar evento de início
-          const thinkingStep = needsWebSearch 
-            ? "Buscando na web e base de conhecimento..." 
-            : "Buscando na base de conhecimento...";
+          const thinkingStep = continuation
+            ? "Continuando de onde parou..."
+            : needsWebSearch 
+              ? "Buscando na web e base de conhecimento..." 
+              : "Buscando na base de conhecimento...";
           controller.enqueue(encoder.encode(`event: thinking\ndata: ${JSON.stringify({ status: "searching", step: thinkingStep })}\n\n`));
           
           let isFirstToken = true;

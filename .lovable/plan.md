@@ -2,6 +2,52 @@
 
 # Plano de Implementação v2.1.0 — Chat Controls & Premium Features
 
+**Status Atual**: Sprint 1 Completo ✅
+
+## Sprints Concluídos
+
+### ✅ Sprint 1: Fundação (Fases 0 + 1) — IMPLEMENTADO
+**Data**: 2026-01-31
+
+**Arquivos modificados**:
+- `CHANGELOG.md` - Adicionada seção v2.1.0
+- `src/hooks/useChat.ts` - Interface `MessageStatus`, `SendMessageOptions`, refs, `regenerateLast()`, `continueLast()`
+- `src/components/chat/ChatMessage.tsx` - Props para controles, integração com `MessageControls`
+- `src/components/chat/MessageControls.tsx` - **NOVO** componente para Stop/Regenerate/Continue
+- `src/components/chat/ResponseNotice.tsx` - Adicionado tipo "stopped"
+- `src/pages/Chat.tsx` - Passagem de props de controle para `ChatMessage`
+- `supabase/functions/clara-chat/index.ts` - SSE `request_id`, flag `continuation`, instrução de continuação
+
+**Features implementadas**:
+- ✅ Botão "Parar" durante streaming
+- ✅ Estado "stopped" com notice "Resposta interrompida"
+- ✅ Botão "Regenerar" para gerar nova resposta
+- ✅ Botão "Continuar" para continuar resposta interrompida
+- ✅ Tracking de `request_id` via SSE
+- ✅ Backend suporta `{ continuation: true }`
+
+---
+
+## Próximos Sprints
+
+### Sprint 2: Integração de Sessões (Fase 2.1-2.2 parcial)
+- [ ] Chat.tsx: integrar useChatSessions hook
+- [ ] MessageActions.tsx: agrupar CopyButton, ChecklistButton, etc.
+- [ ] Menu "..." para mobile com DropdownMenu
+
+### Sprint 3: Admin Feedback Dashboard (Fase 3.2)
+- [ ] FeedbackTab.tsx: componente com métricas
+- [ ] Admin.tsx: adicionar aba "Feedback"
+
+### Sprint 4: Knowledge Base Enhancements (Fase 5)
+- [ ] Migração SQL: version_label, effective_date, supersedes_document_id, tags
+- [ ] Admin UI: filtros e ação "Marcar como substituída"
+- [ ] Reprocessamento com motivo
+
+---
+
+
+
 ## Avaliação Crítica Consolidada
 
 Analisei todas as 6 fases do seu plano contra o código atual. Abaixo está minha avaliação por categoria:

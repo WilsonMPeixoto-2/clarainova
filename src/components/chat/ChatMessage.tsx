@@ -1,7 +1,7 @@
-import { memo, useMemo, useState } from "react";
+import { memo, useMemo } from "react";
 import { motion } from "framer-motion";
 import { Bot, User, FileText, ExternalLink, ChevronDown, ChevronUp, CheckCircle2 } from "lucide-react";
-import type { ChatMessage as ChatMessageType, WebSourceData } from "@/hooks/useChat";
+import type { ChatMessage as ChatMessageType, WebSourceData, MessageStatus } from "@/hooks/useChat";
 import { CopyButton } from "./CopyButton";
 import { DownloadPdfButton } from "./DownloadPdfButton";
 import { FeedbackButtons } from "./FeedbackButtons";
@@ -9,10 +9,17 @@ import { ApiProviderBadge } from "./ApiProviderBadge";
 import { ChecklistButton } from "./ChecklistButton";
 import { ResponseNotice } from "./ResponseNotice";
 import { SourceChipWeb } from "./SourceChipWeb";
+import { MessageControls } from "./MessageControls";
 import { Button } from "@/components/ui/button";
+import { useState } from "react";
 
 interface ChatMessageProps {
   message: ChatMessageType;
+  onStop?: () => void;
+  onRegenerate?: () => void;
+  onContinue?: () => void;
+  isLoading?: boolean;
+  isLastAssistant?: boolean; // Only show controls on the last assistant message
 }
 
 // Renderizar markdown simples
@@ -358,8 +365,16 @@ function MessageSkeleton() {
   );
 }
 
-export const ChatMessage = memo(function ChatMessage({ message }: ChatMessageProps) {
+export const ChatMessage = memo(function ChatMessage({ 
+  message, 
+  onStop,
+  onRegenerate,
+  onContinue,
+  isLoading = false,
+  isLastAssistant = false,
+}: ChatMessageProps) {
   const isUser = message.role === "user";
+  const isStopped = message.status === "stopped";
 
   const formattedTime = useMemo(() => {
     return message.timestamp.toLocaleTimeString("pt-BR", { 
@@ -461,6 +476,18 @@ export const ChatMessage = memo(function ChatMessage({ message }: ChatMessagePro
             )}
             <FeedbackButtons queryId={message.queryId || null} />
           </motion.div>
+        )}
+
+        {/* Message Controls (Stop/Regenerate/Continue) - only for last assistant message */}
+        {!isUser && isLastAssistant && (
+          <MessageControls
+            status={message.status}
+            isStreaming={message.isStreaming}
+            onStop={onStop}
+            onRegenerate={onRegenerate}
+            onContinue={onContinue}
+            isLoading={isLoading}
+          />
         )}
 
         {/* Sources */}

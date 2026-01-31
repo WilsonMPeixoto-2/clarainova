@@ -58,7 +58,7 @@ export default function Chat() {
   const { toast } = useToast();
   const { user, loading: authLoading } = useAuth();
 
-  const { messages, isLoading, thinking, sendMessage, clearHistory, cancelStream } = useChat({
+  const { messages, isLoading, thinking, sendMessage, clearHistory, cancelStream, regenerateLast, continueLast } = useChat({
     onError: (error) => {
       toast({
         variant: "destructive",
@@ -302,9 +302,25 @@ export default function Chat() {
                 aria-live="polite" 
                 aria-label="Histórico da conversa"
               >
-                {messages.map((message) => (
-                  <ChatMessage key={message.id} message={message} />
-                ))}
+                {messages.map((message, index) => {
+                  const isLastAssistant = 
+                    message.role === "assistant" && 
+                    index === messages.length - 1 || 
+                    (message.role === "assistant" && 
+                     messages.slice(index + 1).every(m => m.role !== "assistant"));
+                  
+                  return (
+                    <ChatMessage 
+                      key={message.id} 
+                      message={message}
+                      onStop={cancelStream}
+                      onRegenerate={regenerateLast}
+                      onContinue={continueLast}
+                      isLoading={isLoading}
+                      isLastAssistant={isLastAssistant}
+                    />
+                  );
+                })}
                 
                 <AnimatePresence>
                   {thinking.isThinking && (
