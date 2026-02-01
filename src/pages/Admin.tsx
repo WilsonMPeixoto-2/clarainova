@@ -1,6 +1,6 @@
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Upload, FileText, Trash2, RefreshCw, Lock, Check, X, AlertCircle, BarChart3, ClipboardList, Eye, EyeOff, Loader2, Play, RotateCcw, FileWarning, Activity, MessageSquareWarning } from 'lucide-react';
+import { ArrowLeft, Upload, FileText, Trash2, RefreshCw, Lock, Check, X, AlertCircle, BarChart3, ClipboardList, Eye, EyeOff, Loader2, Play, RotateCcw, FileWarning, Activity, MessageSquareWarning, Settings2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -14,6 +14,8 @@ import { ReportsTab } from '@/components/admin/ReportsTab';
 import { ProcessingStatsTab } from '@/components/admin/ProcessingStatsTab';
 import { ChatMetricsDashboard } from '@/components/admin/ChatMetricsDashboard';
 import { FeedbackTab } from '@/components/admin/FeedbackTab';
+import { DocumentEditorModal } from '@/components/admin/DocumentEditorModal';
+import { DocumentFilters } from '@/components/admin/DocumentFilters';
 import { extractPdfTextClient, extractTxtContent, isPdfFile, isTxtFile, isDocxFile, splitTextIntoBatches, calculatePayloadMetrics } from '@/utils/extractPdfText';
 import { loadPdfDocument, renderPagesAsImages, getPageBatches, type PageImage } from '@/utils/renderPdfPages';
 import {
@@ -44,6 +46,10 @@ interface Document {
   error_reason?: string | null;
   processing_status?: string | null;
   processing_progress?: number | null;
+  tags?: string[] | null;
+  version_label?: string | null;
+  effective_date?: string | null;
+  supersedes_document_id?: string | null;
 }
 
 // Conditional debug logging (only in development)
@@ -124,7 +130,42 @@ const Admin = () => {
   
   // Track documents being processed
   const [processingDocs, setProcessingDocs] = useState<Set<string>>(new Set());
+  
+  // Document editor modal state
+  const [editorModalOpen, setEditorModalOpen] = useState(false);
+  const [documentToEdit, setDocumentToEdit] = useState<Document | null>(null);
+  
+  // Document filters state
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const pollingIntervalRef = useRef<number | null>(null);
+
+  // Computed: available tags from all documents
+  const availableTags = useMemo(() => {
+    const tagSet = new Set<string>();
+    documents.forEach(doc => {
+      doc.tags?.forEach(tag => tagSet.add(tag));
+    });
+    return Array.from(tagSet).sort();
+  }, [documents]);
+
+  // Computed: filtered documents
+  const filteredDocuments = useMemo(() => {
+    return documents.filter(doc => {
+      // Filter by search query
+      if (searchQuery && !doc.title.toLowerCase().includes(searchQuery.toLowerCase())) {
+        return false;
+      }
+      // Filter by tags
+      if (selectedTags.length > 0) {
+        const docTags = doc.tags || [];
+        if (!selectedTags.some(tag => docTags.includes(tag))) {
+          return false;
+        }
+      }
+      return true;
+    });
+  }, [documents, searchQuery, selectedTags]);
 
   const getAdminKey = useCallback(() => adminKey.trim(), [adminKey]);
 
@@ -1367,6 +1408,15 @@ const Admin = () => {
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
+                  {/* Document Filters */}
+                  <DocumentFilters
+                    searchQuery={searchQuery}
+                    onSearchChange={setSearchQuery}
+                    selectedTags={selectedTags}
+                    onTagsChange={setSelectedTags}
+                    availableTags={availableTags}
+                  />
+                  
                   {isLoading ? (
                     <div className="flex items-center justify-center py-12">
                       <RefreshCw className="w-8 h-8 text-primary animate-spin" />
@@ -1379,12 +1429,30 @@ const Admin = () => {
                         Faça upload de documentos para começar.
                       </p>
                     </div>
+                  ) : filteredDocuments.length === 0 ? (
+                    <div className="text-center py-12">
+                      <AlertCircle className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                      <p className="text-muted-foreground">Nenhum documento corresponde aos filtros.</p>
+                      <Button
+                        variant="ghost"
+                        onClick={() => {
+                          setSearchQuery('');
+                          setSelectedTags([]);
+                        }}
+                        className="mt-2"
+                      >
+                        Limpar filtros
+                      </Button>
+                    </div>
                   ) : (
                     <div className="space-y-3">
-                      {documents.map((doc) => {
+                      {filteredDocuments.map((doc) => {
                         const statusBadge = getStatusBadge(doc.status, doc.error_reason);
                         const isProcessing = processingDocs.has(doc.id) || doc.status === 'processing';
                         const canProcess = doc.status === 'uploaded' || doc.status === 'failed';
+                        const supersedesDoc = doc.supersedes_document_id 
+                          ? documents.find(d => d.id === doc.supersedes_document_id)
+                          : null;
                         
                         return (
                           <div
@@ -1424,16 +1492,41 @@ const Admin = () => {
                                     </Badge>
                                   )}
                                   
+                                  {/* Version label */}
+                                  {doc.version_label && (
+                                    <Badge variant="outline" className="text-xs">
+                                      {doc.version_label}
+                                    </Badge>
+                                  )}
+                                  
                                   <span>{formatDate(doc.created_at)}</span>
                                   {doc.chunk_count !== undefined && doc.chunk_count > 0 && (
                                     <span>{doc.chunk_count} chunks</span>
                                   )}
                                 </div>
                                 
+                                {/* Tags display */}
+                                {doc.tags && doc.tags.length > 0 && (
+                                  <div className="flex flex-wrap gap-1 mt-2">
+                                    {doc.tags.map(tag => (
+                                      <Badge key={tag} variant="secondary" className="text-xs py-0">
+                                        {tag}
+                                      </Badge>
+                                    ))}
+                                  </div>
+                                )}
+                                
+                                {/* Supersedes info */}
+                                {supersedesDoc && (
+                                  <p className="text-xs text-muted-foreground mt-1">
+                                    Substitui: {supersedesDoc.title}
+                                  </p>
+                                )}
+                                
                                 {/* Processing progress bar */}
                                 {(doc.processing_status === 'processing' || doc.processing_status === 'pending') && (
                                   <div className="mt-2">
-                                    <div className="flex items-center gap-2 text-xs text-yellow-500">
+                                    <div className="flex items-center gap-2 text-xs text-amber-500">
                                       <Loader2 className="w-3 h-3 animate-spin" />
                                       <span>Processando...</span>
                                       {doc.processing_progress !== null && (
@@ -1449,6 +1542,27 @@ const Admin = () => {
                             </div>
                             
                             <div className="flex items-center gap-2 flex-shrink-0">
+                              {/* Edit Metadata Button */}
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => {
+                                      setDocumentToEdit(doc);
+                                      setEditorModalOpen(true);
+                                    }}
+                                    className="text-muted-foreground hover:text-foreground"
+                                    disabled={isProcessing}
+                                  >
+                                    <Settings2 className="w-4 h-4" />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>Editar metadados</p>
+                                </TooltipContent>
+                              </Tooltip>
+                              
                               {/* Process/Reprocess Button */}
                               {canProcess && (
                                 <Button
@@ -1601,6 +1715,23 @@ const Admin = () => {
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
+
+        {/* Document Editor Modal */}
+        <DocumentEditorModal
+          document={documentToEdit}
+          open={editorModalOpen}
+          onOpenChange={setEditorModalOpen}
+          onSaved={() => {
+            fetchDocuments();
+            setDocumentToEdit(null);
+          }}
+          adminKey={adminKey}
+          allDocuments={documents.map(d => ({ 
+            id: d.id, 
+            title: d.title,
+            supersedes_document_id: d.supersedes_document_id 
+          }))}
+        />
       </div>
     </TooltipProvider>
   );
