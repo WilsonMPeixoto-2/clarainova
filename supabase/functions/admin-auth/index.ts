@@ -28,6 +28,44 @@ function getClientKey(req: Request): string {
   return "unknown";
 }
 
+/**
+ * Parse admin keys from environment.
+ * Supports multiple keys via ADMIN_KEYS (comma-separated) with fallback to ADMIN_KEY.
+ * This allows key rotation without downtime.
+ */
+function parseAdminKeys(): string[] {
+  // Try ADMIN_KEYS first (multiple keys, comma-separated)
+  const adminKeys = Deno.env.get("ADMIN_KEYS");
+  if (adminKeys) {
+    const keys = adminKeys
+      .split(",")
+      .map(k => k.trim())
+      .filter(k => k.length > 0);
+    
+    if (keys.length > 0) {
+      console.log(`[admin-auth] Using ${keys.length} admin keys from ADMIN_KEYS`);
+      return keys;
+    }
+  }
+  
+  // Fallback to single ADMIN_KEY
+  const adminKey = Deno.env.get("ADMIN_KEY");
+  if (adminKey && adminKey.trim().length > 0) {
+    console.log("[admin-auth] Using single admin key from ADMIN_KEY");
+    return [adminKey.trim()];
+  }
+  
+  return [];
+}
+
+/**
+ * Validate if provided key matches any configured admin key.
+ */
+function isValidAdminKey(providedKey: string, validKeys: string[]): boolean {
+  if (!providedKey || validKeys.length === 0) return false;
+  return validKeys.includes(providedKey.trim());
+}
+
 serve(async (req) => {
   // Handle CORS preflight
   if (req.method === "OPTIONS") {
@@ -83,26 +121,27 @@ serve(async (req) => {
       );
     }
 
-    const ADMIN_KEY = Deno.env.get("ADMIN_KEY");
+    // Parse admin keys (supports rotation)
+    const validAdminKeys = parseAdminKeys();
     
-    if (!ADMIN_KEY) {
-      console.error("[admin-auth] ADMIN_KEY not configured");
+    if (validAdminKeys.length === 0) {
+      console.error("[admin-auth] No admin keys configured (neither ADMIN_KEYS nor ADMIN_KEY)");
       return new Response(
         JSON.stringify({ error: "Configuração do servidor incompleta", code: "CONFIG_ERROR" }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    const adminKey = (req.headers.get("x-admin-key") || "").trim();
+    const providedKey = (req.headers.get("x-admin-key") || "").trim();
 
-    if (!adminKey) {
+    if (!providedKey) {
       return new Response(
         JSON.stringify({ valid: false, error: "Chave de administrador não fornecida", code: "MISSING_KEY" }),
         { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    if (adminKey !== ADMIN_KEY) {
+    if (!isValidAdminKey(providedKey, validAdminKeys)) {
       console.log("[admin-auth] Invalid admin key attempt");
       return new Response(
         JSON.stringify({ valid: false, error: "Chave de administrador inválida", code: "INVALID_KEY" }),

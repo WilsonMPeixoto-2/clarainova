@@ -2,10 +2,11 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { GoogleGenerativeAI } from "https://esm.sh/@google/generative-ai@0.21.0";
+import { sanitizeAndClassifyRisk, getSafeResponse, GUARDRAIL_SYSTEM_PROMPT } from "./guardrails.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-session-fingerprint",
 };
 
 // Model configuration based on response mode (Direct Gemini API models)
@@ -630,6 +631,55 @@ serve(async (req) => {
     // Extract session fingerprint from request if available
     const sessionFingerprint = req.headers.get("x-session-fingerprint") || clientKey;
     
+    // === GUARDRAILS: Check for prompt injection BEFORE any processing ===
+    if (message && !continuation) {
+      const guardrailResult = sanitizeAndClassifyRisk(message);
+      if (guardrailResult.blocked) {
+        console.log(`[clara-chat] Guardrail blocked: category=${guardrailResult.category}, reason=${guardrailResult.reason}, requestId=${requestId.slice(0, 8)}`);
+        
+        // Log blocked attempt to metrics (without message content for privacy)
+        logChatMetrics(supabase, {
+          requestId,
+          sessionFingerprint,
+          embeddingLatencyMs: 0,
+          searchLatencyMs: 0,
+          llmFirstTokenMs: 0,
+          llmTotalMs: Math.round(performance.now() - requestStartTime),
+          provider: "gemini",
+          model: "guardrail",
+          mode,
+          webSearchUsed: false,
+          localChunksFound: 0,
+          webSourcesCount: 0,
+          fallbackTriggered: false,
+          rateLimitHit: false,
+          errorType: `guardrail_${guardrailResult.category}`,
+        });
+        
+        // Return safe response via SSE
+        const safeResponse = getSafeResponse(guardrailResult.category);
+        const encoder = new TextEncoder();
+        const stream = new ReadableStream({
+          start(controller) {
+            controller.enqueue(encoder.encode(`event: request_id\ndata: ${JSON.stringify({ id: requestId })}\n\n`));
+            controller.enqueue(encoder.encode(`event: api_provider\ndata: ${JSON.stringify({ provider: "guardrail", model: "blocked" })}\n\n`));
+            controller.enqueue(encoder.encode(`event: delta\ndata: ${JSON.stringify({ content: safeResponse })}\n\n`));
+            controller.enqueue(encoder.encode(`event: done\ndata: {}\n\n`));
+            controller.close();
+          }
+        });
+        
+        return new Response(stream, {
+          headers: {
+            ...corsHeaders,
+            "Content-Type": "text/event-stream",
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive"
+          }
+        });
+      }
+    }
+    
     // Input validation - message (allow empty for continuation)
     if (!continuation && (!message || typeof message !== "string")) {
       return new Response(
@@ -942,9 +992,11 @@ Sempre cite as fontes quando usar informação do contexto [Nome do Documento].$
     let activeModelName = modelConfig.model;
     
     try {
+      // Combine main system prompt with guardrail instructions
+      const fullSystemPrompt = CLARA_SYSTEM_PROMPT + "\n\n" + GUARDRAIL_SYSTEM_PROMPT;
       result = await chatModel.generateContentStream({
         contents,
-        systemInstruction: CLARA_SYSTEM_PROMPT,
+        systemInstruction: fullSystemPrompt,
       });
     } catch (error: unknown) {
       const err = error as { status?: number; message?: string };

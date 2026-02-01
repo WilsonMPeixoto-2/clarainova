@@ -364,6 +364,48 @@ function getClientKey(req: Request): string {
   return "unknown";
 }
 
+/**
+ * Parse admin keys from environment.
+ * Supports multiple keys via ADMIN_KEYS (comma-separated) with fallback to ADMIN_KEY.
+ * This allows key rotation without downtime.
+ */
+function parseAdminKeys(): string[] {
+  // Try ADMIN_KEYS first (multiple keys, comma-separated)
+  const adminKeys = Deno.env.get("ADMIN_KEYS");
+  if (adminKeys) {
+    const keys = adminKeys
+      .split(",")
+      .map(k => k.trim())
+      .filter(k => k.length > 0);
+    
+    if (keys.length > 0) {
+      return keys;
+    }
+  }
+  
+  // Fallback to single ADMIN_KEY
+  const adminKey = Deno.env.get("ADMIN_KEY");
+  if (adminKey && adminKey.trim().length > 0) {
+    return [adminKey.trim()];
+  }
+  
+  return [];
+}
+
+/**
+ * Validate admin key from request headers.
+ * Returns true if key is valid.
+ */
+function validateAdminKey(req: Request): boolean {
+  const providedKey = (req.headers.get("x-admin-key") || "").trim();
+  if (!providedKey) return false;
+  
+  const validKeys = parseAdminKeys();
+  if (validKeys.length === 0) return false;
+  
+  return validKeys.includes(providedKey);
+}
+
 // =============================================
 // PROCESS CHUNKS AND EMBEDDINGS (Idempotent)
 // =============================================
@@ -556,7 +598,7 @@ serve(async (req) => {
   const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
   const supabase = createClient(supabaseUrl, supabaseServiceKey);
   
-  const ADMIN_KEY = Deno.env.get("ADMIN_KEY")?.trim();
+  // GEMINI_API_KEY for embeddings, LOVABLE_API_KEY for OCR fallback
   const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
   const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
 
@@ -591,8 +633,7 @@ serve(async (req) => {
     // POST /documents/process-job - WORKER for incremental processing
     // =============================================
     if (req.method === "POST" && lastPart === "process-job") {
-      const adminKey = (req.headers.get("x-admin-key") || "").trim();
-      if (!adminKey || !ADMIN_KEY || adminKey !== ADMIN_KEY) {
+      if (!validateAdminKey(req)) {
         return createDebugResponse(false, 401, { error: "Não autorizado" }, debug, startTime);
       }
 
@@ -736,8 +777,7 @@ serve(async (req) => {
     // GET /documents/job-status/:documentId - Check job status
     // =============================================
     if (req.method === "GET" && pathParts.includes("job-status")) {
-      const adminKey = (req.headers.get("x-admin-key") || "").trim();
-      if (!adminKey || !ADMIN_KEY || adminKey !== ADMIN_KEY) {
+      if (!validateAdminKey(req)) {
         return createDebugResponse(false, 401, { error: "Não autorizado" }, debug, startTime);
       }
 
@@ -770,8 +810,7 @@ serve(async (req) => {
     // GET /documents - List all documents
     // =============================================
     if (req.method === "GET" && (!lastPart || lastPart === "documents")) {
-      const adminKey = (req.headers.get("x-admin-key") || "").trim();
-      if (!adminKey || !ADMIN_KEY || adminKey !== ADMIN_KEY) {
+      if (!validateAdminKey(req)) {
         return createDebugResponse(false, 401, { error: "Não autorizado" }, debug, startTime);
       }
       
@@ -815,8 +854,7 @@ serve(async (req) => {
     // GET /documents/download/:documentId - Get signed download URL
     // =============================================
     if (req.method === "GET" && pathParts.includes("download")) {
-      const adminKey = (req.headers.get("x-admin-key") || "").trim();
-      if (!adminKey || !ADMIN_KEY || adminKey !== ADMIN_KEY) {
+      if (!validateAdminKey(req)) {
         return createDebugResponse(false, 401, { error: "Não autorizado" }, debug, startTime);
       }
 
@@ -879,8 +917,7 @@ serve(async (req) => {
     // POST /documents/ingest-start - Start a batch ingestion session
     // =============================================
     if (req.method === "POST" && lastPart === "ingest-start") {
-      const adminKey = (req.headers.get("x-admin-key") || "").trim();
-      if (!adminKey || !ADMIN_KEY || adminKey !== ADMIN_KEY) {
+      if (!validateAdminKey(req)) {
         return createDebugResponse(false, 401, { error: "Não autorizado" }, debug, startTime);
       }
 
@@ -918,8 +955,7 @@ serve(async (req) => {
     // POST /documents/ingest-batch - Append batch of text to document (idempotent)
     // =============================================
     if (req.method === "POST" && lastPart === "ingest-batch") {
-      const adminKey = (req.headers.get("x-admin-key") || "").trim();
-      if (!adminKey || !ADMIN_KEY || adminKey !== ADMIN_KEY) {
+      if (!validateAdminKey(req)) {
         return createDebugResponse(false, 401, { error: "Não autorizado" }, debug, startTime);
       }
 
@@ -1008,8 +1044,7 @@ serve(async (req) => {
     // GET /documents/resume/:documentId - Get resume point for interrupted ingestion
     // =============================================
     if (req.method === "GET" && pathParts.includes("resume")) {
-      const adminKey = (req.headers.get("x-admin-key") || "").trim();
-      if (!adminKey || !ADMIN_KEY || adminKey !== ADMIN_KEY) {
+      if (!validateAdminKey(req)) {
         return createDebugResponse(false, 401, { error: "Não autorizado" }, debug, startTime);
       }
 
@@ -1055,8 +1090,7 @@ serve(async (req) => {
     // POST /documents/ingest-finish - Finalize ingestion and process chunks
     // =============================================
     if (req.method === "POST" && lastPart === "ingest-finish") {
-      const adminKey = (req.headers.get("x-admin-key") || "").trim();
-      if (!adminKey || !ADMIN_KEY || adminKey !== ADMIN_KEY) {
+      if (!validateAdminKey(req)) {
         return createDebugResponse(false, 401, { error: "Não autorizado" }, debug, startTime);
       }
 
@@ -1122,8 +1156,7 @@ serve(async (req) => {
     // POST /documents/ingest-text - Receive pre-extracted text from client (backwards compatible)
     // =============================================
     if (req.method === "POST" && lastPart === "ingest-text") {
-      const adminKey = (req.headers.get("x-admin-key") || "").trim();
-      if (!adminKey || !ADMIN_KEY || adminKey !== ADMIN_KEY) {
+      if (!validateAdminKey(req)) {
         return createDebugResponse(false, 401, { error: "Não autorizado" }, debug, startTime);
       }
 
@@ -1184,8 +1217,7 @@ serve(async (req) => {
     // POST /documents/ocr-batch - OCR for scanned PDF pages
     // =============================================
     if (req.method === "POST" && lastPart === "ocr-batch") {
-      const adminKey = (req.headers.get("x-admin-key") || "").trim();
-      if (!adminKey || !ADMIN_KEY || adminKey !== ADMIN_KEY) {
+      if (!validateAdminKey(req)) {
         return createDebugResponse(false, 401, { error: "Não autorizado" }, debug, startTime);
       }
 
@@ -1302,8 +1334,7 @@ serve(async (req) => {
     // POST /documents/process - Process existing document (PHASE 2)
     // =============================================
     if (req.method === "POST" && lastPart === "process") {
-      const adminKey = (req.headers.get("x-admin-key") || "").trim();
-      if (!adminKey || !ADMIN_KEY || adminKey !== ADMIN_KEY) {
+      if (!validateAdminKey(req)) {
         return createDebugResponse(false, 401, { error: "Não autorizado" }, debug, startTime);
       }
 
@@ -1462,8 +1493,7 @@ serve(async (req) => {
     // POST /documents - Create document (PHASE 1: upload-only or full process)
     // =============================================
     if (req.method === "POST" && lastPart !== "process-job" && lastPart !== "process") {
-      const adminKey = (req.headers.get("x-admin-key") || "").trim();
-      if (!adminKey || !ADMIN_KEY || adminKey !== ADMIN_KEY) {
+      if (!validateAdminKey(req)) {
         return createDebugResponse(false, 401, { error: "Não autorizado" }, debug, startTime);
       }
       
@@ -1705,8 +1735,7 @@ serve(async (req) => {
     // DELETE /documents/:id - Remove document
     // =============================================
     if (req.method === "DELETE") {
-      const adminKey = (req.headers.get("x-admin-key") || "").trim();
-      if (!adminKey || !ADMIN_KEY || adminKey !== ADMIN_KEY) {
+      if (!validateAdminKey(req)) {
         return createDebugResponse(false, 401, { error: "Não autorizado" }, debug, startTime);
       }
       
