@@ -1,83 +1,44 @@
+# Plano: Governança, Segurança e Operação Premium — CLARA v2.2.0
 
+## Status das Etapas
 
-# Plano: Salvar Relatório de Auditoria Completo no Admin
-
-## Objetivo
-Inserir o relatório técnico de auditoria completo na tabela `development_reports` e criar as tags necessárias para categorização.
-
----
-
-## Análise Atual
-
-### Tags Existentes
-| Tag | ID | Usar? |
-|-----|-----|-------|
-| dev | `7545f2e9-79c6-42bb-b0db-8b8ce6f36bb2` | Sim |
-
-### Tags a Criar
-| Tag | Cor Sugerida |
-|-----|--------------|
-| auditoria | `#dc2626` (vermelho escuro - importância) |
-| arquitetura | `#6366f1` (índigo - técnico) |
-| documentação | `#14b8a6` (teal - informativo) |
+| Etapa | Status | Observações |
+|-------|--------|-------------|
+| 1. PWA / Identidade Visual | ✅ Concluído | theme_color → #F59E0B |
+| 2. Guardrails Anti Prompt-Injection | ✅ Concluído | 25+ patterns, testes incluídos |
+| 3. Rotação ADMIN_KEY | ✅ Concluído | ADMIN_KEYS suportado em 13 endpoints |
+| 4. Alerta Fallback Rate | ✅ Concluído | RPC criada, dashboard já exibe |
+| 5. UI Admin Tags + Versionamento | 🟡 Parcial | Componentes criados, integração pendente |
 
 ---
 
-## Passos de Implementação
+## Arquivos Modificados
 
-### Passo 1: Criar Tags Faltantes
-Inserir 3 novas tags na tabela `report_tags`:
-- auditoria (cor: #dc2626)
-- arquitetura (cor: #6366f1)  
-- documentação (cor: #14b8a6)
+### Etapa 1
+- `public/manifest.json` — theme_color: #F59E0B
+- `index.html` — meta theme-color: #F59E0B
 
-### Passo 2: Inserir Relatório
-Inserir na tabela `development_reports` com:
-- **Título**: "Relatório de Auditoria Completo — CLARA v2.1.0 (01/02/2026)"
-- **Conteúdo**: Relatório completo em Markdown (todas as 12 seções)
-- **Summary**: Primeiros 150 caracteres para preview
+### Etapa 2
+- `supabase/functions/clara-chat/guardrails.ts` — Novo módulo
+- `supabase/functions/clara-chat/guardrails_test.ts` — Testes
+- `supabase/functions/clara-chat/index.ts` — Integração guardrails
 
-### Passo 3: Vincular Tags
-Criar relações na tabela `report_tag_relations` para:
-- auditoria
-- arquitetura
-- dev (existente)
-- documentação
+### Etapa 3
+- `supabase/functions/admin-auth/index.ts` — parseAdminKeys()
+- `supabase/functions/documents/index.ts` — validateAdminKey() em 13 pontos
 
----
+### Etapa 4
+- Nova RPC `get_fallback_rate(p_days)` no banco
 
-## Conteúdo do Relatório
-
-O relatório incluirá todas as 12 seções documentadas:
-
-1. Visão Geral do Produto
-2. Arquitetura Geral (diagrama textual)
-3. Frontend — Inventário Completo
-4. Backend — Supabase (Schema, RLS, RPCs, Storage)
-5. Edge Functions — Lista Completa
-6. Pipeline do Conhecimento
-7. Web Search: Escopo e Limitações
-8. Observabilidade e Governança
-9. Segurança (Threat Model)
-10. PWA e Mobile
-11. Lista de Pendências e Backlog
-12. Mapa de Testes e Critérios de Aceite
-
-Tamanho estimado: ~25.000 caracteres de Markdown
+### Etapa 5
+- `src/components/admin/DocumentEditorModal.tsx` — Novo
+- `src/components/admin/DocumentFilters.tsx` — Novo
 
 ---
 
-## Critérios de Aceite
+## Próximos Passos (Etapa 5 - Pendente)
 
-- Relatório aparece na aba "Relatórios" do Admin
-- 4 tags vinculadas visíveis (auditoria, arquitetura, dev, documentação)
-- Preview (summary) legível na listagem
-- Botão "Visualizar" abre modal com Markdown renderizado
-- Botão "Exportar PDF" gera documento sem overflow
-
----
-
-## Estimativa
-- Tempo: ~5 minutos (queries SQL diretas)
-- Risco: Zero (apenas inserção de dados)
-
+1. Importar componentes no Admin.tsx
+2. Adicionar estado para document em edição
+3. Integrar filtros na listagem de documentos
+4. Testar fluxo completo de edição de tags

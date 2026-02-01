@@ -838,6 +838,15 @@ export type Database = {
           priority: number
         }[]
       }
+      get_fallback_rate: {
+        Args: { p_days?: number }
+        Returns: {
+          day: string
+          fallback_rate: number
+          fallback_requests: number
+          total_requests: number
+        }[]
+      }
       get_frontend_errors_summary: {
         Args: { p_days?: number }
         Returns: {
