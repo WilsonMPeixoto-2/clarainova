@@ -1184,7 +1184,25 @@ serve(async (req) => {
       const mbSize = (new TextEncoder().encode(fullText).length / (1024 * 1024)).toFixed(2);
       console.log(`[${requestId}] INGEST-TEXT: ${charCount} chars (~${mbSize}MB), ${metadata?.totalPages || '?'} pages`);
 
-      // Create document record
+      // Build extraction_metadata from client metadata
+      const extractionMetadata: Record<string, any> = {
+        method: metadata?.extractionMethod || 'unknown',
+        quality_score: metadata?.qualityScore ?? null,
+        quality_issues: metadata?.qualityIssues || [],
+        user_override: metadata?.userOverride || false,
+        original_filename: metadata?.originalFilename || null,
+        total_pages: metadata?.totalPages || null,
+        extracted_at: metadata?.extractedAt || new Date().toISOString(),
+        original_chars: charCount,
+      };
+
+      console.log(`[${requestId}] Extraction metadata:`, {
+        method: extractionMetadata.method,
+        quality_score: extractionMetadata.quality_score,
+        user_override: extractionMetadata.user_override,
+      });
+
+      // Create document record with extraction_metadata
       const { data: document, error: docError } = await supabase
         .from("documents")
         .insert({
@@ -1192,7 +1210,8 @@ serve(async (req) => {
           category: category || "manual",
           file_path: filePath || null,
           content_text: fullText,
-          status: "processing"
+          status: "processing",
+          extraction_metadata: extractionMetadata
         })
         .select()
         .single();
@@ -1210,10 +1229,20 @@ serve(async (req) => {
       // Determine final status based on embeddings
       const finalStatus = warning?.includes("Embeddings") ? "chunks_ok_embed_pending" : "ready";
 
-      // Update document status
+      // Update document status and final extraction metadata
+      const finalMetadata = {
+        ...extractionMetadata,
+        final_chars: charCount,
+        chunks_count: chunksCount,
+        processing_completed_at: new Date().toISOString(),
+      };
+
       await supabase
         .from("documents")
-        .update({ status: finalStatus })
+        .update({ 
+          status: finalStatus,
+          extraction_metadata: finalMetadata
+        })
         .eq("id", document.id);
 
       return createDebugResponse(true, 200, {
