@@ -16,9 +16,14 @@ const NotFound = () => {
         <a href="/" className="text-primary underline hover:text-primary/90">
           Voltar para o início
         </a>
-        <p className="text-xs text-muted-foreground/50 mt-8">
-          Desenvolvido por Wilson M. Peixoto
-        </p>
+        <div className="mt-8 text-center space-y-1">
+          <p className="text-xs text-muted-foreground/50">
+            Desenvolvido por Wilson M. Peixoto - SME/RJ
+          </p>
+          <p className="text-xs text-muted-foreground/40">
+            📞 (21) 99497-4132 • 📧 wilsonmp2@gmail.com
+          </p>
+        </div>
       </div>
     </div>
   );

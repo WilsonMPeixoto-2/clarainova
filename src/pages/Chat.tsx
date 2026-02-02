@@ -438,7 +438,10 @@ export default function Chat() {
               CLARA pode cometer erros. Verifique informações importantes.
             </p>
             <p className="text-xs text-center text-muted-foreground/50 mt-1">
-              Desenvolvido por Wilson M. Peixoto • Inovação para a Gestão Pública
+              Desenvolvido por Wilson M. Peixoto - SME/RJ • Inovação para a Gestão Pública
+            </p>
+            <p className="text-xs text-center text-muted-foreground/40">
+              📞 (21) 99497-4132 • 📧 wilsonmp2@gmail.com
             </p>
           </div>
         </motion.footer>
