@@ -616,8 +616,10 @@ serve(async (req) => {
   const lastPart = pathParts[pathParts.length - 1];
 
   try {
-    // Rate limiting for POST/DELETE
-    if (req.method === "POST" || req.method === "DELETE") {
+    // Rate limiting for POST/DELETE - exclude worker endpoints from rate limiting
+    const isWorkerEndpoint = lastPart === "process-job" || lastPart === "ingest-batch";
+    
+    if ((req.method === "POST" || req.method === "DELETE") && !isWorkerEndpoint) {
       const clientKey = getClientKey(req);
       const { data: rateLimitResult, error: rateLimitError } = await supabase.rpc(
         "check_rate_limit",
