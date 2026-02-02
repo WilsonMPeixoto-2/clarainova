@@ -6,7 +6,7 @@ import { encodeBase64 } from "https://deno.land/std@0.224.0/encoding/base64.ts";
 // @ts-ignore - mammoth for DOCX parsing
 import mammoth from "https://esm.sh/mammoth@1.6.0";
 // @ts-ignore - pdfjs-serverless for deterministic PDF extraction
-import { getDocument } from "https://esm.sh/pdfjs-serverless@0.6.0";
+import { getDocument } from "https://esm.sh/pdfjs-serverless@1.1.0";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
