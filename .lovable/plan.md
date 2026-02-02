@@ -130,8 +130,8 @@ A base atual tem apenas 2 documentos:
 - [x] Política de Privacidade
 
 ### Pendentes ⚠️
-- [ ] Corrigir página 404 para português
-- [ ] Popular base de conhecimento com mais documentos
+- [x] Corrigir página 404 para português ✅ CONCLUÍDO
+- [ ] Popular base de conhecimento com mais documentos (ação do admin)
 - [ ] Testar em build de produção (verificar erro useState)
 
 ---
