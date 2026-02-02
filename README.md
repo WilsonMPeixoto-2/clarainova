@@ -33,5 +33,4 @@ Assistente de IA especializada em sistemas eletrônicos de informação (SEI) e 
 **Desenvolvido por Wilson M. Peixoto** - SECRETARIA MUNICIPAL DE EDUCAÇÃO - SME/RJ  
 *Inovação para a Gestão Pública*
 
-📞 (21) 99497-4132  
-📧 wilsonmp2@gmail.com
+📞 (21) 99497-4132 • 📧 wilsonmp2@gmail.com • [LinkedIn](https://www.linkedin.com/in/wilsonmalafaia/)
