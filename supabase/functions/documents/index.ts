@@ -1371,6 +1371,192 @@ serve(async (req) => {
     }
 
     // =============================================
+    // POST /documents/hybrid-ocr - Process hybrid documents (text + scanned pages)
+    // Receives: pdfDataUrl, pagesNeedingOcr[], existingText, documentId?
+    // =============================================
+    if (req.method === "POST" && lastPart === "hybrid-ocr") {
+      if (!validateAdminKey(req)) {
+        return createDebugResponse(false, 401, { error: "Não autorizado" }, debug, startTime);
+      }
+
+      if (!LOVABLE_API_KEY) {
+        return createDebugResponse(false, 500, { 
+          error: "LOVABLE_API_KEY não configurada para OCR" 
+        }, debug, startTime);
+      }
+
+      const body = await req.json();
+      const { 
+        pageImages,           // Array of { pageIndex: number, dataUrl: string } for OCR pages
+        existingPages,        // Array of { pageIndex: number, text: string } from PDF.js
+        title,
+        category,
+        filePath,
+        metadata 
+      } = body;
+
+      if (!pageImages && !existingPages) {
+        return createDebugResponse(false, 400, { 
+          error: "Pelo menos pageImages ou existingPages é obrigatório" 
+        }, debug, startTime);
+      }
+
+      const ocrPages = pageImages || [];
+      const textPages = existingPages || [];
+      const totalPages = metadata?.totalPages || (ocrPages.length + textPages.length);
+
+      console.log(`[${requestId}] HYBRID-OCR: ${textPages.length} text pages + ${ocrPages.length} OCR pages = ${totalPages} total`);
+
+      // Step 1: OCR the pages that need it
+      const ocrResults: Array<{ pageIndex: number; text: string }> = [];
+      const ocrStart = Date.now();
+
+      for (const { pageIndex, dataUrl } of ocrPages) {
+        const pageStart = Date.now();
+        try {
+          const response = await withTimeout(
+            fetch(LOVABLE_AI_URL, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${LOVABLE_API_KEY}`,
+              },
+              body: JSON.stringify({
+                model: "google/gemini-3-flash-preview",
+                messages: [{
+                  role: "user",
+                  content: [
+                    { type: "image_url", image_url: { url: dataUrl } },
+                    { 
+                      type: "text", 
+                      text: `Extraia TODO o texto desta página mantendo a estrutura.
+Regras:
+- Preserve títulos, parágrafos, tabelas e listas
+- Não resuma e não omita conteúdo
+- Mantenha números/valores/códigos exatamente como no original
+Responda APENAS com o texto extraído.` 
+                    }
+                  ]
+                }]
+              }),
+            }),
+            90000,
+            `OCR page ${pageIndex + 1}`
+          );
+
+          if (!response.ok) {
+            console.error(`[${requestId}] OCR failed for page ${pageIndex + 1}: HTTP ${response.status}`);
+            ocrResults.push({ pageIndex, text: `[Erro OCR página ${pageIndex + 1}]` });
+            continue;
+          }
+
+          const data = await response.json();
+          const text = data.choices?.[0]?.message?.content || "";
+          ocrResults.push({ pageIndex, text });
+          console.log(`[${requestId}] ✓ OCR page ${pageIndex + 1}: ${text.length} chars in ${Date.now() - pageStart}ms`);
+        } catch (ocrError) {
+          console.error(`[${requestId}] OCR error page ${pageIndex + 1}:`, ocrError);
+          ocrResults.push({ pageIndex, text: `[Erro OCR página ${pageIndex + 1}]` });
+        }
+
+        // Rate limit between OCR calls
+        if (ocrPages.indexOf({ pageIndex, dataUrl }) < ocrPages.length - 1) {
+          await new Promise(resolve => setTimeout(resolve, 200));
+        }
+      }
+
+      debug.timings.extract_ms = Date.now() - ocrStart;
+      debug.steps_completed.push("hybrid_ocr");
+
+      // Step 2: Merge text pages and OCR pages
+      const allPages: Array<{ pageIndex: number; text: string; source: 'pdfjs' | 'ocr' }> = [
+        ...textPages.map((p: { pageIndex: number; text: string }) => ({ ...p, source: 'pdfjs' as const })),
+        ...ocrResults.map(p => ({ ...p, source: 'ocr' as const }))
+      ];
+
+      // Sort by page index
+      allPages.sort((a, b) => a.pageIndex - b.pageIndex);
+
+      // Combine into full text
+      const fullText = allPages
+        .map(({ pageIndex, text, source }) => 
+          `--- Página ${pageIndex + 1} (${source === 'ocr' ? 'OCR' : 'texto'}) ---\n\n${text}`
+        )
+        .join('\n\n');
+
+      const charCount = fullText.length;
+      const mbSize = (new TextEncoder().encode(fullText).length / (1024 * 1024)).toFixed(2);
+
+      console.log(`[${requestId}] Hybrid merge complete: ${charCount} chars (~${mbSize}MB), ${allPages.length} pages`);
+
+      // Step 3: Create document and process
+      const extractionMetadata: Record<string, any> = {
+        method: 'hybrid_ocr',
+        pdfjs_pages: textPages.length,
+        ocr_pages: ocrResults.length,
+        total_pages: totalPages,
+        original_filename: metadata?.originalFilename || null,
+        extracted_at: new Date().toISOString(),
+        original_chars: charCount,
+      };
+
+      const { data: document, error: docError } = await supabase
+        .from("documents")
+        .insert({
+          title: title || metadata?.originalFilename || "Documento sem título",
+          category: category || "manual",
+          file_path: filePath || null,
+          content_text: fullText,
+          status: "processing",
+          extraction_metadata: extractionMetadata
+        })
+        .select()
+        .single();
+
+      if (docError) throw docError;
+
+      debug.steps_completed.push("db_insert");
+      console.log(`[${requestId}] ✓ db_insert: Document ${document.id}`);
+
+      // Process chunks and embeddings
+      const { chunksCount, warning } = await processChunksAndEmbeddings(
+        supabase, document.id, fullText, GEMINI_API_KEY, requestId, debug
+      );
+
+      // Determine final status
+      const finalStatus = warning?.includes("Embeddings") ? "chunks_ok_embed_pending" : "ready";
+
+      // Update document status
+      await supabase
+        .from("documents")
+        .update({ 
+          status: finalStatus,
+          extraction_metadata: {
+            ...extractionMetadata,
+            chunks_count: chunksCount,
+            processing_completed_at: new Date().toISOString(),
+          }
+        })
+        .eq("id", document.id);
+
+      return createDebugResponse(true, 200, {
+        status: finalStatus,
+        warning,
+        document: { 
+          id: document.id, 
+          title: document.title, 
+          chunk_count: chunksCount 
+        },
+        metrics: { 
+          charCount, 
+          mbSize: parseFloat(mbSize),
+          pdfjsPages: textPages.length,
+          ocrPages: ocrResults.length
+        }
+      }, debug, startTime);
+    }
+
+    // =============================================
     // POST /documents/process - Process existing document (PHASE 2)
     // =============================================
     if (req.method === "POST" && lastPart === "process") {
