@@ -319,6 +319,7 @@ export type Database = {
           created_at: string
           effective_date: string | null
           error_reason: string | null
+          extraction_metadata: Json | null
           file_path: string | null
           id: string
           processed_at: string | null
@@ -339,6 +340,7 @@ export type Database = {
           created_at?: string
           effective_date?: string | null
           error_reason?: string | null
+          extraction_metadata?: Json | null
           file_path?: string | null
           id?: string
           processed_at?: string | null
@@ -359,6 +361,7 @@ export type Database = {
           created_at?: string
           effective_date?: string | null
           error_reason?: string | null
+          extraction_metadata?: Json | null
           file_path?: string | null
           id?: string
           processed_at?: string | null

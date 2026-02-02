@@ -17,6 +17,8 @@ import { FeedbackTab } from '@/components/admin/FeedbackTab';
 import { DocumentEditorModal } from '@/components/admin/DocumentEditorModal';
 import { DocumentFilters } from '@/components/admin/DocumentFilters';
 import { extractPdfTextClient, extractTxtContent, isPdfFile, isTxtFile, isDocxFile, splitTextIntoBatches, calculatePayloadMetrics } from '@/utils/extractPdfText';
+import { validateTextQuality, type TextQualityResult } from '@/utils/textQualityValidator';
+import { TextQualityDialog } from '@/components/admin/TextQualityDialog';
 import { loadPdfDocument, renderPagesAsImages, getPageBatches, type PageImage } from '@/utils/renderPdfPages';
 import {
   AlertDialog,
@@ -143,6 +145,12 @@ const Admin = () => {
   const [showOcrDialog, setShowOcrDialog] = useState(false);
   const [ocrFile, setOcrFile] = useState<File | null>(null);
   const [ocrProcessing, setOcrProcessing] = useState(false);
+  
+  // Text Quality Dialog state
+  const [showQualityDialog, setShowQualityDialog] = useState(false);
+  const [qualityResult, setQualityResult] = useState<TextQualityResult | null>(null);
+  const [qualityFile, setQualityFile] = useState<File | null>(null);
+  const [qualityExtractionResult, setQualityExtractionResult] = useState<{ fullText: string; metadata: any } | null>(null);
   
   // Track documents being processed
   const [processingDocs, setProcessingDocs] = useState<Set<string>>(new Set());
@@ -626,6 +634,39 @@ const Admin = () => {
               // PDF is scanned/image-based, show OCR dialog
               setOcrFile(file);
               setShowOcrDialog(true);
+              setIsUploading(false);
+              setUploadProgress(0);
+              setExtractionPhase('idle');
+              setPayloadMetrics(null);
+              return; // Stop here, wait for user decision
+            }
+            
+            // NEW: Validate text quality to detect gibberish/encoding issues
+            const qualityValidation = validateTextQuality(result.fullText, {
+              expectedLanguage: 'pt-BR',
+              minConfidence: 0.6
+            });
+            
+            debugLog(`[Admin] Quality validation:`, {
+              isValid: qualityValidation.isValid,
+              confidence: qualityValidation.confidence,
+              recommendation: qualityValidation.recommendation,
+              issues: qualityValidation.issues
+            });
+            
+            if (!qualityValidation.isValid) {
+              // Text quality is poor - show quality dialog
+              const extractionMetadata = {
+                originalFilename: file.name,
+                totalPages: result.totalPages,
+                extractedAt: new Date().toISOString(),
+                extractionMethod: 'pdfjs-client'
+              };
+              
+              setQualityResult(qualityValidation);
+              setQualityFile(file);
+              setQualityExtractionResult({ fullText: result.fullText, metadata: extractionMetadata });
+              setShowQualityDialog(true);
               setIsUploading(false);
               setUploadProgress(0);
               setExtractionPhase('idle');
@@ -1177,6 +1218,275 @@ const Admin = () => {
 
     } catch (error: any) {
       console.error('[Admin] OCR processing error:', error);
+      toast({
+        title: 'Erro no OCR',
+        description: error.message || 'Erro desconhecido',
+        variant: 'destructive',
+      });
+    } finally {
+      setOcrFile(null);
+      setOcrProcessing(false);
+      setIsUploading(false);
+      setUploadProgress(0);
+      setExtractionPhase('idle');
+      setPayloadMetrics(null);
+    }
+  };
+
+  // Handle user choosing to proceed with extracted text despite quality warnings
+  const handleUseExtractedText = async () => {
+    if (!qualityFile || !qualityExtractionResult) return;
+    
+    const key = getAdminKey();
+    if (!key) {
+      handleAuthExpired();
+      return;
+    }
+
+    setShowQualityDialog(false);
+    setIsUploading(true);
+    setExtractionPhase('uploading');
+    setUploadProgress(50);
+
+    try {
+      const file = qualityFile;
+      const { fullText, metadata } = qualityExtractionResult;
+
+      // Upload file to storage
+      const signedUrlResponse = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/admin_get_upload_url`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-admin-key': key,
+            apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          },
+          body: JSON.stringify({ 
+            filename: file.name, 
+            contentType: file.type || 'application/pdf' 
+          }),
+        }
+      );
+
+      if (!signedUrlResponse.ok) {
+        throw new Error('Falha ao obter URL de upload');
+      }
+
+      const signedUrlData = await signedUrlResponse.json();
+      await uploadFileWithRetry(file, signedUrlData.signedUrl);
+      setUploadProgress(70);
+
+      // Send to backend with quality metadata
+      setExtractionPhase('processing');
+      
+      const enrichedMetadata = {
+        ...metadata,
+        qualityScore: qualityResult?.confidence,
+        qualityIssues: qualityResult?.issues,
+        userOverride: true // User chose to use text despite warnings
+      };
+      
+      const ingestResponse = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/documents/ingest-text`,
+        {
+          method: 'POST',
+          headers: {
+            'x-admin-key': key,
+            'Content-Type': 'application/json',
+            apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          },
+          body: JSON.stringify({
+            title: file.name.replace(/\.[^/.]+$/, ''),
+            category: 'manual',
+            fullText,
+            filePath: signedUrlData.path,
+            metadata: enrichedMetadata
+          }),
+        }
+      );
+
+      setUploadProgress(95);
+
+      if (!ingestResponse.ok) {
+        const errorData = await ingestResponse.json().catch(() => ({ error: 'Falha ao processar' }));
+        throw new Error(errorData.error || 'Falha ao processar documento');
+      }
+
+      const ingestResult = await ingestResponse.json();
+      
+      toast({
+        title: 'Upload concluído',
+        description: `"${file.name}" processado (texto pode conter erros).${ingestResult?.warning ? `\n\nAviso: ${ingestResult.warning}` : ''}`,
+      });
+
+      await fetchDocuments();
+
+    } catch (error: any) {
+      console.error('[Admin] Use extracted text error:', error);
+      toast({
+        title: 'Erro ao processar',
+        description: error.message || 'Erro desconhecido',
+        variant: 'destructive',
+      });
+    } finally {
+      setQualityFile(null);
+      setQualityResult(null);
+      setQualityExtractionResult(null);
+      setIsUploading(false);
+      setUploadProgress(0);
+      setExtractionPhase('idle');
+      setPayloadMetrics(null);
+    }
+  };
+
+  // Handle user choosing OCR for quality issues
+  const handleQualityOcr = async () => {
+    if (!qualityFile) return;
+    
+    // Transfer to OCR flow
+    setOcrFile(qualityFile);
+    setShowQualityDialog(false);
+    setQualityFile(null);
+    setQualityResult(null);
+    setQualityExtractionResult(null);
+    
+    // Trigger OCR
+    setShowOcrDialog(false); // Skip the dialog, go directly to processing
+    
+    const key = getAdminKey();
+    if (!key) {
+      handleAuthExpired();
+      return;
+    }
+
+    setOcrProcessing(true);
+    setIsUploading(true);
+    setExtractionPhase('extracting');
+    setUploadProgress(5);
+
+    try {
+      const file = qualityFile!;
+      
+      // Load PDF and render pages as images
+      const pdf = await loadPdfDocument(file);
+      const batches = getPageBatches(pdf.numPages, 5);
+      
+      let allExtractedText = '';
+      let processedPages = 0;
+
+      for (const batch of batches) {
+        const images = await renderPagesAsImages(pdf, batch.start, batch.end, (progress) => {
+          const overallProgress = ((processedPages + (progress / 100) * (batch.end - batch.start + 1)) / pdf.numPages) * 50;
+          setUploadProgress(Math.round(5 + overallProgress));
+        });
+
+        const pageImages = images.map(img => ({ pageNum: img.pageNum, dataUrl: img.dataUrl }));
+        
+        const ocrResponse = await fetch(
+          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/documents/ocr-batch`,
+          {
+            method: 'POST',
+            headers: {
+              'x-admin-key': key,
+              'Content-Type': 'application/json',
+              apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+              Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+            },
+            body: JSON.stringify({ pageImages }),
+          }
+        );
+
+        if (!ocrResponse.ok) {
+          const errorData = await ocrResponse.json().catch(() => ({ error: 'Falha no OCR' }));
+          throw new Error(errorData.error || 'Falha no OCR');
+        }
+
+        const ocrResult = await ocrResponse.json();
+        allExtractedText += (allExtractedText ? '\n\n' : '') + ocrResult.extractedText;
+        processedPages += batch.end - batch.start + 1;
+
+        const overallProgress = 5 + (processedPages / pdf.numPages) * 50;
+        setUploadProgress(Math.round(overallProgress));
+      }
+
+      // Upload original file
+      setExtractionPhase('uploading');
+      setUploadProgress(60);
+
+      const signedUrlResponse = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/admin_get_upload_url`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-admin-key': key,
+            apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          },
+          body: JSON.stringify({ 
+            filename: file.name, 
+            contentType: file.type || 'application/pdf' 
+          }),
+        }
+      );
+
+      if (!signedUrlResponse.ok) {
+        throw new Error('Falha ao obter URL de upload');
+      }
+
+      const signedUrlData = await signedUrlResponse.json();
+      await uploadFileWithRetry(file, signedUrlData.signedUrl);
+      setUploadProgress(75);
+
+      // Send OCR'd text to backend
+      setExtractionPhase('processing');
+      
+      const ingestResponse = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/documents/ingest-text`,
+        {
+          method: 'POST',
+          headers: {
+            'x-admin-key': key,
+            'Content-Type': 'application/json',
+            apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          },
+          body: JSON.stringify({
+            title: file.name.replace(/\.[^/.]+$/, ''),
+            category: 'manual',
+            fullText: allExtractedText,
+            filePath: signedUrlData.path,
+            metadata: {
+              originalFilename: file.name,
+              totalPages: pdf.numPages,
+              extractedAt: new Date().toISOString(),
+              extractionMethod: 'ocr-quality-fallback',
+              originalQualityScore: qualityResult?.confidence,
+              originalQualityIssues: qualityResult?.issues
+            }
+          }),
+        }
+      );
+
+      if (!ingestResponse.ok) {
+        const errorData = await ingestResponse.json().catch(() => ({ error: 'Falha ao processar' }));
+        throw new Error(errorData.error || 'Falha ao processar documento');
+      }
+
+      const ingestResult = await ingestResponse.json();
+      
+      toast({
+        title: 'OCR concluído',
+        description: `"${file.name}" processado com OCR (fallback de qualidade).${ingestResult?.warning ? `\n\nAviso: ${ingestResult.warning}` : ''}`,
+      });
+
+      await fetchDocuments();
+
+    } catch (error: any) {
+      console.error('[Admin] Quality OCR error:', error);
       toast({
         title: 'Erro no OCR',
         description: error.message || 'Erro desconhecido',
@@ -1826,6 +2136,30 @@ const Admin = () => {
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
+
+        {/* Text Quality Dialog */}
+        <TextQualityDialog
+          open={showQualityDialog}
+          onOpenChange={(open) => {
+            if (!open && !ocrProcessing) {
+              setShowQualityDialog(false);
+              setQualityFile(null);
+              setQualityResult(null);
+              setQualityExtractionResult(null);
+            }
+          }}
+          qualityResult={qualityResult}
+          fileName={qualityFile?.name || ''}
+          onUseText={handleUseExtractedText}
+          onUseOcr={handleQualityOcr}
+          onCancel={() => {
+            setShowQualityDialog(false);
+            setQualityFile(null);
+            setQualityResult(null);
+            setQualityExtractionResult(null);
+          }}
+          isProcessing={ocrProcessing}
+        />
 
         {/* Document Editor Modal */}
         <DocumentEditorModal
