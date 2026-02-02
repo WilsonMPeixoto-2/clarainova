@@ -20,8 +20,10 @@ const NotFound = () => {
           <p className="text-xs text-muted-foreground/50">
             Desenvolvido por Wilson M. Peixoto - SME/RJ
           </p>
-          <p className="text-xs text-muted-foreground/40">
-            📞 (21) 99497-4132 • 📧 wilsonmp2@gmail.com
+          <p className="text-xs text-muted-foreground/40 flex flex-wrap items-center justify-center gap-2">
+            <span>📞 (21) 99497-4132</span>
+            <span>📧 wilsonmp2@gmail.com</span>
+            <a href="https://www.linkedin.com/in/wilsonmalafaia/" target="_blank" rel="noopener noreferrer" className="hover:text-primary transition-colors">🔗 LinkedIn</a>
           </p>
         </div>
       </div>

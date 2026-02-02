@@ -146,9 +146,10 @@ const Login = () => {
           <p className="text-xs text-muted-foreground/50">
             Inovação para a Gestão Pública
           </p>
-          <p className="text-xs text-muted-foreground/40 flex items-center justify-center gap-3">
+          <p className="text-xs text-muted-foreground/40 flex flex-wrap items-center justify-center gap-3">
             <span>📞 (21) 99497-4132</span>
             <span>📧 wilsonmp2@gmail.com</span>
+            <a href="https://www.linkedin.com/in/wilsonmalafaia/" target="_blank" rel="noopener noreferrer" className="hover:text-primary transition-colors">🔗 LinkedIn</a>
           </p>
         </motion.div>
       </motion.div>

@@ -17,6 +17,7 @@ const Footer = () => {
             <p className="text-xs text-muted-foreground/70 flex flex-wrap items-center gap-x-3 gap-y-1">
               <span>📞 (21) 99497-4132</span>
               <span>📧 wilsonmp2@gmail.com</span>
+              <a href="https://www.linkedin.com/in/wilsonmalafaia/" target="_blank" rel="noopener noreferrer" className="hover:text-primary transition-colors">🔗 LinkedIn</a>
             </p>
             <p className="text-caption">
               © {currentYear} CLARA. Todos os direitos reservados.
