@@ -309,7 +309,7 @@ export function ChatPanel({ open, onOpenChange, initialQuery }: ChatPanelProps) 
         <SheetContent 
           side="right" 
           className={`flex flex-col p-0 gap-0 ${
-            isMobile ? 'w-full max-w-full' : 'w-[450px] sm:max-w-[450px]'
+            isMobile ? 'w-full max-w-full' : 'w-[550px] lg:w-[600px] sm:max-w-[600px]'
           }`}
         >
           {/* Header */}

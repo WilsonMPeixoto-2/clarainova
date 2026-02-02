@@ -212,7 +212,7 @@ export default function Chat() {
           className="sticky top-0 z-50 glass-card border-b border-border/50" 
           role="banner"
         >
-          <div className="container max-w-4xl mx-auto px-4 h-16 flex items-center justify-between">
+          <div className="container max-w-5xl mx-auto px-4 h-16 flex items-center justify-between">
             <div className="flex items-center gap-4">
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -317,7 +317,7 @@ export default function Chat() {
         <main 
           ref={scrollContainerRef as React.RefObject<HTMLElement>}
           onScroll={handleScroll}
-          className="flex-1 container max-w-4xl mx-auto px-4 py-6 overflow-y-auto" 
+          className="flex-1 container max-w-5xl mx-auto px-4 py-6 overflow-y-auto" 
           role="main" 
           aria-label="Área de mensagens"
         >
@@ -427,7 +427,7 @@ export default function Chat() {
           className="sticky bottom-0 border-t border-border/50 bg-background/80 backdrop-blur-xl chat-input-footer"
           role="contentinfo"
         >
-          <div className="container max-w-4xl mx-auto px-4 py-4">
+          <div className="container max-w-5xl mx-auto px-4 py-4">
             <ChatInput
               onSend={sendMessage}
               isLoading={isLoading}
