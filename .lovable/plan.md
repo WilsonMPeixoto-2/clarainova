@@ -1,182 +1,189 @@
 
-# Plano: Créditos de Autoria e Atualização do README
+# Plano: Busca Web Focada para SEI
 
 ## Resumo
 
-Adicionar os créditos "Desenvolvido por Wilson M. Peixoto - Inovação para a Gestão Pública" em todas as páginas do site e atualizar o README removendo instruções de clonagem.
+Sua ideia está excelente! Vamos restringir a busca web a 2-3 sites específicos sobre o SEI, economizando API e acelerando respostas.
 
 ---
 
-## Alterações
+## Situação Atual
 
-### 1. Atualizar README.md
+A busca web usa query genérica muito ampla (linha 189 do web-search):
+```
+query + site:prefeitura.rio OR site:gov.br OR site:leismunicipais.com.br
+```
 
-**Remover:**
-- Instruções de clonagem (`git clone`)
-- Seção "Use your preferred IDE" 
-- Seção "Edit a file directly in GitHub"
-- Seção "Use GitHub Codespaces"
-- Placeholders genéricos (`REPLACE_WITH_PROJECT_ID`, `<YOUR_GIT_URL>`)
-
-**Adicionar:**
-- Descrição do projeto CLARA
-- Funcionalidades principais
-- Stack tecnológica
-- Créditos de autoria
-- URL de produção
-
-**Novo conteúdo:**
-```markdown
-# CLARA - Consultora de Legislação e Apoio a Rotinas Administrativas
-
-Assistente de IA especializada em sistemas eletrônicos de informação (SEI) e procedimentos administrativos para servidores públicos.
-
-## Funcionalidades
-
-- Chat com IA especializada em SEI e rotinas administrativas
-- Base de conhecimento com busca semântica híbrida
-- Citação de fontes oficiais nas respostas
-- Interface responsiva (desktop e mobile)
-- Proteção contra prompt injection
-
-## Tecnologias
-
-- **Frontend**: React 18 + TypeScript + Vite + Tailwind CSS
-- **UI**: shadcn/ui
-- **Backend**: Lovable Cloud
-- **IA**: Google Gemini 2.5 Pro
-- **Busca**: pgvector + embeddings 768d
-
-## Acesso
-
-**Produção**: https://clarainova.lovable.app
-
-## Documentação
-
-- `DOCUMENTATION.md` - Visão geral do sistema
-- `DESIGN_SYSTEM.md` - Guia de design e componentes
-- `CHANGELOG.md` - Histórico de versões
+O domínio `gov.br` é enorme, causando:
+- Buscas lentas (muitos resultados para filtrar)
+- Consumo alto de API
+- Resultados menos precisos sobre SEI
 
 ---
 
-**Desenvolvido por Wilson M. Peixoto**  
-*Inovação para a Gestão Pública*
+## Solução Proposta
+
+### 1. Adicionar Domínios SEI ao Banco
+
+Inserir na tabela `trusted_domains` (já existente):
+
+| Domínio | Categoria | Prioridade | Descrição |
+|---------|-----------|------------|-----------|
+| manuais.processoeletronico.gov.br | primary | 98 | Manual oficial SEI 4.0+ (PEN) |
+| processoeletronico.gov.br | primary | 96 | Portal federal PEN/SEI |
+| wiki.processoeletronico.gov.br | official_mirror | 94 | Wiki colaborativa SEI |
+| portalsei.rs.gov.br | official_mirror | 90 | Portal SEI Rio Grande do Sul |
+
+### 2. Detecção Automática de Contexto SEI
+
+Nova constante com padrões que indicam perguntas sobre SEI:
+
+```text
+Padrões SEI detectados:
+- "SEI", "processo eletrônico", "PEN"
+- "tramitar", "bloco assinatura", "dar ciência"
+- "número SEI", "NUP", "protocolo eletrônico"
+- "despacho", "minutar", "assinar documento"
+- "unidade geradora", "sobrestamento"
+```
+
+### 3. Modificar a Busca Web
+
+Alterar a função `searchWithFirecrawl()` para:
+- Aceitar parâmetro opcional `domains?: string[]`
+- Quando contexto SEI: usar apenas domínios SEI
+- Quando contexto geral: manter comportamento atual
+
+**Antes:**
+```
+query + site:prefeitura.rio OR site:gov.br OR site:leismunicipais.com.br
+```
+
+**Depois (contexto SEI):**
+```
+query + site:manuais.processoeletronico.gov.br OR site:processoeletronico.gov.br OR site:wiki.processoeletronico.gov.br
 ```
 
 ---
 
-### 2. Atualizar Footer.tsx (usado em Index, Privacidade, Termos)
+## Fluxo de Decisão
 
-**Adicionar antes do copyright:**
-```tsx
-<p className="text-sm text-muted-foreground">
-  Desenvolvido por <span className="text-foreground font-medium">Wilson M. Peixoto</span>
-</p>
-<p className="text-xs text-muted-foreground/80">
-  Inovação para a Gestão Pública
-</p>
-```
-
-**Páginas afetadas automaticamente:**
-- `/` (Index)
-- `/privacidade` (React)
-- `/termos` (React)
-
----
-
-### 3. Atualizar Login.tsx
-
-**Adicionar créditos no rodapé da página de login:**
-```tsx
-<motion.div variants={itemVariants} className="mt-12 text-center">
-  <p className="text-sm text-muted-foreground/60">
-    Desenvolvido por <span className="text-muted-foreground">Wilson M. Peixoto</span>
-  </p>
-  <p className="text-xs text-muted-foreground/50">
-    Inovação para a Gestão Pública
-  </p>
-</motion.div>
+```text
+Pergunta do usuario
+        |
+        v
++------------------------+
+| Detecta contexto SEI?  |
+| (padroes reconhecidos) |
++------------------------+
+        |
+   SIM  |   NAO
+        v        v
++---------------+  +------------------+
+| Busca FOCADA  |  | Busca AMPLA      |
+| 3 dominios    |  | (comportamento   |
+| SEI oficiais  |  |  atual)          |
++---------------+  +------------------+
+        |                   |
+        v                   v
+   Resposta rapida    Resposta normal
+   (1-2 segundos)     (3-5 segundos)
 ```
 
 ---
 
-### 4. Atualizar Chat.tsx (página dedicada)
+## Arquivos a Modificar
 
-**Adicionar após o disclaimer no footer:**
-```tsx
-<p className="text-xs text-center text-muted-foreground/50 mt-1">
-  Desenvolvido por Wilson M. Peixoto • Inovação para a Gestão Pública
-</p>
-```
+### 1. Migration SQL
+Inserir 4 novos domínios SEI na tabela `trusted_domains`
 
----
+### 2. `supabase/functions/web-search/index.ts`
 
-### 5. Atualizar páginas HTML estáticas
-
-**5.1. public/privacidade.html**
-
-Adicionar antes de `</div>` final:
-```html
-<div class="author-credit">
-  <p>Desenvolvido por <strong>Wilson M. Peixoto</strong></p>
-  <p>Inovação para a Gestão Pública</p>
-</div>
-```
-
-**5.2. public/termos.html**
-
-Adicionar mesmo crédito.
-
-**5.3. public/sobre.html**
-
-Adicionar na seção de contato e no footer.
+Adicionar:
+- Constante `SEI_PATTERNS` com regex de detecção
+- Constante `SEI_DOMAINS` com lista de domínios focados
+- Função `detectSEIContext(query)` que retorna `true` se query é sobre SEI
+- Modificar `searchWithFirecrawl()` para aceitar domínios customizados
+- Modificar `performWebSearch()` para aplicar lógica de contexto
 
 ---
 
-### 6. Atualizar NotFound.tsx
+## Benefícios Esperados
 
-**Adicionar créditos discretos:**
-```tsx
-<p className="text-xs text-muted-foreground/50 mt-8">
-  Desenvolvido por Wilson M. Peixoto
-</p>
-```
-
----
-
-### 7. Atualizar .gitignore
-
-**Adicionar exclusão de .env:**
-```
-# Environment variables
-.env
-.env.local
-.env.*.local
-```
+| Metrica | Antes | Depois |
+|---------|-------|--------|
+| Latencia busca SEI | 3-5s | 1-2s |
+| Chamadas API/mes | Alta | -50% |
+| Precisao respostas SEI | Media | Alta |
 
 ---
 
-## Resumo de Arquivos a Modificar
+## PDFs do Manual SEI
 
-| Arquivo | Alteração |
-|---------|-----------|
-| `README.md` | Substituir conteúdo completo |
-| `src/components/Footer.tsx` | Adicionar créditos de autoria |
-| `src/pages/Login.tsx` | Adicionar créditos no rodapé |
-| `src/pages/Chat.tsx` | Adicionar créditos no footer |
-| `src/pages/NotFound.tsx` | Adicionar créditos |
-| `public/privacidade.html` | Adicionar créditos + estilo CSS |
-| `public/termos.html` | Adicionar créditos + estilo CSS |
-| `public/sobre.html` | Adicionar créditos + estilo CSS |
-| `.gitignore` | Adicionar exclusão de .env |
+Os PDFs que você compartilhou (PF e RS) estão bloqueados para scraping, mas podem ser adicionados manualmente:
+
+1. **Baixe os PDFs** no navegador:
+   - Manual SEI PF: gov.br/pf/.../manual_do_usuario_sei.pdf
+   - Manual SEI RS: portalsei.rs.gov.br/.../manual-sei-v2.pdf
+
+2. **Faça upload via Admin** (/admin → Base de Conhecimento)
+
+3. **O sistema ira:**
+   - Extrair texto automaticamente
+   - Dividir em chunks semanticos
+   - Gerar embeddings para busca
 
 ---
 
-## Resultado Visual Esperado
+## Secao Tecnica
 
-Em cada página, os usuários verão no rodapé:
+### Constantes a adicionar:
 
-> **Desenvolvido por Wilson M. Peixoto**  
-> *Inovação para a Gestão Pública*
+```typescript
+// Padroes que indicam contexto SEI
+const SEI_PATTERNS = [
+  /\bSEI\b/i,
+  /processo eletr[oô]nico/i,
+  /\bPEN\b/,
+  /tramitar|tramita[çc][aã]o/i,
+  /bloco.*assinatura|assinatura.*bloco/i,
+  /dar ci[eê]ncia|ciencia/i,
+  /\bNUP\b/i,
+  /minutar|minuta/i,
+  /sobrestamento|sobrestar/i,
+  /unidade geradora/i,
+];
 
-Isso garante que sua autoria fique claramente identificada em todo o projeto.
+// Dominios focados para busca SEI
+const SEI_DOMAINS = [
+  "manuais.processoeletronico.gov.br",
+  "processoeletronico.gov.br", 
+  "wiki.processoeletronico.gov.br",
+];
+```
+
+### Funcao de deteccao:
+
+```typescript
+function detectSEIContext(query: string): boolean {
+  return SEI_PATTERNS.some((p) => p.test(query));
+}
+```
+
+### Modificacao na busca Firecrawl:
+
+```typescript
+async function searchWithFirecrawl(
+  query: string,
+  limit: number,
+  domains?: string[]  // NOVO parametro opcional
+): Promise<...> {
+  // Construir query com dominios especificos
+  const siteFilter = domains 
+    ? domains.map(d => `site:${d}`).join(" OR ")
+    : "site:prefeitura.rio OR site:gov.br OR site:leismunicipais.com.br";
+    
+  const searchQuery = `${query} ${siteFilter}`;
+  // ... resto da funcao
+}
+```
