@@ -1,69 +1,71 @@
-# Plano: Governança, Segurança e Operação Premium — CLARA v2.2.0
 
-## Status das Etapas
+# Plano: Corrigir Edge Function `documents` (Boot Failure)
 
-| Etapa | Status | Observações |
-|-------|--------|-------------|
-| 1. PWA / Identidade Visual | ✅ Concluído | theme_color → #F59E0B |
-| 2. Guardrails Anti Prompt-Injection | ✅ Concluído | 25+ patterns, testes incluídos |
-| 3. Rotação ADMIN_KEY | ✅ Concluído | ADMIN_KEYS suportado em 13 endpoints |
-| 4. Alerta Fallback Rate | ✅ Concluído | RPC criada, dashboard já exibe |
-| 5. UI Admin Tags + Versionamento | ✅ Concluído | Componentes integrados no Admin.tsx |
+## Problema Identificado
 
----
+A Edge Function `documents` está falhando ao iniciar com o seguinte erro:
 
-## Arquivos Modificados
+```
+worker boot error: Uncaught SyntaxError: The requested module 
+'https://esm.sh/pdfjs-serverless@0.6.0' does not provide an export named 'getDocument'
+```
 
-### Etapa 1
-- `public/manifest.json` — theme_color: #F59E0B
-- `index.html` — meta theme-color: #F59E0B
-
-### Etapa 2
-- `supabase/functions/clara-chat/guardrails.ts` — Novo módulo
-- `supabase/functions/clara-chat/guardrails_test.ts` — Testes
-- `supabase/functions/clara-chat/index.ts` — Integração guardrails
-
-### Etapa 3
-- `supabase/functions/admin-auth/index.ts` — parseAdminKeys()
-- `supabase/functions/documents/index.ts` — validateAdminKey() em 13 pontos
-
-### Etapa 4
-- Nova RPC `get_fallback_rate(p_days)` no banco
-
-### Etapa 5
-- `src/components/admin/DocumentEditorModal.tsx` — Modal de edição de metadados
-- `src/components/admin/DocumentFilters.tsx` — Filtros com debounce
-- `src/pages/Admin.tsx` — Integração completa dos componentes
+A versão `0.6.0` do `pdfjs-serverless` exporta apenas `resolvePDFJS`, não `getDocument`. A versão `1.1.0` corrige isso.
 
 ---
 
-## Funcionalidades da Etapa 5
+## Solução
 
-### DocumentEditorModal
-- Edição de tags (chips adicionáveis/removíveis)
-- Campo version_label
-- Seletor de effective_date (calendário)
-- Seletor de supersedes_document_id (dropdown de documentos)
-- Exibição de "Substituído por" (lookup reverso)
+Atualizar a versão do `pdfjs-serverless` de `0.6.0` para `1.1.0` em dois arquivos:
 
-### DocumentFilters
-- Busca por título com debounce (300ms)
-- Filtro multi-select por tags
-- Limpar filtros quando sem resultados
+### Arquivo 1: `supabase/functions/import_map.json`
 
-### Lista de Documentos
-- Exibição de tags em cada documento
-- Exibição de version_label
-- Exibição de "Substitui: [doc]" quando aplicável
-- Botão de edição (ícone Settings2)
+Alterar linha 8:
+```json
+// DE:
+"pdfjs-serverless": "https://esm.sh/pdfjs-serverless@0.6.0"
+
+// PARA:
+"pdfjs-serverless": "https://esm.sh/pdfjs-serverless@1.1.0"
+```
+
+### Arquivo 2: `supabase/functions/documents/index.ts`
+
+Alterar linha 9:
+```typescript
+// DE:
+import { getDocument } from "https://esm.sh/pdfjs-serverless@0.6.0";
+
+// PARA:
+import { getDocument } from "https://esm.sh/pdfjs-serverless@1.1.0";
+```
 
 ---
 
-## Critérios de Aceite (Etapa 5)
+## Critérios de Aceite
 
-- [x] Adicionar tag e salvar => reflete no banco
-- [x] Filtrar por tag => resultados corretos
-- [x] Busca por título funciona com debounce
-- [x] Marcar substituição => relaciona docs corretamente
-- [x] Modal abre com dados do documento selecionado
-- [x] Cadeia de substituição visível na lista
+1. Edge Function `documents` inicia sem erro de boot
+2. Logs não mostram mais `does not provide an export named 'getDocument'`
+3. Upload de documentos no Admin funciona (após resolver ADMIN_KEY)
+4. Listagem de documentos (GET /documents) retorna dados
+
+---
+
+## Como Testar
+
+1. Após o deploy, verificar logs da função `documents`
+2. Acessar Admin > Documentos - deve carregar a lista
+3. Testar upload de um PDF pequeno
+
+---
+
+## Risco
+
+- **Baixo**: Apenas atualização de versão de dependência
+- **Rollback**: Reverter para versão anterior se houver breaking changes na API (improvável, mesma função `getDocument`)
+
+---
+
+## Nota sobre ADMIN_KEY
+
+O erro 401 "Chave de administrador inválida" é separado e requer verificação do secret `ADMIN_KEY` nas configurações do projeto. Após aprovar este plano, posso ajudar a configurar a chave correta.
