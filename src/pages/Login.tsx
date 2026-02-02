@@ -137,6 +137,16 @@ const Login = () => {
         >
           Faça login para salvar seu histórico de conversas e acessar de qualquer dispositivo
         </motion.p>
+
+        {/* Author credit */}
+        <motion.div variants={itemVariants} className="mt-12 text-center">
+          <p className="text-sm text-muted-foreground/60">
+            Desenvolvido por <span className="text-muted-foreground">Wilson M. Peixoto</span>
+          </p>
+          <p className="text-xs text-muted-foreground/50">
+            Inovação para a Gestão Pública
+          </p>
+        </motion.div>
       </motion.div>
     </div>
   );

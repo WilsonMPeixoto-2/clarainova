@@ -8,6 +8,12 @@ const Footer = () => {
           {/* Logo & Copyright */}
           <div className="flex flex-col items-center md:items-start gap-3">
             <span className="text-xl font-bold text-foreground tracking-tight">CLARA</span>
+            <p className="text-sm text-muted-foreground">
+              Desenvolvido por <span className="text-foreground font-medium">Wilson M. Peixoto</span>
+            </p>
+            <p className="text-xs text-muted-foreground/80">
+              Inovação para a Gestão Pública
+            </p>
             <p className="text-caption">
               © {currentYear} CLARA. Todos os direitos reservados.
             </p>
