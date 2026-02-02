@@ -528,6 +528,15 @@ async function processChunksAndEmbeddings(
     }
   }
   
+  // Fetch current version for atomic increment
+  const { data: currentDoc } = await supabase
+    .from("documents")
+    .select("version")
+    .eq("id", documentId)
+    .single();
+
+  const nextVersion = (currentDoc?.version || 0) + 1;
+
   // Update document metadata
   await supabase
     .from("documents")
@@ -535,7 +544,7 @@ async function processChunksAndEmbeddings(
       content_hash: contentHash,
       chunk_count: chunks.length,
       processed_at: new Date().toISOString(),
-      version: supabase.sql`COALESCE(version, 0) + 1`
+      version: nextVersion
     })
     .eq("id", documentId);
   
