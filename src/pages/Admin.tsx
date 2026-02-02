@@ -90,6 +90,8 @@ function getStatusBadge(status?: string, errorReason?: string | null) {
   switch (status) {
     case 'uploaded':
       return { variant: 'secondary' as const, label: 'Aguardando', className: 'bg-yellow-500/20 text-yellow-400' };
+    case 'ingesting':
+      return { variant: 'secondary' as const, label: 'Ingerindo...', className: 'bg-blue-500/20 text-blue-400' };
     case 'processing':
       return { variant: 'secondary' as const, label: 'Processando...', className: 'bg-blue-500/20 text-blue-400' };
     case 'ready':
@@ -101,6 +103,20 @@ function getStatusBadge(status?: string, errorReason?: string | null) {
     default:
       return { variant: 'secondary' as const, label: 'Desconhecido', className: 'bg-muted text-muted-foreground' };
   }
+}
+
+// Check if a document is stuck (processing for more than 5 minutes with no progress)
+function isDocumentStuck(doc: Document): boolean {
+  if (!['processing', 'ingesting', 'chunks_ok_embed_pending'].includes(doc.status || '')) {
+    return false;
+  }
+  
+  // Consider stuck if processing for more than 5 minutes
+  const updatedAt = new Date(doc.created_at);
+  const now = new Date();
+  const diffMinutes = (now.getTime() - updatedAt.getTime()) / (1000 * 60);
+  
+  return diffMinutes > 5;
 }
 
 const Admin = () => {
@@ -440,9 +456,73 @@ const Admin = () => {
     }
   };
 
+  // Retry processing for stuck documents (uses ingest-finish to reprocess from existing text)
+  const handleRetryProcessing = async (documentId: string, documentTitle: string) => {
+    const key = getAdminKey();
+    
+    setProcessingDocs(prev => new Set(prev).add(documentId));
+    
+    toast({
+      title: 'Reprocessando...',
+      description: `Retomando processamento de "${documentTitle}"`,
+    });
+
+    try {
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/documents/ingest-finish`,
+        {
+          method: 'POST',
+          headers: {
+            'x-admin-key': key,
+            apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ documentId }),
+        }
+      );
+
+      const result = await response.json();
+      debugLog('[Admin] Retry result:', result);
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Erro ao reprocessar documento');
+      }
+
+      setProcessingDocs(prev => {
+        const next = new Set(prev);
+        next.delete(documentId);
+        return next;
+      });
+
+      toast({
+        title: 'Reprocessamento concluído',
+        description: result.warning || `"${documentTitle}" processado com sucesso!`,
+      });
+
+      await fetchDocuments();
+
+    } catch (error: any) {
+      console.error('[Admin] Retry error:', error);
+      
+      setProcessingDocs(prev => {
+        const next = new Set(prev);
+        next.delete(documentId);
+        return next;
+      });
+      
+      toast({
+        title: 'Erro ao reprocessar',
+        description: error.message,
+        variant: 'destructive',
+      });
+      
+      await fetchDocuments();
+    }
+  };
+
   const handleFileUpload = async (files: FileList | null) => {
     debugLog('[Admin] handleFileUpload called with files:', files?.length);
-    
     if (!files || files.length === 0) {
       debugLog('[Admin] No files provided');
       return;
@@ -1448,8 +1528,10 @@ const Admin = () => {
                     <div className="space-y-3">
                       {filteredDocuments.map((doc) => {
                         const statusBadge = getStatusBadge(doc.status, doc.error_reason);
-                        const isProcessing = processingDocs.has(doc.id) || doc.status === 'processing';
+                        const isProcessing = processingDocs.has(doc.id);
                         const canProcess = doc.status === 'uploaded' || doc.status === 'failed';
+                        const isStuck = isDocumentStuck(doc);
+                        const canRetry = isStuck || doc.status === 'chunks_ok_embed_pending';
                         const supersedesDoc = doc.supersedes_document_id 
                           ? documents.find(d => d.id === doc.supersedes_document_id)
                           : null;
@@ -1475,15 +1557,19 @@ const Admin = () => {
                                   </Badge>
                                   
                                   {/* Status Badge */}
-                                  {statusBadge.tooltip ? (
+                                  {statusBadge.tooltip || isStuck ? (
                                     <Tooltip>
                                       <TooltipTrigger asChild>
-                                        <Badge variant={statusBadge.variant} className={statusBadge.className}>
-                                          {statusBadge.label}
+                                        <Badge variant={statusBadge.variant} className={isStuck ? 'bg-amber-500/20 text-amber-500' : statusBadge.className}>
+                                          {isStuck ? '⚠️ Travado' : statusBadge.label}
                                         </Badge>
                                       </TooltipTrigger>
                                       <TooltipContent className="max-w-xs">
-                                        <p className="text-xs">{statusBadge.tooltip}</p>
+                                        <p className="text-xs">
+                                          {isStuck 
+                                            ? 'Documento parou de processar. Use o botão Retry para retomar.'
+                                            : statusBadge.tooltip}
+                                        </p>
                                       </TooltipContent>
                                     </Tooltip>
                                   ) : (
@@ -1584,6 +1670,31 @@ const Admin = () => {
                                     </>
                                   )}
                                 </Button>
+                              )}
+                              
+                              {/* Retry Button for stuck/pending documents */}
+                              {canRetry && !canProcess && (
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => handleRetryProcessing(doc.id, doc.title)}
+                                      disabled={isProcessing}
+                                      className="gap-1 border-amber-500/50 text-amber-600 hover:bg-amber-500/10"
+                                    >
+                                      <RotateCcw className="w-4 h-4" />
+                                      Retry
+                                    </Button>
+                                  </TooltipTrigger>
+                                  <TooltipContent>
+                                    <p className="max-w-xs">
+                                      {doc.status === 'chunks_ok_embed_pending' 
+                                        ? 'Reprocessar embeddings que falharam'
+                                        : 'Documento travado - tentar reprocessar chunks a partir do texto já extraído'}
+                                    </p>
+                                  </TooltipContent>
+                                </Tooltip>
                               )}
                               
                               {/* Delete Button */}
