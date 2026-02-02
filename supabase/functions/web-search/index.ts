@@ -77,6 +77,47 @@ const NORMATIVE_PATTERNS = [
 ];
 
 // =============================================
+// SEI CONTEXT DETECTION
+// =============================================
+
+// Patterns that indicate SEI-related queries (electronic process system)
+const SEI_PATTERNS = [
+  /\bSEI\b/i,
+  /processo eletr[oô]nico/i,
+  /\bPEN\b/,
+  /tramitar|tramita[çc][aã]o/i,
+  /bloco.*assinatura|assinatura.*bloco/i,
+  /dar ci[eê]ncia|ciencia/i,
+  /\bNUP\b/i,
+  /minutar|minuta/i,
+  /sobrestamento|sobrestar/i,
+  /unidade geradora/i,
+  /documento externo/i,
+  /processo relacionado/i,
+  /tipo de conferência/i,
+  /hipótese legal/i,
+  /acompanhamento especial/i,
+];
+
+// Focused domains for SEI-related searches
+const SEI_DOMAINS = [
+  "manuais.processoeletronico.gov.br",
+  "processoeletronico.gov.br",
+  "wiki.processoeletronico.gov.br",
+];
+
+// Default domains for general municipal/legal searches
+const DEFAULT_DOMAINS = [
+  "prefeitura.rio",
+  "gov.br",
+  "leismunicipais.com.br",
+];
+
+function detectSEIContext(query: string): boolean {
+  return SEI_PATTERNS.some((p) => p.test(query));
+}
+
+// =============================================
 // UTILITIES
 // =============================================
 
@@ -169,7 +210,8 @@ function extractRelevantExcerpt(content: string, query: string, maxLines: number
 
 async function searchWithFirecrawl(
   query: string,
-  limit: number
+  limit: number,
+  domains?: string[]
 ): Promise<{ results: FirecrawlSearchResult[]; success: boolean }> {
   const FIRECRAWL_API_KEY = Deno.env.get("FIRECRAWL_API_KEY");
   
@@ -177,6 +219,13 @@ async function searchWithFirecrawl(
     console.warn("[web-search] FIRECRAWL_API_KEY not configured");
     return { results: [], success: false };
   }
+
+  // Build site filter based on provided domains or defaults
+  const domainsToUse = domains && domains.length > 0 ? domains : DEFAULT_DOMAINS;
+  const siteFilter = domainsToUse.map((d) => `site:${d}`).join(" OR ");
+  const searchQuery = `${query} ${siteFilter}`;
+
+  console.log(`[web-search] Firecrawl query: ${searchQuery.slice(0, 100)}...`);
 
   try {
     const response = await fetch("https://api.firecrawl.dev/v1/search", {
@@ -186,7 +235,7 @@ async function searchWithFirecrawl(
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        query: `${query} site:prefeitura.rio OR site:gov.br OR site:leismunicipais.com.br`,
+        query: searchQuery,
         limit,
         scrapeOptions: {
           formats: ["markdown"],
@@ -395,12 +444,17 @@ async function performWebSearch(
     console.warn("[web-search] Cache check failed:", error);
   }
 
-  console.log(`[web-search] Performing ${mode} search for: ${query.slice(0, 50)}...`);
+  // Detect SEI context for focused search
+  const isSEIQuery = detectSEIContext(query);
+  const searchDomains = isSEIQuery ? SEI_DOMAINS : undefined;
 
-  // Step 1: Try Firecrawl search
+  console.log(`[web-search] Performing ${mode} search for: ${query.slice(0, 50)}... (SEI context: ${isSEIQuery})`);
+
+  // Step 1: Try Firecrawl search with appropriate domains
   const { results: firecrawlResults, success: firecrawlSuccess } = await searchWithFirecrawl(
     query,
-    config.serpLimit
+    config.serpLimit,
+    searchDomains
   );
 
   const sources: WebSource[] = [];
