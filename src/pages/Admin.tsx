@@ -43,6 +43,7 @@ interface Document {
   category: string;
   file_path: string;
   created_at: string;
+  updated_at: string;
   chunk_count?: number;
   status?: string;
   error_reason?: string | null;
@@ -114,7 +115,7 @@ function isDocumentStuck(doc: Document): boolean {
   }
   
   // Consider stuck if processing for more than 5 minutes
-  const updatedAt = new Date(doc.created_at);
+  const updatedAt = new Date(doc.updated_at || doc.created_at);
   const now = new Date();
   const diffMinutes = (now.getTime() - updatedAt.getTime()) / (1000 * 60);
   
