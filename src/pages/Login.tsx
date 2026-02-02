@@ -139,12 +139,16 @@ const Login = () => {
         </motion.p>
 
         {/* Author credit */}
-        <motion.div variants={itemVariants} className="mt-12 text-center">
+        <motion.div variants={itemVariants} className="mt-12 text-center space-y-1">
           <p className="text-sm text-muted-foreground/60">
-            Desenvolvido por <span className="text-muted-foreground">Wilson M. Peixoto</span>
+            Desenvolvido por <span className="text-muted-foreground">Wilson M. Peixoto</span> - SME/RJ
           </p>
           <p className="text-xs text-muted-foreground/50">
             Inovação para a Gestão Pública
+          </p>
+          <p className="text-xs text-muted-foreground/40 flex items-center justify-center gap-3">
+            <span>📞 (21) 99497-4132</span>
+            <span>📧 wilsonmp2@gmail.com</span>
           </p>
         </motion.div>
       </motion.div>
