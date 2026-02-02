@@ -1,73 +1,34 @@
-# Welcome to your Lovable project
+# CLARA - Consultora de Legislação e Apoio a Rotinas Administrativas
 
-## Project info
+Assistente de IA especializada em sistemas eletrônicos de informação (SEI) e procedimentos administrativos para servidores públicos.
 
-**URL**: https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
+## Funcionalidades
 
-## How can I edit this code?
+- Chat com IA especializada em SEI e rotinas administrativas
+- Base de conhecimento com busca semântica híbrida
+- Citação de fontes oficiais nas respostas
+- Interface responsiva (desktop e mobile)
+- Proteção contra prompt injection
 
-There are several ways of editing your application.
+## Tecnologias
 
-**Use Lovable**
+- **Frontend**: React 18 + TypeScript + Vite + Tailwind CSS
+- **UI**: shadcn/ui
+- **Backend**: Lovable Cloud
+- **IA**: Google Gemini 2.5 Pro
+- **Busca**: pgvector + embeddings 768d
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and start prompting.
+## Acesso
 
-Changes made via Lovable will be committed automatically to this repo.
+**Produção**: https://clarainova.lovable.app
 
-**Use your preferred IDE**
+## Documentação
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+- `DOCUMENTATION.md` - Visão geral do sistema
+- `DESIGN_SYSTEM.md` - Guia de design e componentes
+- `CHANGELOG.md` - Histórico de versões
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+---
 
-Follow these steps:
-
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
-```
-
-**Edit a file directly in GitHub**
-
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
-
-**Use GitHub Codespaces**
-
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
-
-## What technologies are used for this project?
-
-This project is built with:
-
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
-
-## How can I deploy this project?
-
-Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
-
-## Can I connect a custom domain to my Lovable project?
-
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+**Desenvolvido por Wilson M. Peixoto**  
+*Inovação para a Gestão Pública*

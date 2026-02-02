@@ -437,6 +437,9 @@ export default function Chat() {
             <p className="text-xs text-center text-muted-foreground/60 mt-2" aria-live="polite">
               CLARA pode cometer erros. Verifique informações importantes.
             </p>
+            <p className="text-xs text-center text-muted-foreground/50 mt-1">
+              Desenvolvido por Wilson M. Peixoto • Inovação para a Gestão Pública
+            </p>
           </div>
         </motion.footer>
       </div>
