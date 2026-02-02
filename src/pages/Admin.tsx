@@ -1991,7 +1991,8 @@ const Admin = () => {
                                       variant="outline"
                                       size="sm"
                                       onClick={() => handleRetryProcessing(doc.id, doc.title)}
-                                      disabled={isProcessing}
+                                       // Se está travado, o retry deve ser clicável mesmo que ainda conste em processingDocs
+                                       disabled={isProcessing && !isStuck}
                                       className="gap-1 border-amber-500/50 text-amber-600 hover:bg-amber-500/10"
                                     >
                                       <RotateCcw className="w-4 h-4" />
