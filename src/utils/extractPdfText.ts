@@ -10,11 +10,17 @@ export interface PdfExtractionResult {
   totalPages: number;
   needsOcr: boolean;
   avgCharsPerPage: number;
+  /** Índices das páginas que precisam de OCR (0-indexed) */
+  pagesNeedingOcr: number[];
+  /** Indica se é um documento híbrido (mistura de páginas com/sem texto) */
+  isHybrid: boolean;
   metrics: {
     totalChars: number;
     estimatedMB: number;
     emptyPages: number;
     lowContentPages: number;
+    /** Páginas com texto válido extraído */
+    validTextPages: number;
   };
 }
 
@@ -29,46 +35,75 @@ const OCR_THRESHOLDS = {
 };
 
 /**
- * Improved heuristic to detect if a PDF needs OCR
- * Avoids false positives for PDFs with tables, forms, or sparse content
+ * Analyze each page to detect which ones need OCR.
+ * Returns per-page analysis for hybrid processing.
  */
-function detectNeedsOcr(pages: string[], totalPages: number): { needsOcr: boolean; metrics: PdfExtractionResult['metrics'] } {
+function analyzePages(pages: string[]): {
+  pagesNeedingOcr: number[];
+  validTextPages: number[];
+  needsOcr: boolean;
+  isHybrid: boolean;
+  metrics: PdfExtractionResult['metrics'];
+} {
+  const totalPages = pages.length;
   const totalChars = pages.reduce((sum, p) => sum + p.length, 0);
   const avgCharsPerPage = totalPages > 0 ? totalChars / totalPages : 0;
   const estimatedMB = (new TextEncoder().encode(pages.join('\n')).length) / (1024 * 1024);
   
-  // Count empty and low content pages
+  const pagesNeedingOcr: number[] = [];
+  const validTextPages: number[] = [];
+  
+  // Analyze each page individually
+  pages.forEach((pageText, index) => {
+    const charCount = pageText.length;
+    
+    // Page is considered "empty" (needs OCR) if it has very little text
+    if (charCount < OCR_THRESHOLDS.EMPTY_PAGE_THRESHOLD) {
+      pagesNeedingOcr.push(index);
+    } else if (charCount < OCR_THRESHOLDS.LOW_CONTENT_THRESHOLD) {
+      // Low content - might need OCR depending on context
+      // Check if it looks like gibberish (high ratio of non-alphanumeric)
+      const alphanumeric = pageText.replace(/[^a-zA-Z0-9áéíóúâêîôûãõàèìòùäëïöüçÁÉÍÓÚÂÊÎÔÛÃÕÀÈÌÒÙÄËÏÖÜÇ]/g, '');
+      const ratio = alphanumeric.length / charCount;
+      
+      if (ratio < 0.5) {
+        // Mostly non-alphanumeric, likely OCR candidate
+        pagesNeedingOcr.push(index);
+      } else {
+        validTextPages.push(index);
+      }
+    } else {
+      validTextPages.push(index);
+    }
+  });
+  
   const emptyPages = pages.filter(p => p.length < OCR_THRESHOLDS.EMPTY_PAGE_THRESHOLD).length;
   const lowContentPages = pages.filter(p => p.length < OCR_THRESHOLDS.LOW_CONTENT_THRESHOLD).length;
   const emptyPageRatio = totalPages > 0 ? emptyPages / totalPages : 0;
   
-  const metrics = {
+  const metrics: PdfExtractionResult['metrics'] = {
     totalChars,
     estimatedMB: Math.round(estimatedMB * 100) / 100,
     emptyPages,
-    lowContentPages
+    lowContentPages,
+    validTextPages: validTextPages.length
   };
   
-  // Multiple conditions for OCR detection
-  const conditions = {
-    tooLowAverage: avgCharsPerPage < OCR_THRESHOLDS.MIN_AVG_CHARS_PER_PAGE,
-    tooLowTotal: totalChars < OCR_THRESHOLDS.MIN_TOTAL_CHARS_THRESHOLD,
-    tooManyEmptyPages: emptyPageRatio > OCR_THRESHOLDS.EMPTY_PAGE_RATIO_TRIGGER,
-    allPagesEmpty: totalPages > 0 && pages.every(p => p.length < OCR_THRESHOLDS.EMPTY_PAGE_THRESHOLD)
-  };
+  // Determine overall OCR need
+  const allPagesEmpty = totalPages > 0 && pagesNeedingOcr.length === totalPages;
+  const mostPagesNeedOcr = pagesNeedingOcr.length > totalPages * 0.5;
+  const tooLowTotal = totalChars < OCR_THRESHOLDS.MIN_TOTAL_CHARS_THRESHOLD;
   
-  // Refined logic:
-  // - If ALL pages are essentially empty → definitely OCR
-  // - If average is very low AND more than half pages are empty → likely OCR
-  // - If total chars are extremely low for multi-page doc → likely OCR
-  const needsOcr = 
-    conditions.allPagesEmpty ||
-    (conditions.tooLowAverage && conditions.tooManyEmptyPages) ||
-    (totalPages > 3 && conditions.tooLowTotal);
+  // needsOcr = true if ALL pages need OCR (full scanned document)
+  const needsOcr = allPagesEmpty || (avgCharsPerPage < OCR_THRESHOLDS.MIN_AVG_CHARS_PER_PAGE && mostPagesNeedOcr) || (totalPages > 3 && tooLowTotal);
   
-  console.log(`[extractPdfText] OCR detection: avgChars=${avgCharsPerPage.toFixed(0)}, emptyRatio=${(emptyPageRatio * 100).toFixed(0)}%, totalChars=${totalChars}, needsOcr=${needsOcr}`);
+  // isHybrid = true if some pages need OCR but not all (mixed document)
+  const isHybrid = pagesNeedingOcr.length > 0 && pagesNeedingOcr.length < totalPages;
   
-  return { needsOcr, metrics };
+  console.log(`[extractPdfText] Page analysis: ${validTextPages.length} valid, ${pagesNeedingOcr.length} need OCR, hybrid=${isHybrid}, needsOcr=${needsOcr}`);
+  console.log(`[extractPdfText] OCR pages: [${pagesNeedingOcr.slice(0, 10).join(', ')}${pagesNeedingOcr.length > 10 ? '...' : ''}]`);
+  
+  return { pagesNeedingOcr, validTextPages, needsOcr, isHybrid, metrics };
 }
 
 /**
@@ -109,8 +144,8 @@ export async function extractPdfTextClient(
     .map((text, idx) => `--- Página ${idx + 1} ---\n\n${text}`)
     .join('\n\n');
   
-  // Use improved heuristic
-  const { needsOcr, metrics } = detectNeedsOcr(pages, totalPages);
+  // Use improved per-page analysis
+  const { pagesNeedingOcr, needsOcr, isHybrid, metrics } = analyzePages(pages);
   
   return {
     fullText,
@@ -118,6 +153,8 @@ export async function extractPdfTextClient(
     totalPages,
     needsOcr,
     avgCharsPerPage: totalPages > 0 ? metrics.totalChars / totalPages : 0,
+    pagesNeedingOcr,
+    isHybrid,
     metrics
   };
 }

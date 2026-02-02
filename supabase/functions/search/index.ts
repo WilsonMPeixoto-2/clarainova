@@ -83,6 +83,62 @@ function expandQueryWithSynonyms(query: string): string[] {
   return Array.from(expanded);
 }
 
+// =============================================
+// DYNAMIC SEARCH WEIGHTS (Query-Aware)
+// =============================================
+interface SearchWeights {
+  keyword_weight: number;
+  vector_weight: number;
+  reason: string;
+}
+
+/**
+ * Dynamically adjust RRF weights based on query patterns.
+ * - Queries with specific numbers (e.g., "Decreto 45.123") → favor keyword search
+ * - Exact phrase queries (with quotes) → favor keyword search
+ * - Conceptual queries → favor vector search (default)
+ */
+function getSearchWeights(query: string): SearchWeights {
+  const normalizedQuery = query.trim();
+  
+  // Pattern: Specific numbers (3+ digits) like "Decreto 45.123", "Lei 12345"
+  const hasSpecificNumbers = /\d{3,}/.test(normalizedQuery);
+  
+  // Pattern: Exact phrase with quotes
+  const hasExactPhrase = /"[^"]{3,}"/.test(normalizedQuery);
+  
+  // Pattern: Legal/administrative codes (Art. 1º, § 2º, Inciso III)
+  const hasLegalCode = /\b(art\.?\s*\d+|§\s*\d+|inciso\s+[ivxlcdm]+|alínea\s+[a-z])\b/i.test(normalizedQuery);
+  
+  // Pattern: Protocol/process numbers (e.g., "SEI 12345.678901/2024-00")
+  const hasProtocolNumber = /\d{5,}[\.\/-]\d+/.test(normalizedQuery);
+  
+  // Strong keyword preference: specific identifiers
+  if (hasProtocolNumber || hasLegalCode) {
+    return { 
+      keyword_weight: 0.8, 
+      vector_weight: 0.2,
+      reason: "protocol_or_legal_code"
+    };
+  }
+  
+  // Medium keyword preference: numbers or exact phrases
+  if (hasSpecificNumbers || hasExactPhrase) {
+    return { 
+      keyword_weight: 0.65, 
+      vector_weight: 0.35,
+      reason: "specific_numbers_or_phrase"
+    };
+  }
+  
+  // Default: balanced with slight vector preference for conceptual queries
+  return { 
+    keyword_weight: 0.4, 
+    vector_weight: 0.6,
+    reason: "conceptual_query"
+  };
+}
+
 // Algoritmo de scoring por keywords (preservado do original)
 function scoreChunkByKeywords(content: string, expandedTerms: string[], originalQuery: string): number {
   const normalizedContent = content.toLowerCase();
@@ -213,6 +269,10 @@ serve(async (req) => {
     // Try hybrid search first (uses ts_vector + vector similarity)
     let finalResults: any[] = [];
     
+    // Get dynamic weights based on query pattern
+    const weights = getSearchWeights(query);
+    console.log(`[search] Dynamic weights: keyword=${weights.keyword_weight}, vector=${weights.vector_weight}, reason=${weights.reason}`);
+    
     const hybridStart = Date.now();
     const { data: hybridResults, error: hybridError } = await supabase.rpc(
       "hybrid_search_chunks",
@@ -221,8 +281,8 @@ serve(async (req) => {
         query_embedding: JSON.stringify(queryEmbedding),
         match_threshold: safeThreshold,
         match_count: safeLimit,
-        keyword_weight: 0.4,
-        vector_weight: 0.6
+        keyword_weight: weights.keyword_weight,
+        vector_weight: weights.vector_weight
       }
     );
     vectorSearchMs = Date.now() - hybridStart;
@@ -368,7 +428,8 @@ serve(async (req) => {
           keyword_search_ms: keywordSearchMs,
           chunks_scanned: totalChunksScanned,
           threshold_used: safeThreshold,
-          index_type: 'hnsw'
+          index_type: 'hnsw',
+          weights_used: weights
         }
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }

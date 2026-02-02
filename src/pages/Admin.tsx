@@ -221,6 +221,68 @@ const Admin = () => {
     }
   }, [isAuthenticated]);
 
+  // Realtime subscription for document status updates
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
+    const channel = supabase
+      .channel('document-status-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'documents',
+        },
+        (payload) => {
+          debugLog('[Admin] Realtime update received:', payload.new);
+          
+          // Update the specific document in state
+          setDocuments(prev => prev.map(doc => 
+            doc.id === payload.new.id 
+              ? { 
+                  ...doc, 
+                  status: payload.new.status as string,
+                  error_reason: payload.new.error_reason as string | null,
+                  chunk_count: payload.new.chunk_count as number | undefined,
+                  updated_at: payload.new.updated_at as string
+                }
+              : doc
+          ));
+
+          // If document finished processing, remove from processingDocs
+          if (payload.new.status === 'ready' || payload.new.status === 'failed') {
+            setProcessingDocs(prev => {
+              const next = new Set(prev);
+              next.delete(payload.new.id as string);
+              return next;
+            });
+
+            // Show toast notification
+            if (payload.new.status === 'ready') {
+              toast({
+                title: 'Documento processado',
+                description: `"${payload.new.title}" está pronto para consulta.`,
+              });
+            } else if (payload.new.status === 'failed') {
+              toast({
+                title: 'Processamento falhou',
+                description: payload.new.error_reason || 'Erro desconhecido',
+                variant: 'destructive',
+              });
+            }
+          }
+        }
+      )
+      .subscribe((status) => {
+        debugLog('[Admin] Realtime subscription status:', status);
+      });
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [isAuthenticated, toast]);
+
   // Cleanup polling on unmount
   useEffect(() => {
     return () => {
@@ -616,8 +678,9 @@ const Admin = () => {
               setUploadProgress(Math.round(((completedFiles + (progress / 100) * 0.4) / totalFiles) * 100));
             });
             
-            debugLog(`[Admin] PDF extraction result: ${result.totalPages} pages, ${result.avgCharsPerPage.toFixed(0)} avg chars/page, needsOcr: ${result.needsOcr}`);
-            debugLog(`[Admin] Metrics: ${result.metrics.totalChars} chars, ${result.metrics.estimatedMB}MB, ${result.metrics.emptyPages} empty pages`);
+            debugLog(`[Admin] PDF extraction result: ${result.totalPages} pages, ${result.avgCharsPerPage.toFixed(0)} avg chars/page, needsOcr: ${result.needsOcr}, isHybrid: ${result.isHybrid}`);
+            debugLog(`[Admin] Metrics: ${result.metrics.totalChars} chars, ${result.metrics.estimatedMB}MB, ${result.metrics.emptyPages} empty, ${result.metrics.validTextPages} valid`);
+            debugLog(`[Admin] Pages needing OCR: [${result.pagesNeedingOcr.slice(0, 10).join(', ')}${result.pagesNeedingOcr.length > 10 ? '...' : ''}] (${result.pagesNeedingOcr.length} total)`);
             
             // Calculate and display payload metrics
             const metrics = calculatePayloadMetrics(result.fullText);
