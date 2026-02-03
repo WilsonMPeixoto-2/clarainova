@@ -8,6 +8,7 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { LoadingFallback } from "@/components/LoadingFallback";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ThemeProvider } from "next-themes";
+import { SpeedInsights } from "@vercel/speed-insights/react";
 
 // Wrapper para lazy imports com retry automático em caso de falha de cache
 function lazyWithRetry<T extends ComponentType<unknown>>(
@@ -65,6 +66,7 @@ const App = () => (
                 </Routes>
               </Suspense>
             </BrowserRouter>
+            <SpeedInsights />
           </TooltipProvider>
         </AuthProvider>
       </ThemeProvider>
