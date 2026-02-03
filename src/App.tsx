@@ -1,12 +1,14 @@
 import { lazy, Suspense, ComponentType } from "react";
-import { Toaster } from "@/components/ui/toaster";
-import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { LoadingFallback } from "@/components/LoadingFallback";
 import { AuthProvider } from "@/contexts/AuthContext";
+
+// Lazy load toasters - only needed when notifications are triggered
+const Toaster = lazy(() => import("@/components/ui/toaster").then(m => ({ default: m.Toaster })));
+const Sonner = lazy(() => import("@/components/ui/sonner").then(m => ({ default: m.Toaster })));
 
 // Wrapper para lazy imports com retry automático em caso de falha de cache
 function lazyWithRetry<T extends ComponentType<unknown>>(
@@ -47,8 +49,10 @@ const App = () => (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <TooltipProvider>
-          <Toaster />
-          <Sonner />
+          <Suspense fallback={null}>
+            <Toaster />
+            <Sonner />
+          </Suspense>
           <BrowserRouter>
             <Suspense fallback={<LoadingFallback message="Carregando página..." />}>
               <Routes>
