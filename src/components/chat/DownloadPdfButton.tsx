@@ -1,14 +1,12 @@
 import { useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { FileDown, Check, Loader2 } from "lucide-react";
-import { jsPDF } from "jspdf";
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { toast } from "@/hooks/use-toast";
-import claraLogoPdf from "@/assets/clara-logo-pdf.png";
 import type { ChatMessageSources, WebSourceData } from "@/hooks/useChat";
 
 interface DownloadPdfButtonProps {
@@ -63,6 +61,12 @@ export function DownloadPdfButton({
     setIsDownloading(true);
     
     try {
+      // Dynamically import jsPDF only when needed (saves ~150KB from initial bundle)
+      const [{ jsPDF }, { default: claraLogoPdf }] = await Promise.all([
+        import("jspdf"),
+        import("@/assets/clara-logo-pdf.png")
+      ]);
+
       const doc = new jsPDF();
       const pageWidth = doc.internal.pageSize.getWidth();
       const pageHeight = doc.internal.pageSize.getHeight();

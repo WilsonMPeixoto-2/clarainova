@@ -1,6 +1,3 @@
-import { jsPDF } from "jspdf";
-import claraLogoPdf from "@/assets/clara-logo-pdf.png";
-
 interface ReportData {
   title: string;
   content: string;
@@ -30,6 +27,12 @@ async function loadImageAsBase64(src: string): Promise<string> {
 }
 
 export async function generateReportPdf(report: ReportData): Promise<void> {
+  // Dynamically import jsPDF and logo only when needed (saves ~150KB from initial bundle)
+  const [{ jsPDF }, { default: claraLogoPdf }] = await Promise.all([
+    import("jspdf"),
+    import("@/assets/clara-logo-pdf.png")
+  ]);
+
   const doc = new jsPDF();
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
