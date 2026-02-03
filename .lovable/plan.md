@@ -1,189 +1,102 @@
 
-# Plano: Busca Web Focada para SEI
+# Plano: Modo Claro para CLARA
 
-## Resumo
+## Análise da Situação Atual
 
-Sua ideia está excelente! Vamos restringir a busca web a 2-3 sites específicos sobre o SEI, economizando API e acelerando respostas.
+O projeto CLARA possui uma identidade visual **Premium LegalTech** fortemente orientada ao modo escuro:
+- **Paleta navy/amber**: fundos escuros (HSL 216 45% 7%) com acentos âmbar
+- **Glassmorphism**: cards com backdrop-blur sobre fundos escuros
+- **Overlays de hero**: gradientes hardcoded para composição com imagem de fundo escura
+- **Design System documentado** em `DESIGN_SYSTEM.md` com tokens específicos para escuro
 
----
-
-## Situação Atual
-
-A busca web usa query genérica muito ampla (linha 189 do web-search):
-```
-query + site:prefeitura.rio OR site:gov.br OR site:leismunicipais.com.br
-```
-
-O domínio `gov.br` é enorme, causando:
-- Buscas lentas (muitos resultados para filtrar)
-- Consumo alto de API
-- Resultados menos precisos sobre SEI
+### Infraestrutura Disponível
+- ✅ `next-themes` já instalado (v0.3.0)
+- ✅ Classe `.dark` já definida em `index.css` (mas idêntica ao `:root`)
+- ❌ `ThemeProvider` não configurado
+- ❌ Toggle de tema não existe
 
 ---
 
-## Solução Proposta
+## Considerações de Design
 
-### 1. Adicionar Domínios SEI ao Banco
+### Prós do Modo Claro
+1. **Acessibilidade**: Alguns usuários preferem fundos claros
+2. **Ambiente de escritório**: Administração pública frequentemente em salas bem iluminadas
+3. **Economia de tinta**: Se o usuário precisar imprimir alguma tela
 
-Inserir na tabela `trusted_domains` (já existente):
+### Contras / Riscos
+1. **Imagem hero**: A foto atual foi composta para fundo escuro — precisará de tratamento ou imagem alternativa para modo claro
+2. **Glows e sombras**: Efeitos como `amber-glow` e `text-glow` não funcionam bem em fundos claros
+3. **Esforço de design**: Criar uma paleta clara coesa que mantenha a sofisticação exige cuidado
+4. **Manutenção**: Qualquer novo componente precisará de variantes para ambos os modos
 
-| Domínio | Categoria | Prioridade | Descrição |
-|---------|-----------|------------|-----------|
-| manuais.processoeletronico.gov.br | primary | 98 | Manual oficial SEI 4.0+ (PEN) |
-| processoeletronico.gov.br | primary | 96 | Portal federal PEN/SEI |
-| wiki.processoeletronico.gov.br | official_mirror | 94 | Wiki colaborativa SEI |
-| portalsei.rs.gov.br | official_mirror | 90 | Portal SEI Rio Grande do Sul |
+---
 
-### 2. Detecção Automática de Contexto SEI
+## Implementação Proposta
 
-Nova constante com padrões que indicam perguntas sobre SEI:
+### Fase 1: Infraestrutura do Tema
+1. **Configurar ThemeProvider** em `App.tsx` usando `next-themes`
+2. **Criar toggle de tema** no Header (ícone Sol/Lua)
+3. **Persistir preferência** via localStorage (automático do next-themes)
+
+### Fase 2: Paleta de Cores Clara
+Definir variáveis CSS para modo claro em `index.css`:
 
 ```text
-Padrões SEI detectados:
-- "SEI", "processo eletrônico", "PEN"
-- "tramitar", "bloco assinatura", "dar ciência"
-- "número SEI", "NUP", "protocolo eletrônico"
-- "despacho", "minutar", "assinar documento"
-- "unidade geradora", "sobrestamento"
+┌─────────────────────────────────────────────────────────┐
+│  :root (Light Mode - Padrão após implementação)        │
+├─────────────────────────────────────────────────────────┤
+│  --background: 0 0% 100%        (branco)               │
+│  --foreground: 216 40% 15%      (navy escuro)          │
+│  --surface-0: 0 0% 98%          (off-white)            │
+│  --surface-1: 0 0% 96%          (cinza sutil)          │
+│  --surface-2: 0 0% 94%          (cards)                │
+│  --surface-3: 0 0% 90%          (inputs)               │
+│  --surface-4: 0 0% 86%          (hover)                │
+│  --primary: 30 45% 45%          (âmbar ajustado)       │
+│  --text-primary: 216 40% 15%    (navy)                 │
+│  --text-muted: 216 20% 45%      (cinza médio)          │
+│  --border-subtle: 216 15% 88%   (bordas suaves)        │
+└─────────────────────────────────────────────────────────┘
 ```
 
-### 3. Modificar a Busca Web
+### Fase 3: Ajustes Visuais Específicos
+1. **Hero overlay**: Criar `.hero-overlay-light` com gradiente branco/transparente
+2. **Glass cards**: Ajustar opacidade para fundos claros
+3. **Sombras**: Criar variantes de shadow mais sutis
+4. **Glow effects**: Desabilitar ou ajustar para modo claro
 
-Alterar a função `searchWithFirecrawl()` para:
-- Aceitar parâmetro opcional `domains?: string[]`
-- Quando contexto SEI: usar apenas domínios SEI
-- Quando contexto geral: manter comportamento atual
-
-**Antes:**
-```
-query + site:prefeitura.rio OR site:gov.br OR site:leismunicipais.com.br
-```
-
-**Depois (contexto SEI):**
-```
-query + site:manuais.processoeletronico.gov.br OR site:processoeletronico.gov.br OR site:wiki.processoeletronico.gov.br
-```
-
----
-
-## Fluxo de Decisão
-
-```text
-Pergunta do usuario
-        |
-        v
-+------------------------+
-| Detecta contexto SEI?  |
-| (padroes reconhecidos) |
-+------------------------+
-        |
-   SIM  |   NAO
-        v        v
-+---------------+  +------------------+
-| Busca FOCADA  |  | Busca AMPLA      |
-| 3 dominios    |  | (comportamento   |
-| SEI oficiais  |  |  atual)          |
-+---------------+  +------------------+
-        |                   |
-        v                   v
-   Resposta rapida    Resposta normal
-   (1-2 segundos)     (3-5 segundos)
-```
+### Fase 4: Toggle no Header
+- Botão com ícone `Sun`/`Moon` do Lucide
+- Posicionado junto aos links de navegação
+- Transição suave entre modos
 
 ---
 
 ## Arquivos a Modificar
 
-### 1. Migration SQL
-Inserir 4 novos domínios SEI na tabela `trusted_domains`
-
-### 2. `supabase/functions/web-search/index.ts`
-
-Adicionar:
-- Constante `SEI_PATTERNS` com regex de detecção
-- Constante `SEI_DOMAINS` com lista de domínios focados
-- Função `detectSEIContext(query)` que retorna `true` se query é sobre SEI
-- Modificar `searchWithFirecrawl()` para aceitar domínios customizados
-- Modificar `performWebSearch()` para aplicar lógica de contexto
+| Arquivo | Alteração |
+|---------|-----------|
+| `src/App.tsx` | Adicionar `ThemeProvider` do next-themes |
+| `src/index.css` | Definir variáveis do modo claro em `:root`, mover escuro para `.dark` |
+| `src/components/Header.tsx` | Adicionar botão toggle de tema |
+| `index.html` | Ajustar critical CSS para suportar ambos os modos |
+| `src/components/HeroSection.tsx` | Adicionar classe condicional para overlays |
 
 ---
 
-## Benefícios Esperados
+## Alternativa: Sistema Opcional
 
-| Metrica | Antes | Depois |
-|---------|-------|--------|
-| Latencia busca SEI | 3-5s | 1-2s |
-| Chamadas API/mes | Alta | -50% |
-| Precisao respostas SEI | Media | Alta |
+Se preferir, podemos implementar apenas o **toggle** e deixar o modo claro como "beta", exibindo um aviso de que ainda está em refinamento. Isso permite coletar feedback dos usuários antes de polir todos os detalhes.
 
 ---
 
-## PDFs do Manual SEI
+## Recomendação
 
-Os PDFs que você compartilhou (PF e RS) estão bloqueados para scraping, mas podem ser adicionados manualmente:
+Dado que a identidade visual foi cuidadosamente construída para o modo escuro, recomendo:
 
-1. **Baixe os PDFs** no navegador:
-   - Manual SEI PF: gov.br/pf/.../manual_do_usuario_sei.pdf
-   - Manual SEI RS: portalsei.rs.gov.br/.../manual-sei-v2.pdf
+1. **Implementar a infraestrutura completa** (ThemeProvider + toggle)
+2. **Criar uma paleta clara básica** funcional
+3. **Testar com usuários reais** antes de polir detalhes
 
-2. **Faça upload via Admin** (/admin → Base de Conhecimento)
-
-3. **O sistema ira:**
-   - Extrair texto automaticamente
-   - Dividir em chunks semanticos
-   - Gerar embeddings para busca
-
----
-
-## Secao Tecnica
-
-### Constantes a adicionar:
-
-```typescript
-// Padroes que indicam contexto SEI
-const SEI_PATTERNS = [
-  /\bSEI\b/i,
-  /processo eletr[oô]nico/i,
-  /\bPEN\b/,
-  /tramitar|tramita[çc][aã]o/i,
-  /bloco.*assinatura|assinatura.*bloco/i,
-  /dar ci[eê]ncia|ciencia/i,
-  /\bNUP\b/i,
-  /minutar|minuta/i,
-  /sobrestamento|sobrestar/i,
-  /unidade geradora/i,
-];
-
-// Dominios focados para busca SEI
-const SEI_DOMAINS = [
-  "manuais.processoeletronico.gov.br",
-  "processoeletronico.gov.br", 
-  "wiki.processoeletronico.gov.br",
-];
-```
-
-### Funcao de deteccao:
-
-```typescript
-function detectSEIContext(query: string): boolean {
-  return SEI_PATTERNS.some((p) => p.test(query));
-}
-```
-
-### Modificacao na busca Firecrawl:
-
-```typescript
-async function searchWithFirecrawl(
-  query: string,
-  limit: number,
-  domains?: string[]  // NOVO parametro opcional
-): Promise<...> {
-  // Construir query com dominios especificos
-  const siteFilter = domains 
-    ? domains.map(d => `site:${d}`).join(" OR ")
-    : "site:prefeitura.rio OR site:gov.br OR site:leismunicipais.com.br";
-    
-  const searchQuery = `${query} ${siteFilter}`;
-  // ... resto da funcao
-}
-```
+Isso permite lançar rapidamente e iterar com base em feedback real.
