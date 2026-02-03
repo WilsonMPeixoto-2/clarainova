@@ -3,6 +3,7 @@ import { Menu, X, MessageCircle } from 'lucide-react';
 import { useScrollPosition } from '@/hooks/useScrollPosition';
 import { Button } from '@/components/ui/button';
 import { useLocation } from 'react-router-dom';
+import { ThemeToggle } from '@/components/ThemeToggle';
 
 interface HeaderProps {
   onOpenChat?: () => void;
@@ -81,6 +82,9 @@ const Header = ({ onOpenChat }: HeaderProps) => {
                 );
               })}
               
+              {/* Theme Toggle */}
+              <ThemeToggle />
+
               {/* Chat Button - Premium pill with amber accent */}
               {onOpenChat && (
                 <Button
@@ -161,6 +165,14 @@ const Header = ({ onOpenChat }: HeaderProps) => {
                 </a>
               );
             })}
+            
+            {/* Theme Toggle in mobile drawer */}
+            <div className="mt-4 px-4">
+              <div className="flex items-center justify-between py-3 text-[15px] font-medium text-text-secondary">
+                <span>Tema</span>
+                <ThemeToggle />
+              </div>
+            </div>
           </div>
           
           {/* Drawer Footer - CTA */}
