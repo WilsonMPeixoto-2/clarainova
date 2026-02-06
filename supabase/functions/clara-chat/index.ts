@@ -261,6 +261,21 @@ serve(async (req: Request) => {
             }
         }
 
+        // 5. Verificar se resposta está vazia e tentar fallback
+        if (!answer || answer.trim() === "") {
+            if (provider === "lovable-ai" && googleApiKey) {
+                console.log(`[clara-chat] ⚠️ Lovable AI retornou vazio, tentando Gemini direto...`);
+                answer = await generateAnswerGeminiDirect(prompt, googleApiKey);
+                provider = "gemini-direct-fallback";
+            }
+
+            // Se ainda vazio, retornar mensagem informativa
+            if (!answer || answer.trim() === "") {
+                answer = "Não encontrei informações suficientes para responder sua pergunta. Por favor, tente reformulá-la ou seja mais específico.";
+                provider = "fallback-message";
+            }
+        }
+
         const totalTime = Date.now() - startTime;
         console.log(`[clara-chat ${VERSION}] ✅ Done in ${totalTime}ms | provider=${provider} | chunks=${chunks.length}`);
 
@@ -297,8 +312,13 @@ serve(async (req: Request) => {
                 error: isRateLimit
                     ? "O sistema está temporariamente sobrecarregado. Tente novamente em alguns segundos."
                     : isPayment
+<<<<<<< HEAD
                     ? "Créditos de IA esgotados. Contate o administrador do sistema."
                     : "Desculpe, ocorreu um erro ao processar sua mensagem. Tente novamente.",
+=======
+                        ? "Créditos de IA esgotados. Contate o administrador do sistema."
+                        : "Desculpe, ocorreu um erro ao processar sua mensagem.",
+>>>>>>> f6e5e7b (refactor: simplify build, remove 18 unused deps, update Edge Function to v3.0.0 with robust fallback)
                 details: errorMessage,
                 time_elapsed_ms: totalTime,
                 version: VERSION,
