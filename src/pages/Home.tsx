@@ -1,19 +1,22 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { RefreshCw, Settings } from "lucide-react";
-import { Link } from "wouter";
+import { RefreshCw, RotateCcw } from "lucide-react";
 import ClaraLogo from "@/components/ClaraLogo";
 import { ChatMessageBubble, type ChatMessageData } from "@/components/chat/ChatMessageBubble";
 import { WelcomeScreen } from "@/components/chat/WelcomeScreen";
 import { ChatInput } from "@/components/chat/ChatInput";
 import { KnowledgeBaseSidebar } from "@/components/chat/KnowledgeBaseSidebar";
+import { toast } from "sonner";
+import { ChatHeader } from "@/components/chat/ChatHeader";
+import { ChatFooter } from "@/components/chat/ChatFooter";
 
 export default function Home() {
   const [messages, setMessages] = useState<ChatMessageData[]>([]);
   const [inputValue, setInputValue] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [lastFailedMessage, setLastFailedMessage] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -24,7 +27,7 @@ export default function Home() {
     scrollToBottom();
   }, [messages]);
 
-  const handleSendMessage = async (message: string) => {
+  const handleSendMessage = useCallback(async (message: string) => {
     if (!message.trim() || isLoading) return;
 
     const userMessage: ChatMessageData = {
@@ -36,6 +39,7 @@ export default function Home() {
     setMessages((prev) => [...prev, userMessage]);
     setInputValue("");
     setIsLoading(true);
+    setLastFailedMessage(null);
 
     try {
       const conversationHistory = messages.map((m) => ({
@@ -50,18 +54,42 @@ export default function Home() {
         },
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error("[Home] Edge function error:", error);
+        throw new Error(error.message || "Erro na comunicação com o servidor");
+      }
 
-      if (data.error) {
+      if (data?.error) {
+        const isRateLimit = data.details?.includes("RATE_LIMIT") || data.details?.includes("429");
+        const isPayment = data.details?.includes("PAYMENT") || data.details?.includes("402");
+
+        if (isRateLimit) {
+          toast.error("Sistema sobrecarregado", {
+            description: "Aguarde alguns segundos e tente novamente.",
+          });
+        } else if (isPayment) {
+          toast.error("Créditos esgotados", {
+            description: "Contate o administrador do sistema.",
+          });
+        }
+
+        setLastFailedMessage(message.trim());
         setMessages((prev) => [
           ...prev,
           {
             id: Date.now(),
             role: "assistant",
             content: `⚠️ ${data.error}`,
+            isError: true,
           },
         ]);
         return;
+      }
+
+      if (data?.metrics) {
+        console.log(
+          `[CLARA] Provider: ${data.metrics.provider} | Tempo: ${data.metrics.total_time_ms}ms | Chunks: ${data.metrics.chunks_found} | Versão: ${data.metrics.version}`
+        );
       }
 
       setMessages((prev) => [
@@ -69,100 +97,68 @@ export default function Home() {
         {
           id: Date.now(),
           role: "assistant",
-          content: data.answer || "Desculpe, não consegui gerar uma resposta.",
-          sources: data.sources?.map((s: { title?: string; similarity?: number }) => ({
+          content: data?.answer || "Desculpe, não consegui gerar uma resposta.",
+          sources: data?.sources?.map((s: { title?: string; similarity?: number }) => ({
             documentTitle: s.title || "Documento",
           })),
         },
       ]);
     } catch (error: any) {
-      console.error("Error sending message:", error);
+      console.error("[Home] Error:", error);
+      setLastFailedMessage(message.trim());
+
+      const errorMsg = error?.message || "";
+      let displayMessage: string;
+
+      if (errorMsg.includes("FunctionsHttpError") || errorMsg.includes("500")) {
+        displayMessage = "Erro interno do servidor. A equipe foi notificada. Tente novamente em instantes.";
+      } else if (errorMsg.includes("FunctionsRelayError") || errorMsg.includes("502")) {
+        displayMessage = "O serviço está temporariamente indisponível. Tente novamente em alguns segundos.";
+      } else if (errorMsg.includes("rate") || errorMsg.includes("429")) {
+        displayMessage = "Muitas requisições. Aguarde alguns segundos antes de tentar novamente.";
+      } else {
+        displayMessage = "Ocorreu um erro ao processar sua pergunta. Tente novamente.";
+      }
+
+      toast.error("Erro ao consultar CLARA", {
+        description: displayMessage,
+      });
+
       setMessages((prev) => [
         ...prev,
         {
           id: Date.now(),
           role: "assistant",
-          content:
-            error?.message?.includes("Rate limit") || error?.message?.includes("429")
-              ? "O sistema está temporariamente sobrecarregado. Por favor, tente novamente em alguns segundos."
-              : "Desculpe, ocorreu um erro ao processar sua pergunta. Por favor, tente novamente.",
+          content: `⚠️ ${displayMessage}`,
+          isError: true,
         },
       ]);
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [isLoading, messages]);
+
+  const handleRetry = useCallback(() => {
+    if (lastFailedMessage) {
+      // Remove the last error message
+      setMessages((prev) => prev.slice(0, -1));
+      handleSendMessage(lastFailedMessage);
+    }
+  }, [lastFailedMessage, handleSendMessage]);
 
   const handleNewChat = () => {
     setMessages([]);
     setInputValue("");
+    setLastFailedMessage(null);
   };
 
   return (
     <div className="min-h-screen flex flex-col">
-      {/* Header Premium */}
-      <header
-        className="text-foreground shadow-lg relative z-10"
-        style={{
-          background: "oklch(0.14 0.04 250 / 0.8)",
-          backdropFilter: "blur(20px) saturate(180%)",
-          WebkitBackdropFilter: "blur(20px) saturate(180%)",
-          borderBottom: "1px solid oklch(0.95 0.01 250 / 0.08)",
-        }}
-      >
-        <div className="container py-4">
-          <div className="flex items-center justify-between flex-wrap gap-2">
-            <div className="flex items-center gap-4">
-              <div
-                className="size-12 rounded-xl flex items-center justify-center"
-                style={{
-                  background: "oklch(0.70 0.18 45 / 0.15)",
-                  border: "1px solid oklch(0.70 0.18 45 / 0.25)",
-                  boxShadow: "0 0 20px oklch(0.70 0.18 45 / 0.2)",
-                }}
-              >
-                <ClaraLogo size={28} variant="light" />
-              </div>
-              <div>
-                <h1
-                  className="text-xl md:text-2xl font-bold tracking-tight text-foreground"
-                  style={{ fontFamily: "var(--font-heading)" }}
-                >
-                  CLARA
-                </h1>
-                <p className="text-sm text-muted-foreground hidden sm:block">
-                  Consultora de Legislação e Apoio a Rotinas Administrativas
-                </p>
-              </div>
-              <span
-                className="inline-flex items-center px-2.5 py-1 text-xs font-medium rounded-full
-                  bg-primary/15 text-primary border border-primary/25"
-              >
-                Beta
-              </span>
-            </div>
-
-            <div className="flex items-center gap-2">
-              {messages.length > 0 && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleNewChat}
-                  className="border-border/40 hover:border-primary/40 hover:shadow-[0_0_12px_var(--primary-glow)] transition-all duration-300"
-                >
-                  <RefreshCw className="size-4 mr-2" />
-                  Nova Conversa
-                </Button>
-              )}
-            </div>
-          </div>
-        </div>
-      </header>
+      <ChatHeader onNewChat={handleNewChat} showNewChat={messages.length > 0} />
 
       {/* Main Content */}
       <main className="flex-1 container py-6 flex flex-col">
         <div className="flex-1 flex flex-col gap-6 max-w-7xl mx-auto w-full" style={{ height: "80vh" }}>
-          {/* Chat Area */}
           <div className="flex-1 flex flex-col w-full min-h-0">
             <div
               className="flex-1 flex flex-col overflow-hidden rounded-2xl"
@@ -175,7 +171,6 @@ export default function Home() {
                   "inset 0 1px 0 0 oklch(0.95 0.01 250 / 0.08), 0 8px 40px oklch(0 0 0 / 0.35), 0 0 0 1px oklch(0 0 0 / 0.1)",
               }}
             >
-              {/* Messages */}
               <ScrollArea className="flex-1 p-4 md:p-6 custom-scrollbar">
                 {messages.length === 0 ? (
                   <WelcomeScreen onSendMessage={handleSendMessage} />
@@ -184,6 +179,21 @@ export default function Home() {
                     {messages.map((message) => (
                       <ChatMessageBubble key={message.id} message={message} />
                     ))}
+
+                    {/* Retry button after error */}
+                    {lastFailedMessage && !isLoading && (
+                      <div className="flex justify-center">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={handleRetry}
+                          className="border-destructive/30 text-destructive hover:bg-destructive/10 hover:border-destructive/50 transition-all duration-300"
+                        >
+                          <RotateCcw className="size-4 mr-2" />
+                          Tentar Novamente
+                        </Button>
+                      </div>
+                    )}
 
                     {isLoading && (
                       <div className="flex justify-start message-enter">
@@ -205,7 +215,6 @@ export default function Home() {
                 )}
               </ScrollArea>
 
-              {/* Input */}
               <ChatInput
                 value={inputValue}
                 onChange={setInputValue}
@@ -215,79 +224,11 @@ export default function Home() {
             </div>
           </div>
 
-          {/* Sidebar */}
           <KnowledgeBaseSidebar />
         </div>
       </main>
 
-      {/* Footer Premium */}
-      <footer
-        className="mt-8 py-8"
-        style={{
-          background: "oklch(0.10 0.04 250 / 0.8)",
-          backdropFilter: "blur(12px)",
-          borderTop: "1px solid oklch(0.95 0.01 250 / 0.06)",
-        }}
-      >
-        <div className="container">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8">
-            <div>
-              <h3
-                className="font-semibold mb-4 text-lg text-foreground"
-                style={{ fontFamily: "var(--font-heading)" }}
-              >
-                Sobre CLARA
-              </h3>
-              <p className="text-muted-foreground text-sm leading-relaxed">
-                Assistente de inteligência artificial especializada em legislação
-                e procedimentos administrativos.
-              </p>
-              <p className="text-muted-foreground/50 text-xs mt-3">
-                Versão de testes (Beta)
-              </p>
-            </div>
-
-            <div>
-              <h3
-                className="font-semibold mb-4 text-lg text-foreground"
-                style={{ fontFamily: "var(--font-heading)" }}
-              >
-                Recursos
-              </h3>
-              <ul className="space-y-2 text-sm">
-                <li>
-                  <Link href="/relatorio-tecnico">
-                    <span className="text-muted-foreground hover:text-primary transition-colors cursor-pointer flex items-center gap-2">
-                      <Settings className="size-4" />
-                      Relatório Técnico
-                    </span>
-                  </Link>
-                </li>
-              </ul>
-            </div>
-
-            <div>
-              <h3
-                className="font-semibold mb-4 text-lg text-foreground"
-                style={{ fontFamily: "var(--font-heading)" }}
-              >
-                Importante
-              </h3>
-              <p className="text-muted-foreground text-sm leading-relaxed">
-                As respostas têm caráter orientativo e devem ser validadas por
-                fontes oficiais.
-              </p>
-            </div>
-          </div>
-
-          <div className="border-t border-border/20 pt-6 text-center text-muted-foreground/60 text-sm">
-            <p>
-              © 2026 CLARA — Consultora de Legislação e Apoio a Rotinas
-              Administrativas
-            </p>
-          </div>
-        </div>
-      </footer>
+      <ChatFooter />
     </div>
   );
 }

@@ -1,6 +1,8 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
+const VERSION = "v3.0.0";
+
 const corsHeaders = {
     "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
@@ -11,7 +13,6 @@ const supabase = createClient(
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || ""
 );
 
-// Modelo de embedding atualizado - gemini-embedding-001
 const EMBEDDING_MODEL = "gemini-embedding-001";
 const EMBEDDING_URL = `https://generativelanguage.googleapis.com/v1beta/models/${EMBEDDING_MODEL}:embedContent`;
 
@@ -30,15 +31,18 @@ async function generateEmbedding(text: string, apiKey: string): Promise<number[]
 
     if (!response.ok) {
         const errorText = await response.text();
-        console.error(`[clara-chat] Embedding error: ${response.status} - ${errorText}`);
-        throw new Error(`Embedding failed: ${response.status} - ${errorText}`);
+        console.error(`[clara-chat ${VERSION}] Embedding error: ${response.status} - ${errorText}`);
+        throw new Error(`Embedding failed: ${response.status}`);
     }
 
     const data = await response.json();
-    return data.embedding?.values || [];
+    const values = data.embedding?.values || [];
+    if (values.length === 0) {
+        throw new Error("Embedding retornou vetor vazio");
+    }
+    return values;
 }
 
-// Gerar resposta usando Lovable AI Gateway (sem limite de quota do Google)
 async function generateAnswer(prompt: string, lovableApiKey: string): Promise<string> {
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
         method: "POST",
@@ -72,23 +76,22 @@ Suas diretrizes:
 
     if (!response.ok) {
         const errorText = await response.text();
-        console.error(`[clara-chat] Lovable AI error: ${response.status} - ${errorText}`);
+        console.error(`[clara-chat ${VERSION}] Lovable AI error: ${response.status} - ${errorText}`);
 
         if (response.status === 429) {
-            throw new Error("Rate limit exceeded. Tente novamente em alguns segundos.");
+            throw new Error("RATE_LIMIT: Tente novamente em alguns segundos.");
         }
         if (response.status === 402) {
-            throw new Error("Créditos de IA esgotados. Contate o administrador.");
+            throw new Error("PAYMENT: Créditos de IA esgotados.");
         }
 
-        throw new Error(`LLM generation failed: ${response.status}`);
+        throw new Error(`LLM_ERROR: ${response.status}`);
     }
 
     const data = await response.json();
     return data.choices?.[0]?.message?.content || "";
 }
 
-// Fallback: Gemini direto (caso Lovable AI esteja indisponível)
 async function generateAnswerGeminiDirect(prompt: string, apiKey: string): Promise<string> {
     const geminiRes = await fetch(
         "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent",
@@ -110,8 +113,8 @@ async function generateAnswerGeminiDirect(prompt: string, apiKey: string): Promi
 
     if (!geminiRes.ok) {
         const errorText = await geminiRes.text();
-        console.error(`[clara-chat] Gemini direct error: ${geminiRes.status} - ${errorText}`);
-        throw new Error(`Gemini generation failed: ${geminiRes.status}`);
+        console.error(`[clara-chat ${VERSION}] Gemini direct error: ${geminiRes.status} - ${errorText}`);
+        throw new Error(`GEMINI_ERROR: ${geminiRes.status}`);
     }
 
     const geminiData = await geminiRes.json();
@@ -124,17 +127,21 @@ serve(async (req: Request) => {
     }
 
     const startTime = Date.now();
+    console.log(`[clara-chat ${VERSION}] Request received`);
 
     try {
         const googleApiKey = Deno.env.get("GOOGLE_GENERATIVE_AI_API_KEY") || Deno.env.get("GEMINI_API_KEY") || "";
         const lovableApiKey = Deno.env.get("LOVABLE_API_KEY") || "";
 
         if (!googleApiKey && !lovableApiKey) {
-            throw new Error("Nenhuma chave de API configurada (GOOGLE_GENERATIVE_AI_API_KEY ou LOVABLE_API_KEY)");
+            console.error(`[clara-chat ${VERSION}] No API keys configured`);
+            throw new Error("CONFIG_ERROR: Nenhuma chave de API configurada");
         }
 
-        const { message, conversationHistory = [] } = await req.json();
+        const body = await req.json();
+        const { message, conversationHistory = [] } = body;
 
+        // Validação de entrada
         if (!message || typeof message !== "string") {
             return new Response(
                 JSON.stringify({ error: "Mensagem é obrigatória" }),
@@ -156,18 +163,22 @@ serve(async (req: Request) => {
             );
         }
 
-        console.log(`[clara-chat] Received: ${message.slice(0, 100)}...`);
+        console.log(`[clara-chat ${VERSION}] Query: "${message.slice(0, 80)}..."`);
 
         // 1. Gerar embedding para busca vetorial
         let chunks: any[] = [];
         let context = "";
+        let embeddingTimeMs = 0;
+        let searchTimeMs = 0;
 
         if (googleApiKey) {
             try {
+                const embStart = Date.now();
                 const embedding = await generateEmbedding(message, googleApiKey);
-                console.log(`[clara-chat] Embedding OK: ${embedding.length} dimensões`);
+                embeddingTimeMs = Date.now() - embStart;
+                console.log(`[clara-chat ${VERSION}] Embedding OK: ${embedding.length}d in ${embeddingTimeMs}ms`);
 
-                // 2. Busca híbrida no Supabase
+                const searchStart = Date.now();
                 const { data: searchResults, error: searchError } = await supabase.rpc(
                     "hybrid_search_chunks",
                     {
@@ -177,10 +188,11 @@ serve(async (req: Request) => {
                         match_count: 10,
                     }
                 );
+                searchTimeMs = Date.now() - searchStart;
 
                 if (searchError) {
-                    console.error(`[clara-chat] Search error:`, searchError);
-                    // Tentar busca vetorial simples como fallback
+                    console.error(`[clara-chat ${VERSION}] Hybrid search error:`, searchError.message);
+                    // Fallback: busca vetorial simples
                     const { data: vectorResults, error: vectorError } = await supabase.rpc(
                         "search_document_chunks",
                         {
@@ -192,44 +204,47 @@ serve(async (req: Request) => {
 
                     if (!vectorError && vectorResults) {
                         chunks = vectorResults;
+                        console.log(`[clara-chat ${VERSION}] Vector fallback: ${chunks.length} chunks`);
                     }
                 } else {
                     chunks = searchResults || [];
                 }
 
-                console.log(`[clara-chat] Found ${chunks.length} chunks`);
+                console.log(`[clara-chat ${VERSION}] Search: ${chunks.length} chunks in ${searchTimeMs}ms`);
 
                 context = chunks
                     .map((c: any) => `[${c.document_title || c.document_id}] ${c.content}`)
                     .join("\n\n");
-            } catch (embeddingError) {
-                console.error(`[clara-chat] Embedding/search failed:`, embeddingError);
+            } catch (embeddingError: any) {
+                console.error(`[clara-chat ${VERSION}] Embedding/search failed: ${embeddingError.message}`);
                 // Continua sem contexto documental
             }
         }
 
-        // 3. Construir prompt com contexto
+        // 2. Construir prompt com contexto
         const prompt = context
             ? `Contexto dos documentos da base de conhecimento:\n${context}\n\nPergunta do usuário: ${message}\n\nResponda com base nos documentos acima e cite as fontes quando possível.`
             : `Pergunta do usuário: ${message}\n\nNota: Não foram encontrados documentos relevantes na base de conhecimento. Responda com base no seu conhecimento geral sobre legislação e procedimentos administrativos do SEI.`;
 
-        // 4. Gerar resposta - priorizar Lovable AI Gateway
+        // 3. Gerar resposta - priorizar Lovable AI Gateway
         let answer = "";
         let provider = "";
+        let llmTimeMs = 0;
+
+        const llmStart = Date.now();
 
         if (lovableApiKey) {
             try {
                 answer = await generateAnswer(prompt, lovableApiKey);
                 provider = "lovable-ai";
-                console.log(`[clara-chat] ✅ Answer via Lovable AI`);
+                console.log(`[clara-chat ${VERSION}] ✅ Answer via Lovable AI (${answer.length} chars)`);
             } catch (lovableError: any) {
-                console.warn(`[clara-chat] Lovable AI failed: ${lovableError.message}`);
+                console.warn(`[clara-chat ${VERSION}] Lovable AI failed: ${lovableError.message}`);
 
-                // Fallback para Gemini direto
                 if (googleApiKey) {
                     answer = await generateAnswerGeminiDirect(prompt, googleApiKey);
-                    provider = "gemini-direct";
-                    console.log(`[clara-chat] ✅ Answer via Gemini direct (fallback)`);
+                    provider = "gemini-direct-fallback";
+                    console.log(`[clara-chat ${VERSION}] ✅ Answer via Gemini fallback (${answer.length} chars)`);
                 } else {
                     throw lovableError;
                 }
@@ -237,11 +252,29 @@ serve(async (req: Request) => {
         } else if (googleApiKey) {
             answer = await generateAnswerGeminiDirect(prompt, googleApiKey);
             provider = "gemini-direct";
-            console.log(`[clara-chat] ✅ Answer via Gemini direct`);
+            console.log(`[clara-chat ${VERSION}] ✅ Answer via Gemini direct (${answer.length} chars)`);
+        }
+
+        llmTimeMs = Date.now() - llmStart;
+
+        // 4. Validar resposta - não retornar vazio
+        if (!answer || answer.trim() === "") {
+            console.warn(`[clara-chat ${VERSION}] Empty answer from ${provider}, trying fallback...`);
+            
+            if (provider === "lovable-ai" && googleApiKey) {
+                answer = await generateAnswerGeminiDirect(prompt, googleApiKey);
+                provider = "gemini-direct-empty-fallback";
+                console.log(`[clara-chat ${VERSION}] Fallback answer: ${answer.length} chars`);
+            }
+
+            if (!answer || answer.trim() === "") {
+                answer = "Não encontrei informações suficientes para responder à sua pergunta. Por favor, tente reformulá-la de outra forma.";
+                provider = "default-message";
+            }
         }
 
         const totalTime = Date.now() - startTime;
-        console.log(`[clara-chat] ✅ Completed in ${totalTime}ms (${provider})`);
+        console.log(`[clara-chat ${VERSION}] ✅ Done in ${totalTime}ms | provider=${provider} | chunks=${chunks.length}`);
 
         return new Response(
             JSON.stringify({
@@ -251,7 +284,11 @@ serve(async (req: Request) => {
                     similarity: c.similarity || c.combined_score,
                 })),
                 metrics: {
+                    version: VERSION,
                     total_time_ms: totalTime,
+                    embedding_time_ms: embeddingTimeMs,
+                    search_time_ms: searchTimeMs,
+                    llm_time_ms: llmTimeMs,
                     chunks_found: chunks.length,
                     embedding_model: EMBEDDING_MODEL,
                     provider,
@@ -262,10 +299,10 @@ serve(async (req: Request) => {
     } catch (err) {
         const totalTime = Date.now() - startTime;
         const errorMessage = (err as Error).message;
-        console.error(`[clara-chat] ❌ Error after ${totalTime}ms:`, err);
+        console.error(`[clara-chat ${VERSION}] ❌ Error after ${totalTime}ms:`, errorMessage);
 
-        const isRateLimit = errorMessage.includes("429") || errorMessage.includes("Rate limit");
-        const isPayment = errorMessage.includes("402") || errorMessage.includes("Créditos");
+        const isRateLimit = errorMessage.includes("RATE_LIMIT") || errorMessage.includes("429");
+        const isPayment = errorMessage.includes("PAYMENT") || errorMessage.includes("402");
 
         return new Response(
             JSON.stringify({
@@ -273,9 +310,10 @@ serve(async (req: Request) => {
                     ? "O sistema está temporariamente sobrecarregado. Tente novamente em alguns segundos."
                     : isPayment
                     ? "Créditos de IA esgotados. Contate o administrador do sistema."
-                    : "Desculpe, ocorreu um erro ao processar sua mensagem.",
+                    : "Desculpe, ocorreu um erro ao processar sua mensagem. Tente novamente.",
                 details: errorMessage,
                 time_elapsed_ms: totalTime,
+                version: VERSION,
             }),
             {
                 status: isRateLimit ? 429 : isPayment ? 402 : 500,
