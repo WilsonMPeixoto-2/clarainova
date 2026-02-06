@@ -192,7 +192,6 @@ serve(async (req: Request) => {
 
                 if (searchError) {
                     console.error(`[clara-chat ${VERSION}] Hybrid search error:`, searchError.message);
-                    // Fallback: busca vetorial simples
                     const { data: vectorResults, error: vectorError } = await supabase.rpc(
                         "search_document_chunks",
                         {
@@ -217,7 +216,6 @@ serve(async (req: Request) => {
                     .join("\n\n");
             } catch (embeddingError: any) {
                 console.error(`[clara-chat ${VERSION}] Embedding/search failed: ${embeddingError.message}`);
-                // Continua sem contexto documental
             }
         }
 
@@ -226,33 +224,23 @@ serve(async (req: Request) => {
             ? `Contexto dos documentos da base de conhecimento:\n${context}\n\nPergunta do usuário: ${message}\n\nResponda com base nos documentos acima e cite as fontes quando possível.`
             : `Pergunta do usuário: ${message}\n\nNota: Não foram encontrados documentos relevantes na base de conhecimento. Responda com base no seu conhecimento geral sobre legislação e procedimentos administrativos do SEI.`;
 
-        // 3. Gerar resposta - priorizar Lovable AI Gateway
+        // 3. Gerar resposta - PRIORIZAR Gemini direto (usa chave do usuário, sem cobranças)
         let answer = "";
         let provider = "";
         let llmTimeMs = 0;
 
         const llmStart = Date.now();
 
-        if (lovableApiKey) {
-            try {
-                answer = await generateAnswer(prompt, lovableApiKey);
-                provider = "lovable-ai";
-                console.log(`[clara-chat ${VERSION}] ✅ Answer via Lovable AI (${answer.length} chars)`);
-            } catch (lovableError: any) {
-                console.warn(`[clara-chat ${VERSION}] Lovable AI failed: ${lovableError.message}`);
-
-                if (googleApiKey) {
-                    answer = await generateAnswerGeminiDirect(prompt, googleApiKey);
-                    provider = "gemini-direct-fallback";
-                    console.log(`[clara-chat ${VERSION}] ✅ Answer via Gemini fallback (${answer.length} chars)`);
-                } else {
-                    throw lovableError;
-                }
-            }
-        } else if (googleApiKey) {
+        if (googleApiKey) {
+            // Primário: Gemini direto com a chave do usuário (sem custo Lovable)
             answer = await generateAnswerGeminiDirect(prompt, googleApiKey);
             provider = "gemini-direct";
             console.log(`[clara-chat ${VERSION}] ✅ Answer via Gemini direct (${answer.length} chars)`);
+        } else if (lovableApiKey) {
+            // Fallback: Lovable AI Gateway (apenas se não tiver chave Google)
+            answer = await generateAnswer(prompt, lovableApiKey);
+            provider = "lovable-ai-fallback";
+            console.log(`[clara-chat ${VERSION}] ✅ Answer via Lovable AI fallback (${answer.length} chars)`);
         }
 
         llmTimeMs = Date.now() - llmStart;
