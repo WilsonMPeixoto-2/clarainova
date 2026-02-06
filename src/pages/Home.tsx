@@ -50,7 +50,9 @@ export default function Home() {
           id: Date.now(),
           role: "assistant",
           content: data.answer || "Desculpe, não consegui gerar uma resposta.",
-          sources: data.sources,
+          sources: data.sources?.map((s: { title?: string; similarity?: number }) => ({
+            documentTitle: s.title || "Documento",
+          })),
         },
       ]);
     } catch (error: any) {
