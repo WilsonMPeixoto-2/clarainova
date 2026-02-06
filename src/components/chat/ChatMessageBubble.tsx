@@ -8,6 +8,7 @@ export interface ChatMessageData {
   content: string;
   sources?: { documentTitle: string; section?: string; link?: string }[];
   usedWebSearch?: boolean;
+  isError?: boolean;
 }
 
 interface ChatMessageBubbleProps {
