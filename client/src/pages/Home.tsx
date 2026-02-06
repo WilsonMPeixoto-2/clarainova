@@ -152,8 +152,8 @@ export default function Home() {
       </header>
 
       {/* Main Content */}
-      <main className="flex-1 container py-8 flex flex-col">
-        <div className="flex-1 flex flex-col gap-8 max-w-5xl mx-auto w-full">
+      <main className="flex-1 container py-6 flex flex-col">
+        <div className="flex-1 flex flex-col gap-6 max-w-7xl mx-auto w-full h-[calc(100vh-200px)]">
           {/* Chat Area */}
           <div className="flex-1 flex flex-col w-full">
             <div className="flex-1 flex flex-col overflow-hidden rounded-xl" style={{background: 'oklch(0.16 0.04 250 / 0.4)', backdropFilter: 'blur(20px) saturate(180%)', WebkitBackdropFilter: 'blur(20px) saturate(180%)', border: '1px solid oklch(0.95 0.01 250 / 0.1)', boxShadow: 'inset 0 1px 0 0 oklch(0.95 0.01 250 / 0.1), 0 8px 32px oklch(0 0 0 / 0.3)'}}>
@@ -257,6 +257,23 @@ export default function Home() {
                                                   )
                                                 ))}
                                               </div>
+                                            </div>
+                                          )}
+                                          
+                                          {message.role === 'assistant' && (
+                                            <div className="mt-4 pt-3 border-t border-border/50 flex gap-2 flex-wrap">
+                                              <button className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-accent/10 text-accent hover:bg-accent/20 rounded-lg transition-all">
+                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
+                                                Copiar
+                                              </button>
+                                              <button className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-primary/10 text-primary hover:bg-primary/20 rounded-lg transition-all">
+                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2m0 0v-8m0 8H3m6-8h6m0 0V5m0 6H9" /></svg>
+                                                PDF
+                                              </button>
+                                              <button className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-complementar/10 text-complementar hover:bg-complementar/20 rounded-lg transition-all">
+                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+                                                Compartilhar
+                                              </button>
                                             </div>
                                           )}
                         </div>

@@ -330,3 +330,41 @@
 - [ ] Validar acessibilidade (WCAG AA)
 - [ ] Testar responsividade completa
 - [ ] Criar checkpoint e push para clarainova
+
+
+## Expansão do Chat e Destaque de Botões (Fevereiro 2026)
+
+### Fase 1: Layout Expandido do Chat
+- [x] Aumentar max-width de max-w-5xl para max-w-7xl (ou 90% da tela)
+- [x] Expandir altura do chat para ocupar 80% do viewport
+- [ ] Remover sidebar em desktop (mover para drawer/modal)
+- [x] Centralizar chat com margens simétricas
+- [x] Otimizar espaço vertical das mensagens
+
+### Fase 2: Botões de Ação Destacados
+- [x] Criar componente ActionButton com design premium
+- [x] Adicionar botão "Download PDF" com ícone
+- [x] Adicionar botão "Copiar Resposta" com feedback visual
+- [x] Adicionar botão "Compartilhar" com ícone
+- [x] Implementar hover effects e animações
+
+### Fase 3: Barra de Ações Flutuante
+- [ ] Criar barra flutuante com botões de ação
+- [ ] Posicionar no topo direito do chat
+- [ ] Implementar com glass morphism premium
+- [ ] Adicionar ícones com glow effects
+- [ ] Testar em diferentes resoluções
+
+### Fase 4: Funcionalidade PDF
+- [ ] Implementar download de resposta como PDF
+- [ ] Adicionar logo e header ao PDF
+- [ ] Formatar texto para PDF (quebras de linha, etc)
+- [ ] Adicionar timestamp e metadata
+- [ ] Testar em diferentes navegadores
+
+### Fase 5: Responsividade e Deploy
+- [ ] Testar em desktop (1920x1080, 2560x1440)
+- [ ] Testar em tablet (768px)
+- [ ] Testar em mobile (375px)
+- [ ] Otimizar performance (Lighthouse 90+)
+- [ ] Fazer push para clarainova
