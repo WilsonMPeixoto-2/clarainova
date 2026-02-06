@@ -121,7 +121,7 @@ export default function Home() {
         <div className="container py-4">
           <div className="flex items-center justify-between flex-wrap gap-2">
             <div className="flex items-center gap-4">
-              <div className="w-12 h-12 bg-white/10 rounded-lg flex items-center justify-center backdrop-blur-sm">
+              <div className="w-14 h-14 bg-white/10 rounded-lg flex items-center justify-center backdrop-blur-sm shadow-lg" style={{boxShadow: '0 0 20px rgba(255, 255, 255, 0.2)'}}>
                 <ClaraLogo size={28} variant="light" />
               </div>
               <div>
@@ -152,11 +152,11 @@ export default function Home() {
       </header>
 
       {/* Main Content */}
-      <main className="flex-1 container py-6 flex flex-col">
-        <div className="flex-1 flex flex-col lg:flex-row gap-6 max-w-6xl mx-auto w-full">
+      <main className="flex-1 container py-8 flex flex-col">
+        <div className="flex-1 flex flex-col gap-8 max-w-5xl mx-auto w-full">
           {/* Chat Area */}
-          <div className="flex-1 flex flex-col">
-            <Card className="flex-1 flex flex-col shadow-lg border-0 overflow-hidden">
+          <div className="flex-1 flex flex-col w-full">
+            <div className="flex-1 flex flex-col overflow-hidden rounded-xl" style={{background: 'oklch(0.16 0.04 250 / 0.4)', backdropFilter: 'blur(20px) saturate(180%)', WebkitBackdropFilter: 'blur(20px) saturate(180%)', border: '1px solid oklch(0.95 0.01 250 / 0.1)', boxShadow: 'inset 0 1px 0 0 oklch(0.95 0.01 250 / 0.1), 0 8px 32px oklch(0 0 0 / 0.3)'}}>
               {/* Chat Messages */}
               <ScrollArea className="flex-1 p-4 custom-scrollbar">
                 {messages.length === 0 ? (
@@ -174,12 +174,12 @@ export default function Home() {
                     </p>
                     
                     {/* Example Questions */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full max-w-2xl">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full max-w-2xl">
                       {EXAMPLE_QUESTIONS.map((question, index) => (
                         <button
                           key={index}
                           onClick={() => handleSendMessage(question.text)}
-                          className="flex items-center gap-3 p-3 rounded-lg border border-border bg-card hover:bg-accent hover:shadow-md hover:-translate-y-0.5 active:translate-y-0 active:shadow-sm transition-all duration-200 text-left group cursor-pointer"
+                          className="example-card flex items-center gap-3 p-4 rounded-lg border border-border bg-card hover:bg-accent hover:border-primary hover:shadow-lg hover:-translate-y-1 active:translate-y-0 active:shadow-sm transition-all duration-300 text-left group cursor-pointer"
                         >
                           <question.icon className="w-5 h-5 text-primary shrink-0" />
                           <span className="text-sm text-foreground group-hover:text-primary transition-colors">
@@ -281,7 +281,7 @@ export default function Home() {
               </ScrollArea>
 
               {/* Input Area - Melhorado para UX */}
-              <CardContent className="p-4 border-t bg-muted/30">
+              <div className="p-4 border-t border-border/30 bg-muted/10">
                 <div className="relative bg-white rounded-xl border-2 border-slate-300 shadow-md focus-within:border-blue-600 focus-within:ring-2 focus-within:ring-blue-600/20 transition-all duration-200">
                   <textarea
                     ref={textareaRef}
@@ -314,14 +314,13 @@ export default function Home() {
                 <p className="text-xs text-muted-foreground mt-3 text-center">
                   As respostas são baseadas em documentação oficial inserida na base de conhecimento.
                 </p>
-              </CardContent>
-            </Card>
+              </div>
+            </div>
           </div>
 
           {/* Sidebar - Knowledge Base Info */}
-          <aside className="lg:w-80 shrink-0">
-            <Card className="shadow-lg border-0">
-              <CardContent className="p-4">
+          <aside className="w-full">
+            <div className="rounded-xl p-4" style={{background: 'oklch(0.16 0.04 250 / 0.3)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', border: '1px solid oklch(0.95 0.01 250 / 0.08)'}}>
                 <h3 className="font-semibold text-foreground flex items-center gap-2 mb-4">
                   <FileText className="w-5 h-5 text-primary" />
                   Base de Conhecimento
@@ -413,28 +412,66 @@ export default function Home() {
                     os links serão indicados na resposta.
                   </p>
                 </div>
-              </CardContent>
-            </Card>
+              </div>
           </aside>
         </div>
       </main>
 
-      {/* Footer - Versão neutra */}
-      <footer className="bg-card border-t py-3">
+      {/* Footer Premium */}
+      <footer className="bg-sei-gradient text-white mt-12 py-8">
         <div className="container">
-          <p className="text-center text-xs text-muted-foreground">
-            CLARA — Consultora de Legislação e Apoio a Rotinas Administrativas — Projeto de inteligência artificial — Versão de testes
-          </p>
-          <p className="text-center text-[10px] text-muted-foreground/60 mt-1">
-            Uso interno orientativo — sujeito a validação por fontes oficiais
-          </p>
-          <div className="text-center mt-2">
-            <Link href="/relatorio-tecnico">
-              <span className="inline-flex items-center gap-1 text-[10px] text-primary hover:underline cursor-pointer">
-                <Settings className="w-3 h-3" />
-                Relatório Técnico do Projeto
-              </span>
-            </Link>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8">
+            {/* Coluna 1: Sobre */}
+            <div>
+              <h3 className="font-semibold mb-4 text-lg">Sobre CLARA</h3>
+              <p className="text-white/80 text-sm leading-relaxed">
+                Assistente de inteligência artificial especializada em legislação e procedimentos administrativos.
+              </p>
+              <p className="text-white/60 text-xs mt-3">
+                Versão de testes (Beta)
+              </p>
+            </div>
+            
+            {/* Coluna 2: Recursos */}
+            <div>
+              <h3 className="font-semibold mb-4 text-lg">Recursos</h3>
+              <ul className="space-y-2 text-sm">
+                <li>
+                  <Link href="/relatorio-tecnico">
+                    <span className="text-white/80 hover:text-white transition-colors cursor-pointer flex items-center gap-2">
+                      <Settings className="w-4 h-4" />
+                      Relatório Técnico
+                    </span>
+                  </Link>
+                </li>
+                <li>
+                  <a href="/privacidade.html" className="text-white/80 hover:text-white transition-colors">
+                    Política de Privacidade
+                  </a>
+                </li>
+                <li>
+                  <a href="/termos.html" className="text-white/80 hover:text-white transition-colors">
+                    Termos de Uso
+                  </a>
+                </li>
+              </ul>
+            </div>
+            
+            {/* Coluna 3: Avisos */}
+            <div>
+              <h3 className="font-semibold mb-4 text-lg">Importante</h3>
+              <p className="text-white/80 text-sm leading-relaxed">
+                As respostas têm caráter orientativo e devem ser validadas por fontes oficiais.
+              </p>
+              <p className="text-white/60 text-xs mt-3">
+                Projeto em desenvolvimento
+              </p>
+            </div>
+          </div>
+          
+          <div className="border-t border-white/20 pt-6 text-center text-white/60 text-sm">
+            <p>© 2026 CLARA — Consultora de Legislação e Apoio a Rotinas Administrativas</p>
+            <p className="text-xs mt-2">Todos os direitos reservados</p>
           </div>
         </div>
       </footer>
