@@ -135,9 +135,23 @@ serve(async (req: Request) => {
 
         const { message, conversationHistory = [] } = await req.json();
 
-        if (!message) {
+        if (!message || typeof message !== "string") {
             return new Response(
                 JSON.stringify({ error: "Mensagem é obrigatória" }),
+                { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+            );
+        }
+
+        if (message.length > 10000) {
+            return new Response(
+                JSON.stringify({ error: "Mensagem muito longa (máximo 10.000 caracteres)" }),
+                { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+            );
+        }
+
+        if (conversationHistory && (!Array.isArray(conversationHistory) || conversationHistory.length > 50)) {
+            return new Response(
+                JSON.stringify({ error: "Histórico de conversa inválido ou muito grande (máximo 50 mensagens)" }),
                 { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
             );
         }
