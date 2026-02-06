@@ -24,6 +24,7 @@ async function generateEmbedding(text: string, apiKey: string): Promise<number[]
         },
         body: JSON.stringify({
             content: { parts: [{ text }] },
+            outputDimensionality: 768,
         }),
     });
 
