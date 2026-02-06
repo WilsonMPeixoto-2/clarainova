@@ -312,13 +312,9 @@ serve(async (req: Request) => {
                 error: isRateLimit
                     ? "O sistema está temporariamente sobrecarregado. Tente novamente em alguns segundos."
                     : isPayment
-<<<<<<< HEAD
+
                     ? "Créditos de IA esgotados. Contate o administrador do sistema."
                     : "Desculpe, ocorreu um erro ao processar sua mensagem. Tente novamente.",
-=======
-                        ? "Créditos de IA esgotados. Contate o administrador do sistema."
-                        : "Desculpe, ocorreu um erro ao processar sua mensagem.",
->>>>>>> f6e5e7b (refactor: simplify build, remove 18 unused deps, update Edge Function to v3.0.0 with robust fallback)
                 details: errorMessage,
                 time_elapsed_ms: totalTime,
                 version: VERSION,
