@@ -1,144 +1,105 @@
 
 
-# Plano: Reestruturar Home + Melhorias no Chat + Correções de Build
+# Plano de Correção e Atualização Completa do CLARA
 
-## Contexto
-A partir da imagem de referência, a Home atual tem dois caminhos redundantes para o chat: o botão "Iniciar conversa" e um box de texto abaixo. O plano elimina essa redundância, destaca o CTA principal e melhora a experiência do chat.
+## Resumo
 
----
-
-## 1. Corrigir Erros de Build (Prioridade Critica)
-
-### 1.1 Erro de importação em `server/_core/imageGeneration.ts`
-- Linha 18: `import { storagePut } from "server/storage"` precisa ser corrigido para `import { storagePut } from "../storage"`
-- O tsconfig nao tem path alias para `server/`, apenas para `@/` e `@shared/`
-
-### 1.2 Adicionar porta 8080 ao `vite.config.ts`
-- Adicionar `port: 8080` ao bloco `server` existente (linha 28)
-
-### 1.3 Script `build:dev` ausente no `package.json`
-- O Lovable nao pode editar `package.json` diretamente
-- Sera necessario que voce adicione manualmente o script: `"build:dev": "vite build --mode development"`
+Foram identificados **5 problemas** a corrigir e **2 melhorias** a aplicar. A maioria envolve limpeza de arquivos legados, correção de componentes e padronização visual.
 
 ---
 
-## 2. Reestruturar a Home Page (Prioridade Alta)
+## 1. Remover Componentes Legados Nao Utilizados
 
-### Problema identificado (screenshot)
-A Home tem duas entradas para o chat: o botao "Iniciar conversa" e um campo de texto "Descreva sua duvida..." com chips de sugestao. Isso e redundante e dispersa a atencao.
+Os seguintes arquivos existem no projeto mas **nao sao referenciados** em nenhuma rota ou componente ativo. Eles sao restos da versao anterior (Manus Platform) e devem ser removidos para manter o projeto limpo:
 
-### Solucao: Landing Page focada com CTA unico
+- `src/components/AIChatBox.tsx` -- Substituido pelo sistema de chat customizado
+- `src/components/DashboardLayout.tsx` -- Layout de dashboard autenticado, nao usado
+- `src/components/DashboardLayoutSkeleton.tsx` -- Skeleton do dashboard, nao usado
+- `src/components/ManusDialog.tsx` -- Dialog de login Manus, nao usado
+- `src/components/Map.tsx` -- Componente Google Maps, nao usado
 
-**Arquivo:** `client/src/pages/Home.tsx` (reescrever)
-
-A nova Home tera:
-
-1. **Header** -- manter o header premium atual (CLARA + badge Beta)
-2. **Hero Section** -- titulo, subtitulo e botao "Iniciar Conversa" com glow premium (sem campo de texto)
-3. **Secao de Beneficios** -- 3 cards glass morphism:
-   - "Respostas com Fontes Documentais" (icone FileText)
-   - "Busca Inteligente" (icone Search)
-   - "Exportacao PDF Institucional" (icone FileDown)
-4. **Secao de Confianca** -- badges: "Fontes Oficiais", "Atualizacao Continua", "Uso Institucional"
-5. **Footer** -- manter footer atual + adicionar disclaimer obrigatorio
-
-**CTA "Iniciar Conversa":** Botao grande com `bg-primary`, `glow-primary`, animacao `hover:scale-105` e `shadow-[0_0_30px_var(--primary-glow)]`. Ao clicar, navega para `/chat`.
-
-### Nova rota `/chat`
-
-**Arquivo:** `client/src/pages/Chat.tsx` (novo)
-
-Move toda a logica de chat atual (estado, mutations, mensagens) para esta pagina dedicada, incluindo:
-- Header com botao "Nova Conversa"
-- Area de mensagens com WelcomeScreen
-- ChatInput
-- KnowledgeBaseSidebar (como accordion ou colapsavel)
-
-### Atualizar rotas
-
-**Arquivo:** `client/src/App.tsx`
-- Adicionar: `<Route path="/chat" component={Chat} />`
+**Impacto**: Reduz o tamanho do bundle e elimina dependencias mortas (useAuth, usePersistFn legados).
 
 ---
 
-## 3. Disclaimer no Rodape do Chat (Prioridade Alta)
+## 2. Padronizar a Pagina 404 com o Design System
 
-**Arquivo:** `client/src/pages/Chat.tsx`
+A pagina `NotFound.tsx` usa um estilo completamente diferente (fundo branco/slate, botao azul) que nao combina com o design "GovTech Premium" do resto da aplicacao. Sera atualizada para usar:
 
-Adicionar ao final da pagina de chat, abaixo do input:
+- Fundo escuro com mesh gradient (consistente com o tema)
+- Cores do design system (primary amber, foreground correto)
+- Textos em portugues
+- Tipografia Plus Jakarta Sans
 
+---
+
+## 3. Padronizar o ErrorBoundary com Textos em Portugues
+
+O componente `ErrorBoundary.tsx` exibe textos em ingles ("An unexpected error occurred", "Reload Page"). Sera traduzido para portugues para consistencia.
+
+---
+
+## 4. Remover o Diretorio Duplicado `client/src/`
+
+O diretorio `client/src/` contem copias duplicadas dos mesmos arquivos que estao em `src/`. O Vite esta configurado para usar `src/` como raiz, entao `client/src/` e redundante. Esses arquivos duplicados serao removidos para evitar confusao.
+
+---
+
+## 5. Limpar Imports Nao Utilizados
+
+O arquivo `Home.tsx` e o `KnowledgeBaseSidebar.tsx` possuem imports de icones que nao sao utilizados. Serao limpos.
+
+---
+
+## 6. Melhorar o Tratamento de Erro no Chat
+
+Atualmente, quando a Edge Function retorna um erro no campo `error` (em vez de `answer`), o frontend nao trata esse caso explicitamente. Sera adicionada verificacao para exibir a mensagem de erro da API quando presente.
+
+---
+
+## 7. Garantir que a Conversation History e Enviada
+
+Atualmente, o `Home.tsx` nao envia o historico de conversa para a Edge Function, o que significa que a CLARA nao tem contexto das mensagens anteriores. Sera adicionado o envio do array de conversationHistory para manter continuidade entre mensagens.
+
+---
+
+## Detalhes Tecnicos
+
+### Arquivos a Deletar
 ```text
-"A CLARA e uma ferramenta de apoio e suas orientacoes nao substituem
-a consulta direta as normas oficiais ou assessoria juridica especializada."
+src/components/AIChatBox.tsx
+src/components/DashboardLayout.tsx
+src/components/DashboardLayoutSkeleton.tsx
+src/components/ManusDialog.tsx
+src/components/Map.tsx
+client/src/ (diretorio inteiro -- duplicatas)
 ```
 
-Estilizado com:
-- `text-xs text-muted-foreground/70`
-- Icone `AlertTriangle` (lucide)
-- Fundo sutil `bg-primary/5` com borda `border-primary/10`
-- Padding e border-radius consistentes
+### Arquivos a Modificar
 
----
+**src/pages/Home.tsx**
+- Adicionar envio de `conversationHistory` no body da chamada a Edge Function
+- Tratar resposta de erro da API (`data.error`)
+- Limpar imports nao usados
 
-## 4. Destaque do Botao PDF no Chat (Prioridade Media)
+**src/pages/NotFound.tsx**
+- Redesign completo seguindo o design system GovTech Premium
+- Textos em portugues
 
-**Arquivo:** `client/src/components/chat/MessageActions.tsx`
+**src/components/ErrorBoundary.tsx**
+- Traduzir textos para portugues
+- Ajustar estilo para o design system
 
-Mudancas no botao PDF:
-- Aumentar tamanho: de `px-3.5 py-2 text-xs` para `px-4 py-2.5 text-sm`
-- Adicionar borda: `border border-primary/30`
-- Glow mais intenso: `hover:shadow-[0_0_24px_var(--primary-glow)]`
-- Icone maior: de `size-4` para `size-5`
-- Label mais descritivo: "Baixar PDF" em vez de "PDF"
-- Posicionar como primeiro botao da lista (antes de Copiar)
+### Arquivos que NAO serao tocados (protegidos)
+- `src/integrations/supabase/client.ts`
+- `src/integrations/supabase/types.ts`
+- `.env`
+- `supabase/config.toml`
+- `package.json`
 
----
-
-## 5. Resumo dos Arquivos Modificados
-
-| Arquivo | Acao | Descricao |
-|---------|------|-----------|
-| `server/_core/imageGeneration.ts` | Editar | Corrigir import path |
-| `vite.config.ts` | Editar | Adicionar porta 8080 |
-| `client/src/pages/Home.tsx` | Reescrever | Landing page com Hero + Cards + CTA |
-| `client/src/pages/Chat.tsx` | Criar | Pagina dedicada de chat (logica atual) |
-| `client/src/App.tsx` | Editar | Adicionar rota `/chat` |
-| `client/src/components/chat/MessageActions.tsx` | Editar | Destacar botao PDF |
-
----
-
-## 6. Nota sobre `package.json`
-
-O Lovable nao pode editar o `package.json` diretamente. Voce precisara adicionar manualmente:
-
-```json
-"build:dev": "vite build --mode development"
-```
-
-dentro do bloco `"scripts"` do `package.json`.
-
----
-
-## Fluxo do Usuario Apos Implementacao
-
-```text
-Home (/)
-  |
-  +-- Hero: "CLARA - Inteligencia Administrativa"
-  +-- Subtitulo descritivo
-  +-- [Iniciar Conversa] (botao premium com glow)
-  +-- 3 Cards de beneficios
-  +-- Secao de confianca
-  +-- Footer com disclaimer
-  |
-  v
-Chat (/chat)
-  |
-  +-- Header com "Nova Conversa"
-  +-- WelcomeScreen (cards de exemplo)
-  +-- Area de mensagens
-  +-- Botoes: [Baixar PDF] [Copiar] [Compartilhar]
-  +-- ChatInput
-  +-- Disclaimer legal no rodape
-```
+### Ordem de Execucao
+1. Deletar componentes legados e diretorio duplicado
+2. Atualizar `Home.tsx` (historico + tratamento de erro)
+3. Redesenhar `NotFound.tsx`
+4. Traduzir `ErrorBoundary.tsx`
 
