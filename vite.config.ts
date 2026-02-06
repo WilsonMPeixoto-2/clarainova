@@ -25,6 +25,7 @@ export default defineConfig({
     emptyOutDir: true,
   },
   server: {
+    port: 8080,
     host: true,
     fs: {
       strict: true,
