@@ -38,11 +38,31 @@ export default function Home() {
     setIsLoading(true);
 
     try {
+      const conversationHistory = messages.map((m) => ({
+        role: m.role,
+        content: m.content,
+      }));
+
       const { data, error } = await supabase.functions.invoke("clara-chat", {
-        body: { message: message.trim() },
+        body: {
+          message: message.trim(),
+          conversationHistory,
+        },
       });
 
       if (error) throw error;
+
+      if (data.error) {
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: Date.now(),
+            role: "assistant",
+            content: `⚠️ ${data.error}`,
+          },
+        ]);
+        return;
+      }
 
       setMessages((prev) => [
         ...prev,
