@@ -1,4 +1,4 @@
-import { FileText, AlertTriangle, Info, Globe, BookOpen } from "lucide-react";
+import { FileText, AlertTriangle, Info, BookOpen } from "lucide-react";
 
 function DocumentItem({
   title,
@@ -119,18 +119,6 @@ export function KnowledgeBaseSidebar() {
           </p>
         </div>
 
-        {/* External search */}
-        <div className="p-3 bg-muted/30 rounded-lg">
-          <h4 className="text-sm font-semibold text-foreground mb-1.5 flex items-center gap-1.5">
-            <Globe className="size-3.5 text-complementar" />
-            Busca externa
-          </h4>
-          <p className="text-xs text-muted-foreground leading-relaxed text-justify">
-            Na ausência de base documental interna suficiente, o assistente poderá consultar
-            fontes externas oficiais (preferencialmente .gov.br), mantendo o tema restrito a
-            procedimentos administrativos. Links serão indicados na resposta.
-          </p>
-        </div>
       </div>
     </aside>
   );
