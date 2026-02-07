@@ -1,72 +1,39 @@
-# Central de Inteligência SEI!RIO
+# CLARA — Central de Inteligência SEI!RIO
 
-Sistema de chat RAG (Retrieval-Augmented Generation) independente, especializado em fornecer assistência sobre o Sistema Eletrônico de Informações (SEI) e procedimentos de prestação de contas do SDP.
+> ⚠️ **Este projeto usa exclusivamente `npm` como gerenciador de pacotes.**
+> Lockfiles de outros gerenciadores (`bun.lock`, `pnpm-lock.yaml`, `yarn.lock`) **não são suportados** e serão ignorados via `.gitignore`.
+> Use apenas `npm install` e `npm run <script>`.
+
+Sistema de chat RAG (Retrieval-Augmented Generation) especializado em fornecer assistência sobre o Sistema Eletrônico de Informações (SEI) e procedimentos de prestação de contas do SDP.
 
 ## 🚀 Características
 
-- **Chat RAG com Gemini 3 Pro**: Respostas baseadas em inteligência artificial com fontes verificáveis
+- **Chat RAG com IA**: Respostas baseadas em inteligência artificial com fontes verificáveis
 - **Busca Web Integrada**: Complementa respostas com informações de fontes governamentais externas
-- **Base de Conhecimento**: Sistema indexado com 5 PDFs de documentação oficial do SEI
-- **Interface Pública**: Acesso sem necessidade de login ou autenticação
-- **Histórico de Conversas**: Mantém contexto das conversas para melhor experiência
+- **Base de Conhecimento**: Sistema indexado com documentação oficial do SEI
+- **Interface Pública**: Acesso sem necessidade de login
+- **Histórico de Conversas**: Mantém contexto para melhor experiência
 
 ## 📋 Pré-requisitos
 
-- Node.js 18+ ou npm
-- MySQL 8+ ou MariaDB
-- **Chave de API do Google Gemini** (obtenha gratuitamente em https://aistudio.google.com/app/apikey)
+- Node.js 18+
+- npm (incluído com Node.js)
 
 ## 🔧 Instalação
 
-1. **Clone o repositório**
-   ```bash
-   git clone https://github.com/WilsonMPeixoto-2/central-inteligencia-sei.git
-   cd central-inteligencia-sei
-   ```
+```bash
+# Clone o repositório
+git clone https://github.com/WilsonMPeixoto-2/central-inteligencia-sei.git
+cd central-inteligencia-sei
 
-2. **Instale as dependências**
-   ```bash
-   npm install --legacy-peer-deps
-   ```
+# Instale as dependências (APENAS npm)
+npm install
 
-3. **Configure as variáveis de ambiente**
-   
-   Copie o arquivo de exemplo e configure suas variáveis:
-   ```bash
-   cp .env.example .env
-   ```
-   
-   ### Obter Chave API do Google Gemini (GRATUITA)
-   
-   1. Acesse o **Google AI Studio**: https://aistudio.google.com/app/apikey
-   2. Faça login com sua conta Google
-   3. Clique em "Create API Key" (Criar chave de API)
-   4. Copie a chave gerada
-   
-   ### Configurar o arquivo `.env`
-   
-   Edite o arquivo `.env` e configure as seguintes variáveis:
-   
-   **Obrigatório:**
-   - `DATABASE_URL`: String de conexão com o MySQL
-   - `GOOGLE_GENERATIVE_AI_API_KEY`: Sua chave API do Google Gemini (obtida acima)
-   - `JWT_SECRET`: Uma string secreta aleatória para sessões
-   
-   **Opcional:**
-   - `PORT`: Porta do servidor (padrão: 3000)
-   - `BUILT_IN_FORGE_API_URL` e `BUILT_IN_FORGE_API_KEY`: Apenas se você estiver usando Manus Forge como proxy (não recomendado para uso independente)
+# Inicie o servidor de desenvolvimento
+npm run dev
+```
 
-4. **Configure o banco de dados**
-   ```bash
-   npm run db:push
-   ```
-
-5. **Inicie o servidor de desenvolvimento**
-   ```bash
-   npm run dev
-   ```
-
-O aplicativo estará disponível em `http://localhost:3000`
+O aplicativo estará disponível em `http://localhost:8080`
 
 ## 🏗️ Build para Produção
 
@@ -75,143 +42,86 @@ npm run build
 npm start
 ```
 
-## 🌐 Deploy no Vercel
-
-1. **Instale o Vercel CLI (opcional)**
-   ```bash
-   npm i -g vercel
-   ```
-
-2. **Configure as variáveis de ambiente no Vercel**
-   - Acesse o dashboard do Vercel
-   - Vá para as configurações do projeto → Environment Variables
-   - Adicione as seguintes variáveis:
-     - `DATABASE_URL`: String de conexão com seu banco MySQL
-     - `GOOGLE_GENERATIVE_AI_API_KEY`: Sua chave API do Google Gemini
-     - `JWT_SECRET`: String aleatória segura para sessões
-     - `NODE_ENV`: `production`
-
-3. **Deploy**
-   ```bash
-   vercel --prod
-   ```
-
-Ou simplesmente conecte o repositório GitHub ao Vercel para deploy automático.
-
-## 📚 Base de Conhecimento
-
-Os documentos indexados incluem:
-
-1. **Manual do Usuário SEI 4.0** - Guia completo de operações no sistema
-2. **Cartilha do Usuário SEI** - Orientações práticas
-3. **Manual de Prestação de Contas SDP** - Procedimentos para prestação de contas
-4. **Guia Orientador SDP** - Circular E/SUBG/CPGOF Nº 06/2024
-5. **Documentação adicional do SEI**
-
-Para adicionar novos documentos à base de conhecimento:
-
-1. Adicione os arquivos PDF na pasta `knowledge-base/`
-2. Reinicie o servidor para reindexação automática
-
 ## 🛠️ Scripts Disponíveis
 
-- `npm run dev` - Inicia o servidor de desenvolvimento
-- `npm run build` - Compila o projeto para produção
-- `npm start` - Inicia o servidor em modo produção
-- `npm run check` - Verifica tipos TypeScript
-- `npm run format` - Formata o código com Prettier
-- `npm test` - Executa testes
-- `npm run db:push` - Sincroniza schema do banco de dados
+| Comando | Descrição |
+|---|---|
+| `npm run dev` | Inicia o servidor de desenvolvimento |
+| `npm run build` | Compila o projeto para produção |
+| `npm run build:dev` | Build em modo desenvolvimento |
+| `npm start` | Preview do build de produção |
+| `npm run check` | Verifica tipos TypeScript |
+| `npm run format` | Formata o código com Prettier |
+| `npm test` | Executa testes com Vitest |
 
 ## 📁 Estrutura do Projeto
 
 ```
 .
-├── client/              # Frontend React
-│   ├── src/
-│   │   ├── pages/      # Páginas da aplicação
-│   │   ├── components/ # Componentes React
-│   │   └── lib/        # Utilitários e configurações
-├── server/             # Backend Node.js
-│   ├── _core/         # Funcionalidades core do servidor
-│   ├── routers.ts     # Rotas tRPC
-│   ├── rag.ts         # Sistema RAG
-│   └── db.ts          # Camada de banco de dados
-├── shared/            # Código compartilhado
-├── knowledge-base/    # PDFs da base de conhecimento
-├── drizzle/          # Schemas e migrations do banco
-└── dist/             # Build de produção (gerado)
+├── src/                    # Código-fonte frontend (React + TypeScript)
+│   ├── components/         # Componentes React
+│   │   ├── chat/           # Componentes do chat (input, mensagens, sidebar)
+│   │   └── ui/             # Componentes UI reutilizáveis (shadcn/ui)
+│   ├── contexts/           # Contextos React (ThemeContext)
+│   ├── hooks/              # Hooks customizados
+│   ├── integrations/       # Integrações (Supabase client + types)
+│   ├── pages/              # Páginas da aplicação
+│   └── lib/                # Utilitários
+├── supabase/
+│   ├── functions/          # Edge Functions (backend serverless)
+│   │   ├── clara-chat/     # Função principal do chat RAG
+│   │   └── re-embed-chunks/ # Reprocessamento de embeddings
+│   └── migrations/         # Migrações do banco de dados
+├── knowledge-base/         # Documentos da base de conhecimento
+├── package.json            # Dependências e scripts (npm apenas)
+├── package-lock.json       # Lockfile oficial (npm)
+├── vite.config.ts          # Configuração do Vite
+├── tsconfig.json           # Configuração do TypeScript
+└── vitest.config.ts        # Configuração de testes
 ```
+
+## 📚 Base de Conhecimento
+
+Documentos indexados:
+
+1. **Manual do Usuário SEI 4.0** — Guia completo de operações
+2. **Cartilha do Usuário SEI** — Orientações práticas
+3. **Manual de Prestação de Contas SDP** — Procedimentos para prestação de contas
+4. **Guia Orientador SDP** — Circular E/SUBG/CPGOF Nº 06/2024
 
 ## 🔒 Segurança
 
-- ⚠️ **Importante**: Não commite o arquivo `.env` com credenciais reais
-- Use sempre variáveis de ambiente para informações sensíveis
-- O `JWT_SECRET` deve ser uma string aleatória forte em produção
-- A chave `GOOGLE_GENERATIVE_AI_API_KEY` deve ser mantida em segredo
+- ⚠️ Não commite o arquivo `.env` com credenciais reais
+- Use variáveis de ambiente para informações sensíveis
+- O backend roda em Edge Functions com secrets gerenciados pelo Lovable Cloud
 
-## 🔑 Obtendo Chave API do Google Gemini
+## ⚙️ Gerenciador de Pacotes
 
-O Google Gemini oferece uma **API gratuita** com limites generosos:
+**Este projeto usa exclusivamente `npm`.**
 
-1. **Acesse**: https://aistudio.google.com/app/apikey
-2. **Login**: Use sua conta Google
-3. **Crie**: Clique em "Create API Key" 
-4. **Copie**: A chave será mostrada apenas uma vez
-5. **Configure**: Cole no arquivo `.env` como `GOOGLE_GENERATIVE_AI_API_KEY`
+❌ Não use `bun`, `pnpm` ou `yarn`
+❌ Não crie `bun.lock`, `pnpm-lock.yaml` ou `yarn.lock`
+❌ Não adicione `packageManager` ou blocos `pnpm`/`bun` ao `package.json`
 
-**Limites da API gratuita:**
-- 60 requisições por minuto
-- 1.500 requisições por dia
-- Sem custos
+O `.gitignore` bloqueia lockfiles de outros gerenciadores automaticamente.
 
-Para limites maiores, considere o plano pago do Google AI Studio.
+## 📝 Stack Técnico
 
-## 📝 Notas de Desenvolvimento
-
-Este projeto foi adaptado para funcionar independentemente do sistema Manus, mantendo apenas as funcionalidades essenciais:
-
-- ✅ Removido sistema de autenticação OAuth
-- ✅ Removida integração com Google Maps
-- ✅ Removido vite-plugin-manus-runtime
-- ✅ Simplificado para acesso público
-- ✅ Mantido sistema RAG completo
-- ✅ Mantida busca web integrada
-- ✅ **Integração direta com Google Gemini API** (sem proxy)
-
-### 🤖 Integração LLM
-
-O sistema agora usa a **API do Google Gemini diretamente**, sem necessidade de proxies ou intermediários:
-
-**✅ Modo Principal: Google Gemini Direto (Recomendado)**
-- Use sua própria chave API do Google AI Studio
-- Configure apenas `GOOGLE_GENERATIVE_AI_API_KEY` no `.env`
-- Modelo usado: `gemini-1.5-pro` (ajustável no código)
-- **100% independente e gratuito**
-
-**Modo Legado: Manus Forge Proxy (Opcional)**
-- Mantido para compatibilidade com instalações antigas
-- Configure `BUILT_IN_FORGE_API_URL` e `BUILT_IN_FORGE_API_KEY`
-- Usado automaticamente se `GOOGLE_GENERATIVE_AI_API_KEY` não estiver definido
-
-### Como Funciona a Seleção:
-
-```
-1. Se GOOGLE_GENERATIVE_AI_API_KEY está definido → Usa Gemini direto
-2. Caso contrário → Usa Manus Forge como fallback
-```
-
-Isso garante compatibilidade retroativa mantendo a flexibilidade de uso independente.
+- **Frontend**: React 19 + TypeScript + Vite + Tailwind CSS v4
+- **UI**: shadcn/ui + Radix Primitives + Framer Motion
+- **Backend**: Lovable Cloud (Supabase Edge Functions)
+- **IA**: Lovable AI Gateway (Gemini / GPT)
+- **Banco de Dados**: PostgreSQL (via Lovable Cloud)
+- **Busca**: Hybrid Search (vetorial + keyword) com pgvector
 
 ## 🤝 Contribuindo
 
-Contribuições são bem-vindas! Por favor:
-
 1. Faça um fork do projeto
-2. Crie uma branch para sua feature (`git checkout -b feature/AmazingFeature`)
-3. Commit suas mudanças (`git commit -m 'Add some AmazingFeature'`)
-4. Push para a branch (`git push origin feature/AmazingFeature`)
-5. Abra um Pull Request
+2. Crie uma branch para sua feature (`git checkout -b feature/MinhaFeature`)
+3. **Use apenas `npm install`** para instalar dependências
+4. Commit suas mudanças (`git commit -m 'feat: minha feature'`)
+5. Push para a branch (`git push origin feature/MinhaFeature`)
+6. Abra um Pull Request
 
 ## 📄 Licença
 
@@ -219,11 +129,7 @@ Este projeto está sob a licença MIT.
 
 ## 👥 Autores
 
-- 4ª CRE - Coordenadoria Regional de Educação
-
-## 📞 Suporte
-
-Para questões e suporte, abra uma issue no repositório GitHub.
+- 4ª CRE — Coordenadoria Regional de Educação
 
 ---
 
