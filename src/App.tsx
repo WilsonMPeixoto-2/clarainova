@@ -7,6 +7,7 @@ import { ThemeProvider } from "./contexts/ThemeContext";
 import Home from "./pages/Home";
 import RelatorioTecnico from "./pages/RelatorioTecnico";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { Analytics } from "@vercel/analytics/react";
 
 const queryClient = new QueryClient();
 
@@ -29,6 +30,7 @@ function App() {
           <TooltipProvider>
             <Toaster />
             <Router />
+            <Analytics />
           </TooltipProvider>
         </ThemeProvider>
       </ErrorBoundary>
