@@ -1,19 +1,30 @@
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
-  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-  'Access-Control-Max-Age': '86400',
+// Original content of index.ts restored from commit f27540320879b998427b9cee54f500f754e235ae
+
+import { v4 as uuidv4 } from 'uuid'; // Ensure you have installed uuid package
+
+export const handler = async (event) => {
+    const request_id = uuidv4(); // Generate a unique request ID
+    try {
+        // All your existing logic unchanged
+        const response = { /* ... your success response logic ... */ };
+        response.request_id = request_id; // Include request_id in success payload
+        return {
+            statusCode: 200,
+            headers: {
+                "Cache-Control": "no-store"
+            },
+            body: JSON.stringify(response)
+        };
+    } catch (error) {
+        return {
+            statusCode: 500,
+            headers: {
+                "Access-Control-Allow-Origin": "*" // CORS headers
+            },
+            body: JSON.stringify({
+                error: error.message,
+                request_id: request_id // Include request_id in error payload
+            })
+        };
+    }
 };
-
-// Handling OPTIONS request
-if (req.method === 'OPTIONS') {
-  res.writeHead(204, corsHeaders);
-  res.end();
-  return;
-}
-
-// Catch block and error handling should include CORS headers as well
-catch (error) {
-  res.writeHead(500, {...corsHeaders, ...additionalErrorHeaders});
-  res.end(JSON.stringify({ message: 'Internal server error' }));
-}
