@@ -300,29 +300,53 @@ serve(async (req: Request) => {
             { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
     } catch (err) {
-        const totalTime = Date.now() - startTime;
-        const errorMessage = (err as Error).message;
-        console.error(`[clara-chat ${VERSION}] ❌ Error after ${totalTime}ms:`, errorMessage);
+  const totalTime = Date.now() - startTime;
 
-        const isRateLimit = errorMessage.includes("RATE_LIMIT") || errorMessage.includes("429");
-        const isPayment = errorMessage.includes("PAYMENT") || errorMessage.includes("402");
+  // Sempre logar o erro completo no servidor (não vaza para o cliente)
+  const msg = String((err as any)?.message ?? err ?? "");
+  console.error(`[clara-chat ${VERSION}] ❌ Error after ${totalTime}ms`, { msg, err });
 
-        return new Response(
-            JSON.stringify({
-                error: isRateLimit
-                    ? "O sistema está temporariamente sobrecarregado. Tente novamente em alguns segundos."
-                    : isPayment
+  // Heurísticas para categorizar o erro
+  const isRateLimit = /429|rate limit|too many requests/i.test(msg);
+  const isPayment = /payment|min balance|credits|quota/i.test(msg);
 
-                    ? "Créditos de IA esgotados. Contate o administrador do sistema."
-                    : "Desculpe, ocorreu um erro ao processar sua mensagem. Tente novamente.",
-                details: errorMessage,
-                time_elapsed_ms: totalTime,
-                version: VERSION,
-            }),
-            {
-                status: isRateLimit ? 429 : isPayment ? 402 : 500,
-                headers: { ...corsHeaders, "Content-Type": "application/json" },
-            }
-        );
-    }
+  // HTTP status coerente com a categoria
+  const status = isRateLimit ? 429 : isPayment ? 402 : 500;
+
+  // Mensagem amigável ao usuário
+  const userMessage = isRateLimit
+    ? "O sistema está temporariamente sobrecarregado. Tente novamente em alguns segundos."
+    : isPayment
+      ? "Créditos de IA esgotados. Contate o administrador do sistema."
+      : "Desculpe, ocorreu um erro ao processar sua mensagem. Tente novamente.";
+
+  // Provider pode não estar definido em alguns fluxos
+  const providerSafe =
+    typeof provider === "string" && provider.trim() ? provider : "unknown";
+
+  return new Response(
+    JSON.stringify({
+      error: userMessage,
+      details: isRateLimit
+        ? "rate_limited"
+        : isPayment
+          ? "quota_exceeded"
+          : "internal_error",
+      provider: providerSafe,
+      sources: [],
+      metrics: {
+        total_time_ms: totalTime,
+        chunks_found: 0,
+      },
+      time_elapsed_ms: totalTime, // compatibilidade com payload antigo
+    }),
+    {
+      status,
+      headers: {
+        "Content-Type": "application/json; charset=utf-8",
+        "Cache-Control": "no-store",
+      },
+    },
+  );
+}
 });
