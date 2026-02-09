@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { RefreshCw, RotateCcw } from "lucide-react";
+import { RotateCcw } from "lucide-react";
 import ClaraLogo from "@/components/ClaraLogo";
 import { ChatMessageBubble, type ChatMessageData } from "@/components/chat/ChatMessageBubble";
 import { WelcomeScreen } from "@/components/chat/WelcomeScreen";
