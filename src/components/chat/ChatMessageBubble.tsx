@@ -20,33 +20,27 @@ export function ChatMessageBubble({ message }: ChatMessageBubbleProps) {
 
   return (
     <div className={`flex ${isUser ? "justify-end" : "justify-start"} message-enter`}>
-      <div
-        className={`max-w-[85%] ${
-          isUser ? "chat-message-user" : "chat-message-assistant"
-        }`}
-      >
+      <div className={`max-w-[92%] md:max-w-[88%] ${isUser ? "chat-message-user" : "chat-message-assistant"}`}>
         {isUser ? (
-          <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+          <p className="text-sm md:text-[0.94rem] whitespace-pre-wrap leading-relaxed tracking-[0.003em]">
+            {message.content}
+          </p>
         ) : (
-          <div className="prose prose-sm max-w-none dark:prose-invert">
+          <div className="prose prose-sm max-w-none dark:prose-invert clara-assistant-prose">
             <Streamdown>{message.content}</Streamdown>
           </div>
         )}
 
-        {/* Web Search Indicator */}
         {message.usedWebSearch && (
-          <div className="mt-2 flex items-center gap-1.5 text-xs text-primary/80">
+          <div className="mt-2 flex items-center gap-1.5 text-xs text-primary/85">
             <Globe className="size-3" />
-            <span>Inclui informações de fontes governamentais externas</span>
+            <span>Inclui informacoes de fontes governamentais externas</span>
           </div>
         )}
 
-        {/* Sources */}
         {message.sources && message.sources.length > 0 && (
-          <div className="mt-3 pt-3 border-t border-border/30">
-            <p className="text-xs font-medium text-muted-foreground mb-2">
-              Fontes consultadas:
-            </p>
+          <div className="mt-3 pt-3 border-t border-border/25">
+            <p className="clara-source-title mb-2">Fontes consultadas</p>
             <div className="flex flex-wrap gap-1.5">
               {message.sources.map((source, idx) =>
                 source.link ? (
@@ -55,23 +49,16 @@ export function ChatMessageBubble({ message }: ChatMessageBubbleProps) {
                     href={source.link}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-md
-                      bg-primary/10 text-primary border border-primary/20
-                      hover:bg-primary/20 hover:border-primary/40 hover:shadow-[0_0_8px_var(--primary-glow)]
-                      transition-all duration-200"
+                    className="clara-source-chip clara-source-chip-link"
                   >
                     <Globe className="size-3" />
                     {source.documentTitle}
                   </a>
                 ) : (
-                  <span
-                    key={idx}
-                    className="inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-md
-                      bg-accent/10 text-accent border border-accent/20"
-                  >
+                  <span key={idx} className="clara-source-chip">
                     <FileText className="size-3" />
                     {source.documentTitle}
-                    {source.section && ` — ${source.section}`}
+                    {source.section && ` - ${source.section}`}
                   </span>
                 )
               )}
@@ -79,10 +66,7 @@ export function ChatMessageBubble({ message }: ChatMessageBubbleProps) {
           </div>
         )}
 
-        {/* Action Buttons */}
-        {!isUser && (
-          <MessageActions content={message.content} sources={message.sources} />
-        )}
+        {!isUser && <MessageActions content={message.content} sources={message.sources} />}
       </div>
     </div>
   );
