@@ -2,7 +2,8 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { RotateCcw } from "lucide-react";
+import { RefreshCw, RotateCcw } from "lucide-react";
+import ClaraLogo from "@/components/ClaraLogo";
 import { ChatMessageBubble, type ChatMessageData } from "@/components/chat/ChatMessageBubble";
 import { WelcomeScreen } from "@/components/chat/WelcomeScreen";
 import { ChatInput } from "@/components/chat/ChatInput";
@@ -152,17 +153,29 @@ export default function Home() {
   };
 
   return (
-    <div className="clara-page">
+    <div className="min-h-screen flex flex-col">
       <ChatHeader onNewChat={handleNewChat} showNewChat={messages.length > 0} />
 
-      <main className="container clara-main">
-        <div className="clara-main-grid">
-          <section className="clara-chat-shell">
-            <ScrollArea className="clara-chat-scroll custom-scrollbar">
+      {/* Main Content */}
+      <main className="flex-1 container py-6 flex flex-col">
+        <div className="flex-1 flex flex-col gap-6 max-w-7xl mx-auto w-full" style={{ height: "80vh" }}>
+          <div className="flex-1 flex flex-col w-full min-h-0">
+            <div
+              className="flex-1 flex flex-col overflow-hidden rounded-2xl"
+              style={{
+                background: "oklch(0.14 0.04 250 / 0.5)",
+                backdropFilter: "blur(24px) saturate(180%)",
+                WebkitBackdropFilter: "blur(24px) saturate(180%)",
+                border: "1px solid oklch(0.95 0.01 250 / 0.1)",
+                boxShadow:
+                  "inset 0 1px 0 0 oklch(0.95 0.01 250 / 0.08), 0 8px 40px oklch(0 0 0 / 0.35), 0 0 0 1px oklch(0 0 0 / 0.1)",
+              }}
+            >
+              <ScrollArea className="flex-1 p-4 md:p-6 custom-scrollbar">
                 {messages.length === 0 ? (
                   <WelcomeScreen onSendMessage={handleSendMessage} />
                 ) : (
-                  <div className="clara-message-stack">
+                  <div className="space-y-5 min-h-full">
                     {messages.map((message) => (
                       <ChatMessageBubble key={message.id} message={message} />
                     ))}
@@ -174,7 +187,7 @@ export default function Home() {
                           variant="outline"
                           size="sm"
                           onClick={handleRetry}
-                          className="border-destructive/35 text-destructive hover:bg-destructive/10 hover:border-destructive/60 transition-all duration-300"
+                          className="border-destructive/30 text-destructive hover:bg-destructive/10 hover:border-destructive/50 transition-all duration-300"
                         >
                           <RotateCcw className="size-4 mr-2" />
                           Tentar Novamente
@@ -200,15 +213,16 @@ export default function Home() {
                     <div ref={messagesEndRef} />
                   </div>
                 )}
-            </ScrollArea>
+              </ScrollArea>
 
-            <ChatInput
-              value={inputValue}
-              onChange={setInputValue}
-              onSend={handleSendMessage}
-              isLoading={isLoading}
-            />
-          </section>
+              <ChatInput
+                value={inputValue}
+                onChange={setInputValue}
+                onSend={handleSendMessage}
+                isLoading={isLoading}
+              />
+            </div>
+          </div>
 
           <KnowledgeBaseSidebar />
         </div>

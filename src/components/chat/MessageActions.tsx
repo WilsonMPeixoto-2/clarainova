@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Copy, FileDown, Share2, Check } from "lucide-react";
+import { Copy, FileDown, Share2, Check, ClipboardCheck } from "lucide-react";
 import { toast } from "sonner";
 
 interface MessageActionsProps {
@@ -66,10 +66,13 @@ export function MessageActions({ content, sources }: MessageActionsProps) {
   };
 
   return (
-    <div className="clara-message-actions">
+    <div className="mt-4 pt-3 border-t border-border/30 flex gap-2 flex-wrap">
       <button
         onClick={handleCopy}
-        className="group clara-action-chip clara-action-chip-accent"
+        className="group inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold rounded-lg transition-all duration-300
+          bg-accent/10 text-accent hover:bg-accent/20
+          hover:shadow-[0_0_16px_var(--accent-glow)] hover:-translate-y-0.5
+          active:translate-y-0 active:shadow-none"
       >
         {copied ? (
           <Check className="size-4 animate-scale-in" />
@@ -81,7 +84,10 @@ export function MessageActions({ content, sources }: MessageActionsProps) {
 
       <button
         onClick={handleDownloadPdf}
-        className="group clara-action-chip clara-action-chip-primary"
+        className="group inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold rounded-lg transition-all duration-300
+          bg-primary/10 text-primary hover:bg-primary/20
+          hover:shadow-[0_0_16px_var(--primary-glow)] hover:-translate-y-0.5
+          active:translate-y-0 active:shadow-none"
       >
         <FileDown className="size-4 transition-transform group-hover:scale-110" />
         PDF
@@ -89,7 +95,10 @@ export function MessageActions({ content, sources }: MessageActionsProps) {
 
       <button
         onClick={handleShare}
-        className="group clara-action-chip clara-action-chip-info"
+        className="group inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold rounded-lg transition-all duration-300
+          bg-complementar/10 text-complementar hover:bg-complementar/20
+          hover:shadow-[0_0_16px_var(--complementar-glow)] hover:-translate-y-0.5
+          active:translate-y-0 active:shadow-none"
       >
         <Share2 className="size-4 transition-transform group-hover:scale-110" />
         Compartilhar
