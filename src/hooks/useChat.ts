@@ -204,11 +204,16 @@ export function useChat(options: UseChatOptions = {}) {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            "Authorization": `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`
+            "Accept": "text/event-stream",
+            // Supabase Edge Functions typically expect both apikey + Authorization
+            "apikey": import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+            "Authorization": `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
           },
           body: JSON.stringify({
             message: isContinuation ? "" : content,
             history: historyForApi.slice(0, -1), // Excluir a mensagem atual
+            // Backward/forward compatibility with older function contracts
+            conversationHistory: historyForApi.slice(0, -1),
             mode: mode,
             webSearchMode: webSearchMode,
             continuation: isContinuation, // Signal backend to continue previous response
@@ -222,150 +227,182 @@ export function useChat(options: UseChatOptions = {}) {
         throw new Error(errorData.error || `Erro ${response.status}`);
       }
 
-      if (!response.body) {
-        throw new Error("Resposta sem corpo");
-      }
+      const contentType = response.headers.get("content-type") || "";
+      const isJson = contentType.includes("application/json");
 
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = "";
+      if (isJson) {
+        const data = await response.json().catch(() => ({} as any));
 
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
+        if (data?.error && !data?.answer) {
+          throw new Error(data.error);
+        }
 
-        buffer += decoder.decode(value, { stream: true });
+        backendRequestId = data?.request_id || data?.requestId || backendRequestId;
 
-        // Processar linhas completas
-        let newlineIndex: number;
-        while ((newlineIndex = buffer.indexOf("\n")) !== -1) {
-          const line = buffer.slice(0, newlineIndex).trim();
-          buffer = buffer.slice(newlineIndex + 1);
+        // Map backend provider formats into UI expectations
+        const providerRaw = String(data?.provider || data?.metrics?.provider || "").toLowerCase();
+        const mappedProvider: ApiProviderInfo["provider"] =
+          providerRaw.includes("lovable") ? "lovable" : "gemini";
+        const model = String(data?.metrics?.model || data?.model || "").trim();
 
-          if (!line || line.startsWith(":")) continue;
+        if (model) {
+          apiProviderInfo = { provider: mappedProvider, model };
+        }
 
-          if (line.startsWith("event: ")) {
-            const eventType = line.slice(7);
-            
-            // Pegar a linha de dados seguinte se estiver no buffer
-            const dataLineEnd = buffer.indexOf("\n");
-            if (dataLineEnd === -1) {
-              // Dados incompletos, colocar de volta
-              buffer = line + "\n" + buffer;
-              break;
-            }
-            
-            const dataLine = buffer.slice(0, dataLineEnd).trim();
-            buffer = buffer.slice(dataLineEnd + 1);
-            
-            if (!dataLine.startsWith("data: ")) continue;
-            const jsonStr = dataLine.slice(6);
+        const answerText = String(data?.answer ?? data?.content ?? data?.text ?? "").trim();
+        assistantContent = answerText;
 
-            try {
-              const data = JSON.parse(jsonStr);
+        const rawSources = Array.isArray(data?.sources) ? data.sources : [];
+        localSources = rawSources
+          .map((s: any) => (typeof s === "string" ? s : String(s?.title || "").trim()))
+          .filter(Boolean);
+        quorumMet = localSources.length > 0;
+      } else {
+        if (!response.body) {
+          throw new Error("Resposta sem corpo");
+        }
 
-              switch (eventType) {
-                case "request_id":
-                  // Store backend request ID for tracking
-                  if (data.id) {
-                    backendRequestId = data.id;
-                    activeRequestIdRef.current = data.id;
-                    setMessages(prev => 
-                      prev.map(msg => 
-                        msg.id === assistantId 
-                          ? { ...msg, requestId: backendRequestId }
-                          : msg
-                      )
-                    );
-                  }
-                  break;
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = "";
 
-                case "api_provider":
-                  if (data.provider && data.model) {
-                    apiProviderInfo = { provider: data.provider, model: data.model };
-                    setMessages(prev => 
-                      prev.map(msg => 
-                        msg.id === assistantId 
-                          ? { ...msg, apiProvider: apiProviderInfo }
-                          : msg
-                      )
-                    );
-                  }
-                  break;
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
 
-                case "thinking":
-                  setThinking({ isThinking: true, step: data.step || "Processando..." });
-                  break;
-                  
-                case "delta":
-                  if (data.content) {
-                    assistantContent += data.content;
-                    setMessages(prev => 
-                      prev.map(msg => 
-                        msg.id === assistantId 
-                          ? { ...msg, content: assistantContent }
-                          : msg
-                      )
-                    );
-                  }
-                  setThinking({ isThinking: false, step: "" });
-                  break;
-                  
-                case "sources":
-                  if (data.local) {
-                    localSources = data.local;
-                  }
-                  if (data.web) {
-                    webSources = data.web;
-                  }
-                  if (typeof data.quorum_met === 'boolean') {
-                    quorumMet = data.quorum_met;
-                  }
-                  break;
+          buffer += decoder.decode(value, { stream: true });
 
-                case "notice":
-                  if (data.type && data.message) {
-                    noticeInfo = { type: data.type, message: data.message };
-                    setMessages(prev => 
-                      prev.map(msg => 
-                        msg.id === assistantId 
-                          ? { ...msg, notice: noticeInfo }
-                          : msg
-                      )
-                    );
-                  }
-                  break;
-                  
-                case "done":
-                  // Finalizar streaming
-                  break;
-                  
-                case "error":
-                  throw new Error(data.message || "Erro no streaming");
+          // Processar linhas completas
+          let newlineIndex: number;
+          while ((newlineIndex = buffer.indexOf("\n")) !== -1) {
+            const line = buffer.slice(0, newlineIndex).trim();
+            buffer = buffer.slice(newlineIndex + 1);
+
+            if (!line || line.startsWith(":")) continue;
+
+            if (line.startsWith("event: ")) {
+              const eventType = line.slice(7);
+
+              // Pegar a linha de dados seguinte se estiver no buffer
+              const dataLineEnd = buffer.indexOf("\n");
+              if (dataLineEnd === -1) {
+                // Dados incompletos, colocar de volta
+                buffer = line + "\n" + buffer;
+                break;
               }
-            } catch (parseError) {
-              // Ignorar erros de parse de eventos individuais
-              console.warn("Erro ao parsear evento SSE:", parseError);
-            }
-          } else if (line.startsWith("data: ")) {
-            // Formato alternativo sem event:
-            const jsonStr = line.slice(6);
-            if (jsonStr === "[DONE]") continue;
-            
-            try {
-              const data = JSON.parse(jsonStr);
-              if (data.content) {
-                assistantContent += data.content;
-                setMessages(prev => 
-                  prev.map(msg => 
-                    msg.id === assistantId 
-                      ? { ...msg, content: assistantContent }
-                      : msg
-                  )
-                );
+
+              const dataLine = buffer.slice(0, dataLineEnd).trim();
+              buffer = buffer.slice(dataLineEnd + 1);
+
+              if (!dataLine.startsWith("data: ")) continue;
+              const jsonStr = dataLine.slice(6);
+
+              try {
+                const data = JSON.parse(jsonStr);
+
+                switch (eventType) {
+                  case "request_id":
+                    // Store backend request ID for tracking
+                    if (data.id) {
+                      backendRequestId = data.id;
+                      activeRequestIdRef.current = data.id;
+                      setMessages(prev =>
+                        prev.map(msg =>
+                          msg.id === assistantId
+                            ? { ...msg, requestId: backendRequestId }
+                            : msg
+                        )
+                      );
+                    }
+                    break;
+
+                  case "api_provider":
+                    if (data.provider && data.model) {
+                      apiProviderInfo = { provider: data.provider, model: data.model };
+                      setMessages(prev =>
+                        prev.map(msg =>
+                          msg.id === assistantId
+                            ? { ...msg, apiProvider: apiProviderInfo }
+                            : msg
+                        )
+                      );
+                    }
+                    break;
+
+                  case "thinking":
+                    setThinking({ isThinking: true, step: data.step || "Processando..." });
+                    break;
+
+                  case "delta":
+                    if (data.content) {
+                      assistantContent += data.content;
+                      setMessages(prev =>
+                        prev.map(msg =>
+                          msg.id === assistantId
+                            ? { ...msg, content: assistantContent }
+                            : msg
+                        )
+                      );
+                    }
+                    setThinking({ isThinking: false, step: "" });
+                    break;
+
+                  case "sources":
+                    if (data.local) {
+                      localSources = data.local;
+                    }
+                    if (data.web) {
+                      webSources = data.web;
+                    }
+                    if (typeof data.quorum_met === 'boolean') {
+                      quorumMet = data.quorum_met;
+                    }
+                    break;
+
+                  case "notice":
+                    if (data.type && data.message) {
+                      noticeInfo = { type: data.type, message: data.message };
+                      setMessages(prev =>
+                        prev.map(msg =>
+                          msg.id === assistantId
+                            ? { ...msg, notice: noticeInfo }
+                            : msg
+                        )
+                      );
+                    }
+                    break;
+
+                  case "done":
+                    // Finalizar streaming
+                    break;
+
+                  case "error":
+                    throw new Error(data.message || "Erro no streaming");
+                }
+              } catch (parseError) {
+                // Ignorar erros de parse de eventos individuais
+                console.warn("Erro ao parsear evento SSE:", parseError);
               }
-            } catch {
-              // Ignorar
+            } else if (line.startsWith("data: ")) {
+              // Formato alternativo sem event:
+              const jsonStr = line.slice(6);
+              if (jsonStr === "[DONE]") continue;
+
+              try {
+                const data = JSON.parse(jsonStr);
+                if (data.content) {
+                  assistantContent += data.content;
+                  setMessages(prev =>
+                    prev.map(msg =>
+                      msg.id === assistantId
+                        ? { ...msg, content: assistantContent }
+                        : msg
+                    )
+                  );
+                }
+              } catch {
+                // Ignorar
+              }
             }
           }
         }

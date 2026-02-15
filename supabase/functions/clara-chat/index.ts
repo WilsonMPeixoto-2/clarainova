@@ -22,10 +22,13 @@ type ChatErrorCode = "RATE_LIMIT" | "PAYMENT" | "CONFIG" | "UPSTREAM" | "INPUT";
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Access-Control-Max-Age": "86400",
 };
 
 const EMBEDDING_MODEL = "gemini-embedding-001";
-const EMBEDDING_URL = `https://generativelanguage.googleapis.com/v1beta/models/${EMBEDDING_MODEL}:embedContent`;
+const EMBEDDING_URL =
+  `https://generativelanguage.googleapis.com/v1beta/models/${EMBEDDING_MODEL}:embedContent`;
 
 const FALLBACK_MODELS = [
   "gemini-2.0-flash",
@@ -41,6 +44,8 @@ const KEYWORD_WEIGHT = 0.4;
 const RATE_LIMIT_MAX_REQUESTS = 15;
 const RATE_LIMIT_WINDOW_SECONDS = 60;
 
+const encoder = new TextEncoder();
+
 function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
     status,
@@ -50,6 +55,31 @@ function jsonResponse(body: unknown, status = 200): Response {
       "Cache-Control": "no-store",
     },
   });
+}
+
+function sseResponse(stream: ReadableStream<Uint8Array>, status = 200): Response {
+  return new Response(stream, {
+    status,
+    headers: {
+      ...corsHeaders,
+      "Content-Type": "text/event-stream; charset=utf-8",
+      "Cache-Control": "no-cache, no-store, must-revalidate",
+      "Connection": "keep-alive",
+      "X-Accel-Buffering": "no",
+    },
+  });
+}
+
+function sseEvent(event: string, data: unknown): Uint8Array {
+  return encoder.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+}
+
+function wantsSse(req: Request, body: Record<string, unknown>): boolean {
+  const accept = (req.headers.get("accept") || "").toLowerCase();
+  if (accept.includes("text/event-stream")) return true;
+  const streamFlag = body.stream;
+  if (streamFlag === true || streamFlag === "true") return true;
+  return false;
 }
 
 function getApiKey(): string {
@@ -83,6 +113,25 @@ function normalizeConversation(value: unknown): ConversationTurn[] {
     })
     .filter((item) => item.content.length > 0)
     .slice(-8);
+}
+
+function lastUserMessage(history: ConversationTurn[]): string {
+  for (let i = history.length - 1; i >= 0; i--) {
+    if (history[i].role !== "user") continue;
+    const content = history[i].content.trim();
+    if (content) return content;
+  }
+  return "";
+}
+
+function chunkText(text: string, maxChars = 140): string[] {
+  const input = text ?? "";
+  if (!input.trim()) return [""];
+  const chunks: string[] = [];
+  for (let i = 0; i < input.length; i += maxChars) {
+    chunks.push(input.slice(i, i + maxChars));
+  }
+  return chunks.length > 0 ? chunks : [input];
 }
 
 function buildPrompt(message: string, chunks: SearchChunk[], history: ConversationTurn[]): string {
@@ -203,133 +252,155 @@ function classifyError(message: string): { code: ChatErrorCode; details: string;
   if (message === "EMBEDDING_EMPTY") {
     return { code: "UPSTREAM", details: message, status: 502 };
   }
+  if (message.startsWith("SEARCH_FAILED:")) {
+    return { code: "UPSTREAM", details: message, status: 502 };
+  }
   if (message.startsWith("CONFIG:")) {
     return { code: "CONFIG", details: message, status: 500 };
+  }
+  if (message.startsWith("INPUT:")) {
+    return { code: "INPUT", details: message, status: 400 };
   }
   return { code: "UPSTREAM", details: message, status: 500 };
 }
 
-serve(async (req: Request) => {
-  if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
+function userFacingErrorMessage(code: ChatErrorCode): string {
+  switch (code) {
+    case "RATE_LIMIT":
+      return "Muitas requisicoes. Tente novamente em alguns segundos.";
+    case "PAYMENT":
+      return "Creditos do provedor esgotados.";
+    case "CONFIG":
+      return "Falha de configuracao do servidor.";
+    case "INPUT":
+      return "Solicitacao invalida.";
+    default:
+      return "Falha ao processar a solicitacao.";
+  }
+}
+
+type ComputeResult = {
+  answer: string;
+  model: string;
+  sources: { title: string; similarity: number; chunk_index: number }[];
+  chunksFound: number;
+  timings: {
+    totalTimeMs: number;
+    embeddingLatencyMs: number;
+    searchLatencyMs: number;
+    llmTotalMs: number;
+    rateLimitCheckMs: number;
+  };
+};
+
+async function computeAnswer(opts: {
+  requestId: string;
+  startedAt: number;
+  sessionFingerprint: string;
+  message: string;
+  conversationHistory: ConversationTurn[];
+  mode: string;
+  webSearchMode: string;
+  onThinking?: (step: string) => void;
+}): Promise<ComputeResult> {
+  const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
+  const supabaseServiceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
+  const apiKey = getApiKey();
+
+  if (!supabaseUrl || !supabaseServiceRoleKey) {
+    throw new Error("CONFIG:SUPABASE_ENV_MISSING");
+  }
+  if (!apiKey) {
+    throw new Error("CONFIG:GEMINI_API_KEY_MISSING");
   }
 
-  const requestId = crypto.randomUUID();
-  const startedAt = Date.now();
+  const supabase = createClient(supabaseUrl, supabaseServiceRoleKey);
 
-  try {
-    if (req.method !== "POST") {
-      return jsonResponse({ error: "Method not allowed", request_id: requestId }, 405);
-    }
+  const rateLimitStart = Date.now();
+  opts.onThinking?.("Checando limite de uso...");
 
-    const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
-    const supabaseServiceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
-    const apiKey = getApiKey();
+  const { data: limitData, error: limitError } = await supabase.rpc("check_rate_limit", {
+    p_client_key: opts.sessionFingerprint,
+    p_endpoint: "clara-chat",
+    p_max_requests: RATE_LIMIT_MAX_REQUESTS,
+    p_window_seconds: RATE_LIMIT_WINDOW_SECONDS,
+  });
 
-    if (!supabaseUrl || !supabaseServiceRoleKey) {
-      throw new Error("CONFIG:SUPABASE_ENV_MISSING");
-    }
-    if (!apiKey) {
-      throw new Error("CONFIG:GEMINI_API_KEY_MISSING");
-    }
-
-    const body = await req.json().catch(() => ({}));
-    const message = String((body as Record<string, unknown>).message ?? "").trim();
-    const conversationHistory = normalizeConversation(
-      (body as Record<string, unknown>).conversationHistory,
-    );
-
-    if (!message) {
-      return jsonResponse(
-        { error: "Mensagem obrigatoria", details: "INPUT:EMPTY_MESSAGE", request_id: requestId },
-        400,
-      );
-    }
-
-    const supabase = createClient(supabaseUrl, supabaseServiceRoleKey);
-    const sessionFingerprint =
-      req.headers.get("x-forwarded-for") ||
-      req.headers.get("cf-connecting-ip") ||
-      req.headers.get("x-real-ip") ||
-      "unknown";
-
-    const rateLimitStart = Date.now();
-    const { data: limitData, error: limitError } = await supabase.rpc("check_rate_limit", {
-      p_client_key: sessionFingerprint,
-      p_endpoint: "clara-chat",
-      p_max_requests: RATE_LIMIT_MAX_REQUESTS,
-      p_window_seconds: RATE_LIMIT_WINDOW_SECONDS,
-    });
-
-    if (limitError) {
-      console.error("[clara-chat] check_rate_limit failed", limitError);
-    } else if (Array.isArray(limitData) && limitData[0] && limitData[0].allowed === false) {
+  if (limitError) {
+    console.error("[clara-chat] check_rate_limit failed", limitError);
+  } else if (Array.isArray(limitData) && limitData[0] && limitData[0].allowed === false) {
+    try {
       await supabase.from("chat_metrics").insert({
-        request_id: requestId,
+        request_id: opts.requestId,
         rate_limit_hit: true,
-        session_fingerprint: sessionFingerprint,
-        mode: "rag",
+        session_fingerprint: opts.sessionFingerprint,
+        mode: opts.mode,
         provider: "rate-limit",
         error_type: "RATE_LIMIT",
       });
-
-      return jsonResponse(
-        {
-          error: "Muitas requisicoes. Tente novamente em alguns segundos.",
-          details: "RATE_LIMIT",
-          request_id: requestId,
-        },
-        200,
-      );
+    } catch (err) {
+      console.error("[clara-chat] chat_metrics insert failed (rate-limit)", err);
     }
 
-    const embeddingStart = Date.now();
-    const embedding = await generateEmbedding(message, apiKey);
-    const embeddingLatencyMs = Date.now() - embeddingStart;
+    throw new Error("RATE_LIMIT:HIT");
+  }
 
-    const searchStart = Date.now();
-    const { data: chunksData, error: searchError } = await supabase.rpc("hybrid_search_chunks", {
-      query_embedding: vectorToPgText(embedding),
-      query_text: message,
-      match_threshold: SEARCH_THRESHOLD,
-      match_count: SEARCH_MATCH_COUNT,
-      vector_weight: VECTOR_WEIGHT,
-      keyword_weight: KEYWORD_WEIGHT,
-    });
+  opts.onThinking?.("Gerando embedding...");
+  const embeddingStart = Date.now();
+  const embedding = await generateEmbedding(opts.message, apiKey);
+  const embeddingLatencyMs = Date.now() - embeddingStart;
 
-    if (searchError) {
-      throw new Error(`SEARCH_FAILED:${searchError.message}`);
-    }
+  opts.onThinking?.("Buscando documentos...");
+  const searchStart = Date.now();
+  const { data: chunksData, error: searchError } = await supabase.rpc("hybrid_search_chunks", {
+    query_embedding: vectorToPgText(embedding),
+    query_text: opts.message,
+    match_threshold: SEARCH_THRESHOLD,
+    match_count: SEARCH_MATCH_COUNT,
+    vector_weight: VECTOR_WEIGHT,
+    keyword_weight: KEYWORD_WEIGHT,
+  });
 
-    const chunks = (Array.isArray(chunksData) ? chunksData : []) as SearchChunk[];
-    const searchLatencyMs = Date.now() - searchStart;
+  if (searchError) {
+    throw new Error(`SEARCH_FAILED:${searchError.message}`);
+  }
 
-    const prompt = buildPrompt(message, chunks, conversationHistory);
+  const chunks = (Array.isArray(chunksData) ? chunksData : []) as SearchChunk[];
+  const searchLatencyMs = Date.now() - searchStart;
 
-    const llmStart = Date.now();
-    const llm = await callGemini(prompt, apiKey);
-    const llmTotalMs = Date.now() - llmStart;
-    const totalTimeMs = Date.now() - startedAt;
+  opts.onThinking?.("Gerando resposta...");
+  const prompt = buildPrompt(opts.message, chunks, opts.conversationHistory);
 
-    const sources = chunks.slice(0, 5).map((chunk, index) => ({
-      title:
-        typeof chunk.metadata?.title === "string"
-          ? chunk.metadata.title
-          : `Documento ${index + 1}`,
-      similarity: chunk.similarity,
-      chunk_index: chunk.chunk_index,
-    }));
+  const llmStart = Date.now();
+  const llm = await callGemini(prompt, apiKey);
+  const llmTotalMs = Date.now() - llmStart;
 
+  const totalTimeMs = Date.now() - opts.startedAt;
+
+  const sources = chunks.slice(0, 5).map((chunk, index) => ({
+    title:
+      typeof chunk.metadata?.title === "string"
+        ? chunk.metadata.title
+        : `Documento ${index + 1}`,
+    similarity: chunk.similarity,
+    chunk_index: chunk.chunk_index,
+  }));
+
+  try {
     await supabase.from("query_analytics").insert({
-      user_query: message,
+      user_query: opts.message,
       assistant_response: llm.text,
-      session_fingerprint: sessionFingerprint,
+      session_fingerprint: opts.sessionFingerprint,
       sources_cited: sources.map((source) => source.title),
     });
+  } catch (err) {
+    console.error("[clara-chat] query_analytics insert failed", err);
+  }
 
+  try {
     await supabase.from("search_metrics").insert({
       query_hash: await crypto.subtle
-        .digest("SHA-256", new TextEncoder().encode(message))
+        .digest("SHA-256", new TextEncoder().encode(opts.message))
         .then((buf) =>
           Array.from(new Uint8Array(buf))
             .map((value) => value.toString(16).padStart(2, "0"))
@@ -341,65 +412,185 @@ serve(async (req: Request) => {
       results_returned: chunks.length,
       threshold_used: SEARCH_THRESHOLD,
     });
+  } catch (err) {
+    console.error("[clara-chat] search_metrics insert failed", err);
+  }
 
+  try {
+    const fallbackTriggered = llm.model !== FALLBACK_MODELS[0];
     await supabase.from("chat_metrics").insert({
-      request_id: requestId,
+      request_id: opts.requestId,
       embedding_latency_ms: embeddingLatencyMs,
       search_latency_ms: searchLatencyMs,
       llm_total_ms: llmTotalMs,
       llm_first_token_ms: llmTotalMs,
       local_chunks_found: chunks.length,
-      provider: llm.model === FALLBACK_MODELS[0] ? "lovable-ai" : "gemini-direct",
+      provider: "gemini-direct",
       model: llm.model,
-      mode: "rag",
-      fallback_triggered: llm.model !== FALLBACK_MODELS[0],
+      mode: opts.mode,
+      fallback_triggered: fallbackTriggered,
       rate_limit_hit: false,
       web_search_used: false,
       web_sources_count: 0,
-      session_fingerprint: sessionFingerprint,
+      session_fingerprint: opts.sessionFingerprint,
     });
-
-    console.log(
-      `[clara-chat] OK request_id=${requestId} total=${totalTimeMs}ms chunks=${chunks.length} model=${llm.model} rateLimitCheck=${Date.now() - rateLimitStart}ms`,
-    );
-
-    return jsonResponse({
-      answer: llm.text,
-      provider: llm.model === FALLBACK_MODELS[0] ? "lovable-ai" : "gemini-direct",
-      sources,
-      metrics: {
-        provider: llm.model === FALLBACK_MODELS[0] ? "lovable-ai" : "gemini-direct",
-        model: llm.model,
-        total_time_ms: totalTimeMs,
-        embedding_ms: embeddingLatencyMs,
-        search_ms: searchLatencyMs,
-        llm_total_ms: llmTotalMs,
-        chunks_found: chunks.length,
-        version: "edge-v2",
-      },
-      request_id: requestId,
-    });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "UNKNOWN_ERROR";
-    const classified = classifyError(message);
-
-    console.error(`[clara-chat] ERROR request_id=${requestId}`, message);
-
-    const payload = {
-      error:
-        classified.code === "RATE_LIMIT"
-          ? "Sistema sobrecarregado, tente novamente em instantes."
-          : classified.code === "PAYMENT"
-            ? "Creditos do provedor esgotados."
-            : "Falha ao processar a solicitacao.",
-      details: classified.code,
-      request_id: requestId,
-    };
-
-    if (classified.status === 200) {
-      return jsonResponse(payload, 200);
-    }
-
-    return jsonResponse(payload, classified.status);
+  } catch (err) {
+    console.error("[clara-chat] chat_metrics insert failed", err);
   }
+
+  console.log(
+    `[clara-chat] OK request_id=${opts.requestId} total=${totalTimeMs}ms chunks=${chunks.length} model=${llm.model} rateLimitCheck=${Date.now() - rateLimitStart}ms`,
+  );
+
+  return {
+    answer: llm.text,
+    model: llm.model,
+    sources,
+    chunksFound: chunks.length,
+    timings: {
+      totalTimeMs,
+      embeddingLatencyMs,
+      searchLatencyMs,
+      llmTotalMs,
+      rateLimitCheckMs: Date.now() - rateLimitStart,
+    },
+  };
+}
+
+serve(async (req: Request) => {
+  if (req.method === "OPTIONS") {
+    return new Response(null, { headers: corsHeaders });
+  }
+
+  const requestId = crypto.randomUUID();
+  const startedAt = Date.now();
+
+  if (req.method !== "POST") {
+    return jsonResponse({ error: "Method not allowed", request_id: requestId }, 405);
+  }
+
+  const body = await req.json().catch(() => ({} as Record<string, unknown>));
+  const wantsStream = wantsSse(req, body);
+
+  const mode = String(body.mode ?? "fast");
+  const webSearchMode = String(body.webSearchMode ?? "auto");
+  const continuation = body.continuation === true;
+
+  const conversationHistory = normalizeConversation(body.history ?? body.conversationHistory);
+
+  let message = String(body.message ?? "").trim();
+  if (!message && continuation) {
+    message = lastUserMessage(conversationHistory);
+  }
+
+  if (!message) {
+    return jsonResponse(
+      { error: "Mensagem obrigatoria", details: "INPUT:EMPTY_MESSAGE", request_id: requestId },
+      400,
+    );
+  }
+
+  const sessionFingerprint =
+    req.headers.get("x-forwarded-for") ||
+    req.headers.get("cf-connecting-ip") ||
+    req.headers.get("x-real-ip") ||
+    "unknown";
+
+  if (!wantsStream) {
+    try {
+      const result = await computeAnswer({
+        requestId,
+        startedAt,
+        sessionFingerprint,
+        message,
+        conversationHistory,
+        mode,
+        webSearchMode,
+      });
+
+      return jsonResponse({
+        answer: result.answer,
+        provider: "gemini-direct",
+        sources: result.sources,
+        metrics: {
+          provider: "gemini-direct",
+          model: result.model,
+          total_time_ms: result.timings.totalTimeMs,
+          embedding_ms: result.timings.embeddingLatencyMs,
+          search_ms: result.timings.searchLatencyMs,
+          llm_total_ms: result.timings.llmTotalMs,
+          chunks_found: result.chunksFound,
+          version: "edge-v3",
+        },
+        request_id: requestId,
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "UNKNOWN_ERROR";
+      const classified = classifyError(message);
+
+      console.error(`[clara-chat] ERROR request_id=${requestId}`, message);
+
+      const payload = {
+        error: userFacingErrorMessage(classified.code),
+        details: classified.code,
+        request_id: requestId,
+      };
+
+      return jsonResponse(payload, classified.status);
+    }
+  }
+
+  const stream = new ReadableStream<Uint8Array>({
+    async start(controller) {
+      const send = (event: string, data: unknown) => {
+        controller.enqueue(sseEvent(event, data));
+      };
+
+      send("request_id", { id: requestId });
+
+      try {
+        const result = await computeAnswer({
+          requestId,
+          startedAt,
+          sessionFingerprint,
+          message,
+          conversationHistory,
+          mode,
+          webSearchMode,
+          onThinking(step) {
+            send("thinking", { step });
+          },
+        });
+
+        send("api_provider", { provider: "gemini", model: result.model });
+
+        const localTitles = result.sources.map((s) => s.title).filter(Boolean);
+        send("sources", { local: localTitles, quorum_met: localTitles.length > 0 });
+
+        for (const chunk of chunkText(result.answer)) {
+          if (chunk) {
+            send("delta", { content: chunk });
+          }
+        }
+
+        send("done", { ok: true });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "UNKNOWN_ERROR";
+        const classified = classifyError(message);
+
+        console.error(`[clara-chat] ERROR request_id=${requestId}`, message);
+
+        send("error", {
+          message: userFacingErrorMessage(classified.code),
+          details: classified.code,
+          request_id: requestId,
+        });
+      } finally {
+        controller.close();
+      }
+    },
+  });
+
+  return sseResponse(stream, 200);
 });
+
