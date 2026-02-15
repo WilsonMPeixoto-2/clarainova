@@ -1,99 +1,212 @@
 import { useState } from "react";
-import { Copy, FileDown, Share2, Check } from "lucide-react";
-import { toast } from "sonner";
+import { motion } from "framer-motion";
+import { MoreHorizontal, Copy, ListChecks, FileText, FileDown, Check } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
+import { Button } from "@/components/ui/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { useIsMobile } from "@/hooks/use-mobile";
+import type { ChatMessage } from "@/hooks/useChat";
 
 interface MessageActionsProps {
-  content: string;
-  sources?: { documentTitle: string; section?: string; link?: string }[];
+  message: ChatMessage;
+  onDownloadPdf?: () => void;
 }
 
-export function MessageActions({ content, sources }: MessageActionsProps) {
-  const [copied, setCopied] = useState(false);
+/**
+ * Converts markdown lists to a checklist format
+ */
+function convertToChecklist(text: string): string {
+  const lines = text.split("\n");
+  const converted: string[] = [];
+  
+  for (const line of lines) {
+    const unorderedMatch = line.match(/^(\s*)[-*]\s+(.+)/);
+    if (unorderedMatch) {
+      converted.push(`${unorderedMatch[1]}[ ] ${unorderedMatch[2]}`);
+      continue;
+    }
+    
+    const orderedMatch = line.match(/^(\s*)\d+\.\s+(.+)/);
+    if (orderedMatch) {
+      converted.push(`${orderedMatch[1]}[ ] ${orderedMatch[2]}`);
+      continue;
+    }
+    
+    converted.push(line);
+  }
+  
+  return converted.join("\n");
+}
 
-  const handleCopy = async () => {
+function hasConvertibleLists(text: string): boolean {
+  return /^(\s*)[-*]\s+.+/m.test(text) || /^(\s*)\d+\.\s+.+/m.test(text);
+}
+
+type CopyState = "idle" | "copied-text" | "copied-markdown" | "copied-checklist";
+
+export function MessageActions({ message, onDownloadPdf }: MessageActionsProps) {
+  const [copyState, setCopyState] = useState<CopyState>("idle");
+  const isMobile = useIsMobile();
+  const hasLists = hasConvertibleLists(message.content);
+
+  const resetCopyState = () => {
+    setTimeout(() => setCopyState("idle"), 2000);
+  };
+
+  const handleCopyText = async () => {
     try {
-      await navigator.clipboard.writeText(content);
-      setCopied(true);
-      toast.success("Texto copiado!", {
-        description: "Conteúdo copiado para a área de transferência.",
-        duration: 2000,
-      });
-      setTimeout(() => setCopied(false), 2000);
-    } catch {
-      toast.error("Erro ao copiar", { description: "Tente selecionar e copiar manualmente." });
+      // Strip markdown for plain text copy
+      const plainText = message.content
+        .replace(/\*\*(.+?)\*\*/g, "$1")
+        .replace(/\*(.+?)\*/g, "$1")
+        .replace(/`([^`]+)`/g, "$1")
+        .replace(/^#+\s+/gm, "")
+        .replace(/^[-*]\s+/gm, "• ");
+      
+      await navigator.clipboard.writeText(plainText);
+      setCopyState("copied-text");
+      resetCopyState();
+    } catch (err) {
+      console.error("Failed to copy:", err);
     }
   };
 
-  const handleDownloadPdf = () => {
-    // Creates a simple text download as fallback (jsPDF can be integrated later)
-    const blob = new Blob(
-      [
-        `CLARA — Consultora de Legislação e Apoio a Rotinas Administrativas\n${"=".repeat(60)}\n\n${content}\n\n${
-          sources?.length
-            ? `\nFontes Consultadas:\n${sources.map((s) => `• ${s.documentTitle}${s.section ? ` — ${s.section}` : ""}`).join("\n")}`
-            : ""
-        }\n\nDocumento gerado pela CLARA — Inteligência Administrativa\n${new Date().toLocaleString("pt-BR")}`,
-      ],
-      { type: "text/plain;charset=utf-8" }
+  const handleCopyMarkdown = async () => {
+    try {
+      await navigator.clipboard.writeText(message.content);
+      setCopyState("copied-markdown");
+      resetCopyState();
+    } catch (err) {
+      console.error("Failed to copy markdown:", err);
+    }
+  };
+
+  const handleCopyChecklist = async () => {
+    try {
+      const checklistText = convertToChecklist(message.content);
+      await navigator.clipboard.writeText(checklistText);
+      setCopyState("copied-checklist");
+      resetCopyState();
+    } catch (err) {
+      console.error("Failed to copy checklist:", err);
+    }
+  };
+
+  const getCopyIcon = () => {
+    if (copyState !== "idle") {
+      return <Check className="w-3.5 h-3.5 text-success" />;
+    }
+    return <Copy className="w-3.5 h-3.5" />;
+  };
+
+  const getCopyLabel = () => {
+    switch (copyState) {
+      case "copied-text":
+        return "Texto copiado!";
+      case "copied-markdown":
+        return "Markdown copiado!";
+      case "copied-checklist":
+        return "Checklist copiado!";
+      default:
+        return "Copiar";
+    }
+  };
+
+  // Mobile: use dropdown menu
+  if (isMobile) {
+    return (
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground"
+            aria-label="Mais ações"
+          >
+            <MoreHorizontal className="w-4 h-4" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="start" className="w-48">
+          <DropdownMenuItem onClick={handleCopyText}>
+            <Copy className="w-4 h-4 mr-2" />
+            Copiar texto
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={handleCopyMarkdown}>
+            <FileText className="w-4 h-4 mr-2" />
+            Copiar Markdown
+          </DropdownMenuItem>
+          {hasLists && (
+            <DropdownMenuItem onClick={handleCopyChecklist}>
+              <ListChecks className="w-4 h-4 mr-2" />
+              Copiar como checklist
+            </DropdownMenuItem>
+          )}
+          {onDownloadPdf && (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={onDownloadPdf}>
+                <FileDown className="w-4 h-4 mr-2" />
+                Baixar PDF
+              </DropdownMenuItem>
+            </>
+          )}
+        </DropdownMenuContent>
+      </DropdownMenu>
     );
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `clara-resposta-${Date.now()}.txt`;
-    a.click();
-    URL.revokeObjectURL(url);
-    toast.success("Download iniciado!", {
-      description: "O arquivo foi gerado com sucesso.",
-      duration: 2000,
-    });
-  };
+  }
 
-  const handleShare = async () => {
-    const shareText = `CLARA — Resposta:\n\n${content.slice(0, 500)}${content.length > 500 ? "..." : ""}`;
-    if (navigator.share) {
-      try {
-        await navigator.share({ title: "CLARA — Resposta", text: shareText });
-      } catch {
-        // User cancelled share
-      }
-    } else {
-      await navigator.clipboard.writeText(shareText);
-      toast.success("Link copiado!", {
-        description: "Conteúdo preparado para compartilhamento.",
-        duration: 2000,
-      });
-    }
-  };
-
+  // Desktop: show individual buttons
   return (
-    <div className="clara-message-actions">
-      <button
-        onClick={handleCopy}
-        className="group clara-action-chip clara-action-chip-accent"
-      >
-        {copied ? (
-          <Check className="size-4 animate-scale-in" />
-        ) : (
-          <Copy className="size-4 transition-transform group-hover:scale-110" />
-        )}
-        {copied ? "Copiado!" : "Copiar"}
-      </button>
-
-      <button
-        onClick={handleDownloadPdf}
-        className="group clara-action-chip clara-action-chip-primary"
-      >
-        <FileDown className="size-4 transition-transform group-hover:scale-110" />
-        PDF
-      </button>
-
-      <button
-        onClick={handleShare}
-        className="group clara-action-chip clara-action-chip-info"
-      >
-        <Share2 className="size-4 transition-transform group-hover:scale-110" />
-        Compartilhar
-      </button>
+    <div className="flex items-center gap-1">
+      {/* Copy dropdown with options */}
+      <DropdownMenu>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <DropdownMenuTrigger asChild>
+              <button
+                className={`action-btn ${copyState !== "idle" ? "success" : ""}`}
+                aria-label={getCopyLabel()}
+              >
+                <motion.span
+                  key={copyState}
+                  initial={{ scale: 0 }}
+                  animate={{ scale: 1 }}
+                  transition={{ duration: 0.12 }}
+                  className="flex items-center gap-1.5"
+                >
+                  {getCopyIcon()}
+                  <span>{getCopyLabel()}</span>
+                </motion.span>
+              </button>
+            </DropdownMenuTrigger>
+          </TooltipTrigger>
+          <TooltipContent side="top" className="text-xs">
+            Opções de cópia
+          </TooltipContent>
+        </Tooltip>
+        <DropdownMenuContent align="start" className="w-44">
+          <DropdownMenuItem onClick={handleCopyText}>
+            <Copy className="w-4 h-4 mr-2" />
+            Copiar texto
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={handleCopyMarkdown}>
+            <FileText className="w-4 h-4 mr-2" />
+            Copiar Markdown
+          </DropdownMenuItem>
+          {hasLists && (
+            <DropdownMenuItem onClick={handleCopyChecklist}>
+              <ListChecks className="w-4 h-4 mr-2" />
+              Copiar como checklist
+            </DropdownMenuItem>
+          )}
+        </DropdownMenuContent>
+      </DropdownMenu>
     </div>
   );
 }

@@ -1,0 +1,307 @@
+import { useState, useCallback } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { FileDown, Check, Loader2 } from "lucide-react";
+import { jsPDF } from "jspdf";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { toast } from "@/hooks/use-toast";
+import claraLogoPdf from "@/assets/clara-logo-pdf.png";
+import type { ChatMessageSources, WebSourceData } from "@/hooks/useChat";
+
+interface DownloadPdfButtonProps {
+  userQuery: string;
+  assistantResponse: string;
+  timestamp: Date;
+  sources?: ChatMessageSources;
+  className?: string;
+}
+
+// Helper to extract URL from web source (works with both formats)
+function getWebSourceUrl(source: WebSourceData | string): string {
+  if (typeof source === 'string') return source;
+  return source.url;
+}
+
+// Function to load image and convert to base64 for jsPDF
+async function loadImageAsBase64(src: string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => {
+      const canvas = document.createElement("canvas");
+      canvas.width = img.width;
+      canvas.height = img.height;
+      const ctx = canvas.getContext("2d");
+      if (ctx) {
+        ctx.drawImage(img, 0, 0);
+        resolve(canvas.toDataURL("image/png"));
+      } else {
+        reject(new Error("Could not get canvas context"));
+      }
+    };
+    img.onerror = () => reject(new Error("Could not load image"));
+    img.src = src;
+  });
+}
+
+export function DownloadPdfButton({ 
+  userQuery, 
+  assistantResponse, 
+  timestamp,
+  sources,
+  className = "" 
+}: DownloadPdfButtonProps) {
+  const [isDownloading, setIsDownloading] = useState(false);
+  const [downloaded, setDownloaded] = useState(false);
+
+  const handleDownload = useCallback(async () => {
+    if (isDownloading) return;
+    
+    setIsDownloading(true);
+    
+    try {
+      const doc = new jsPDF();
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const pageHeight = doc.internal.pageSize.getHeight();
+      const margin = 20;
+      const contentWidth = pageWidth - (margin * 2);
+      let currentY = margin;
+      
+      // Helper to add new page if needed
+      const checkPageBreak = (neededHeight: number) => {
+        if (currentY + neededHeight > pageHeight - 30) {
+          doc.addPage();
+          currentY = margin;
+          return true;
+        }
+        return false;
+      };
+      
+      // Try to load and add logo image
+      try {
+        const logoBase64 = await loadImageAsBase64(claraLogoPdf);
+        const logoWidth = 60;
+        const logoHeight = 32;
+        doc.addImage(logoBase64, "PNG", margin, currentY - 5, logoWidth, logoHeight);
+        currentY += logoHeight + 5;
+      } catch (error) {
+        console.warn("Could not load logo image, using text fallback");
+        doc.setTextColor(212, 165, 116);
+        doc.setFontSize(16);
+        doc.setFont("helvetica", "bold");
+        doc.text("CLARA", margin, currentY);
+        currentY += 6;
+        doc.setFontSize(9);
+        doc.setFont("helvetica", "normal");
+        doc.setTextColor(80);
+        doc.text("Consultora de Legislação e Apoio a Rotinas Administrativas", margin, currentY);
+        currentY += 8;
+      }
+      
+      // Date
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(100);
+      const formattedDate = timestamp.toLocaleString("pt-BR", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit"
+      });
+      doc.text(`Gerado em: ${formattedDate}`, margin, currentY);
+      currentY += 4;
+      
+      // Separator line
+      doc.setDrawColor(200);
+      doc.line(margin, currentY, pageWidth - margin, currentY);
+      currentY += 10;
+      
+      // User query section
+      doc.setTextColor(0);
+      doc.setFontSize(12);
+      doc.setFont("helvetica", "bold");
+      doc.text("Sua pergunta:", margin, currentY);
+      currentY += 6;
+      
+      doc.setFontSize(11);
+      doc.setFont("helvetica", "italic");
+      doc.setTextColor(60);
+      const queryLines = doc.splitTextToSize(`"${userQuery}"`, contentWidth);
+      queryLines.forEach((line: string) => {
+        checkPageBreak(6);
+        doc.text(line, margin, currentY);
+        currentY += 6;
+      });
+      currentY += 8;
+      
+      // Response section
+      doc.setTextColor(0);
+      doc.setFontSize(12);
+      doc.setFont("helvetica", "bold");
+      doc.text("Resposta:", margin, currentY);
+      currentY += 6;
+      
+      doc.setFontSize(11);
+      doc.setFont("helvetica", "normal");
+      
+      // Clean markdown for plain text
+      const cleanText = assistantResponse
+        .replace(/\*\*(.+?)\*\*/g, "$1")
+        .replace(/\*(.+?)\*/g, "$1")
+        .replace(/`([^`]+)`/g, "$1")
+        .replace(/```[\s\S]*?```/g, "")
+        .replace(/#{1,6}\s/g, "")
+        .replace(/\[([^\]]+)\]/g, "[$1]")
+        .replace(/\n{3,}/g, "\n\n")
+        .trim();
+      
+      const responseLines = doc.splitTextToSize(cleanText, contentWidth);
+      responseLines.forEach((line: string) => {
+        checkPageBreak(6);
+        doc.text(line, margin, currentY);
+        currentY += 6;
+      });
+      
+      // Sources section
+      const hasLocalSources = sources?.local && sources.local.length > 0;
+      const hasWebSources = sources?.web && sources.web.length > 0;
+      
+      if (hasLocalSources || hasWebSources) {
+        currentY += 8;
+        checkPageBreak(20);
+        
+        doc.setDrawColor(200);
+        doc.line(margin, currentY, pageWidth - margin, currentY);
+        currentY += 8;
+        
+        doc.setTextColor(0);
+        doc.setFontSize(12);
+        doc.setFont("helvetica", "bold");
+        doc.text("Fontes Consultadas:", margin, currentY);
+        currentY += 8;
+        
+        doc.setFontSize(10);
+        doc.setFont("helvetica", "normal");
+        doc.setTextColor(60);
+        
+        if (hasLocalSources) {
+          sources.local.forEach((source) => {
+            checkPageBreak(6);
+            doc.text(`• ${source}`, margin + 4, currentY);
+            currentY += 6;
+          });
+        }
+        
+        if (hasWebSources) {
+          if (hasLocalSources) currentY += 2;
+          sources.web?.forEach((source) => {
+            checkPageBreak(6);
+            const url = getWebSourceUrl(source);
+            const displayUrl = url.length > 60 ? url.substring(0, 57) + "..." : url;
+            doc.text(`• ${displayUrl}`, margin + 4, currentY);
+            currentY += 6;
+          });
+        }
+      }
+      
+      // Footer on last page
+      const totalPages = doc.getNumberOfPages();
+      for (let i = 1; i <= totalPages; i++) {
+        doc.setPage(i);
+        doc.setFontSize(8);
+        doc.setTextColor(150);
+        doc.text(
+          "Documento gerado pela CLARA - Inteligência Administrativa", 
+          margin, 
+          pageHeight - 10
+        );
+        doc.text(
+          `Página ${i} de ${totalPages}`,
+          pageWidth - margin - 25,
+          pageHeight - 10
+        );
+      }
+      
+      // Download
+      const fileName = `clara-resposta-${timestamp.toISOString().split("T")[0]}.pdf`;
+      doc.save(fileName);
+      
+      setDownloaded(true);
+      toast({
+        title: "PDF baixado!",
+        description: "O arquivo foi salvo na sua pasta de downloads.",
+      });
+      
+      setTimeout(() => setDownloaded(false), 2000);
+    } catch (error) {
+      console.error("Erro ao gerar PDF:", error);
+      toast({
+        title: "Erro ao gerar PDF",
+        description: "Não foi possível gerar o arquivo. Tente novamente.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsDownloading(false);
+    }
+  }, [userQuery, assistantResponse, timestamp, sources, isDownloading]);
+
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <button
+          onClick={handleDownload}
+          disabled={isDownloading}
+          className={`action-btn ${downloaded ? "success" : ""} ${isDownloading ? "opacity-50 cursor-wait" : ""} ${className}`}
+          aria-label={downloaded ? "PDF baixado!" : "Baixar como PDF"}
+        >
+          <AnimatePresence mode="wait">
+            {isDownloading ? (
+              <motion.span
+                key="loading"
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                exit={{ scale: 0 }}
+                transition={{ duration: 0.12 }}
+                className="flex items-center gap-1.5"
+              >
+                <Loader2 className="w-3.5 h-3.5 animate-spin" aria-hidden="true" />
+                <span className="hidden sm:inline">Gerando...</span>
+              </motion.span>
+            ) : downloaded ? (
+              <motion.span
+                key="check"
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                exit={{ scale: 0 }}
+                transition={{ duration: 0.12 }}
+                className="flex items-center gap-1.5"
+              >
+                <Check className="w-3.5 h-3.5" aria-hidden="true" />
+                <span className="hidden sm:inline">Baixado</span>
+              </motion.span>
+            ) : (
+              <motion.span
+                key="download"
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                exit={{ scale: 0 }}
+                transition={{ duration: 0.12 }}
+                className="flex items-center gap-1.5"
+              >
+                <FileDown className="w-3.5 h-3.5" aria-hidden="true" />
+                <span className="hidden sm:inline">PDF</span>
+              </motion.span>
+            )}
+          </AnimatePresence>
+        </button>
+      </TooltipTrigger>
+      <TooltipContent side="top" className="text-xs">
+        {isDownloading ? "Gerando PDF..." : downloaded ? "PDF baixado!" : "Baixar como PDF"}
+      </TooltipContent>
+    </Tooltip>
+  );
+}

@@ -1,58 +1,130 @@
-import { cn } from "@/lib/utils";
-import { AlertTriangle, RotateCcw } from "lucide-react";
-import { Component, ReactNode } from "react";
+import { Component, ErrorInfo, ReactNode } from "react";
+import { AlertTriangle, RefreshCw, Home } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 interface Props {
   children: ReactNode;
+  fallback?: ReactNode;
 }
 
 interface State {
   hasError: boolean;
   error: Error | null;
+  errorInfo: ErrorInfo | null;
 }
 
-class ErrorBoundary extends Component<Props, State> {
+export class ErrorBoundary extends Component<Props, State> {
   constructor(props: Props) {
     super(props);
-    this.state = { hasError: false, error: null };
+    this.state = { hasError: false, error: null, errorInfo: null };
   }
 
-  static getDerivedStateFromError(error: Error): State {
+  static getDerivedStateFromError(error: Error): Partial<State> {
     return { hasError: true, error };
   }
 
-  render() {
+  componentDidCatch(error: Error, errorInfo: ErrorInfo): void {
+    this.setState({ errorInfo });
+    // Log para debugging local
+    console.error("ErrorBoundary caught an error:", error, errorInfo);
+    
+    // Log para analytics via edge function (sem dados sensíveis) - fire and forget
+    this.logErrorToAnalytics(error, errorInfo);
+  }
+  
+  private async logErrorToAnalytics(error: Error, errorInfo: ErrorInfo): Promise<void> {
+    try {
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      
+      if (!supabaseUrl) return;
+      
+      // Call edge function directly (no auth header needed - public endpoint with rate limit)
+      await fetch(`${supabaseUrl}/functions/v1/log-frontend-error`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          error_message: error.message?.slice(0, 500) || "Unknown error",
+          component_stack: errorInfo.componentStack?.slice(0, 1000) || null,
+          url: window.location.pathname,
+        }),
+      });
+    } catch {
+      // Silently fail - não impactar UX por falha de logging
+    }
+  }
+
+  handleReload = (): void => {
+    window.location.reload();
+  };
+
+  handleGoHome = (): void => {
+    window.location.href = "/";
+  };
+
+  handleRetry = (): void => {
+    this.setState({ hasError: false, error: null, errorInfo: null });
+  };
+
+  render(): ReactNode {
     if (this.state.hasError) {
+      if (this.props.fallback) {
+        return this.props.fallback;
+      }
+
       return (
-        <div className="flex items-center justify-center min-h-screen p-8 bg-background">
-          <div className="flex flex-col items-center w-full max-w-2xl p-8">
-            <AlertTriangle
-              size={48}
-              className="text-destructive mb-6 flex-shrink-0"
-            />
-
-            <h2 className="text-xl mb-4 text-foreground">
-              Ocorreu um erro inesperado.
-            </h2>
-
-            <div className="p-4 w-full rounded-xl bg-muted overflow-auto mb-6 border border-border/30">
-              <pre className="text-sm text-muted-foreground whitespace-break-spaces font-mono">
-                {this.state.error?.stack}
-              </pre>
+        <div className="min-h-screen bg-background flex items-center justify-center p-4">
+          <div className="max-w-md w-full text-center animate-fade-in">
+            <div className="mb-6">
+              <div className="w-20 h-20 mx-auto rounded-full bg-destructive/10 flex items-center justify-center mb-4">
+                <AlertTriangle className="w-10 h-10 text-destructive" aria-hidden="true" />
+              </div>
+              <h1 className="text-2xl font-bold text-foreground mb-2">
+                Algo deu errado
+              </h1>
+              <p className="text-muted-foreground">
+                Desculpe, ocorreu um erro inesperado. Nossa equipe foi notificada.
+              </p>
             </div>
 
-            <button
-              onClick={() => window.location.reload()}
-              className={cn(
-                "flex items-center gap-2 px-5 py-2.5 rounded-xl",
-                "bg-primary text-primary-foreground",
-                "hover:bg-primary/90 hover:shadow-[0_0_16px_var(--primary-glow)]",
-                "transition-all duration-300 cursor-pointer"
-              )}
-            >
-              <RotateCcw size={16} />
-              Recarregar Página
-            </button>
+            {/* Error details (development only) */}
+            {import.meta.env.DEV && this.state.error && (
+              <details className="mb-6 text-left">
+                <summary className="cursor-pointer text-sm text-muted-foreground hover:text-foreground transition-colors">
+                  Detalhes técnicos
+                </summary>
+                <div className="mt-2 p-3 rounded-lg bg-muted/50 border border-border overflow-auto max-h-40">
+                  <pre className="text-xs text-destructive font-mono whitespace-pre-wrap">
+                    {this.state.error.message}
+                  </pre>
+                  {this.state.errorInfo && (
+                    <pre className="text-xs text-muted-foreground font-mono mt-2 whitespace-pre-wrap">
+                      {this.state.errorInfo.componentStack}
+                    </pre>
+                  )}
+                </div>
+              </details>
+            )}
+
+            <div className="flex flex-col sm:flex-row gap-3 justify-center">
+              <Button
+                onClick={this.handleRetry}
+                variant="default"
+                className="gap-2"
+              >
+                <RefreshCw className="w-4 h-4" aria-hidden="true" />
+                Tentar novamente
+              </Button>
+              <Button
+                onClick={this.handleGoHome}
+                variant="outline"
+                className="gap-2"
+              >
+                <Home className="w-4 h-4" aria-hidden="true" />
+                Página inicial
+              </Button>
+            </div>
           </div>
         </div>
       );
@@ -62,4 +134,16 @@ class ErrorBoundary extends Component<Props, State> {
   }
 }
 
-export default ErrorBoundary;
+// HOC para usar com componentes funcionais
+export function withErrorBoundary<P extends object>(
+  WrappedComponent: React.ComponentType<P>,
+  fallback?: ReactNode
+) {
+  return function WithErrorBoundaryWrapper(props: P) {
+    return (
+      <ErrorBoundary fallback={fallback}>
+        <WrappedComponent {...props} />
+      </ErrorBoundary>
+    );
+  };
+}

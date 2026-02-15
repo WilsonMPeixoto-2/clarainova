@@ -2,17 +2,104 @@
 <html lang="pt-BR">
   <head>
     <meta charset="UTF-8" />
-    <meta
-      name="viewport"
-      content="width=device-width, initial-scale=1.0, maximum-scale=1" />
-    <title>CLARA - Consultora de Legislação e Apoio a Rotinas Administrativas</title>
-    <meta name="description" content="CLARA - Inteligência Administrativa para consultas sobre legislação, normas e rotinas do serviço público." />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    
+    <!-- Critical CSS for FCP - inline above-the-fold styles -->
+    <style>
+      /* Critical CSS: Minimal styles for initial render */
+      :root {
+        --background: 216 45% 7%;
+        --foreground: 210 40% 98%;
+        --primary: 30 45% 64%;
+      }
+      *,*::before,*::after{box-sizing:border-box;border-width:0;border-style:solid}
+      html{line-height:1.5;-webkit-text-size-adjust:100%;font-family:'Inter',system-ui,-apple-system,sans-serif}
+      body{margin:0;line-height:inherit;background-color:hsl(216 45% 7%);color:hsl(210 40% 98%);-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}
+      #root{min-height:100vh;display:flex;flex-direction:column}
+      .loading-container{display:flex;align-items:center;justify-content:center;min-height:100vh;background:hsl(216 45% 7%)}
+      .loading-spinner{width:40px;height:40px;border:3px solid hsl(210 40% 98% / 0.1);border-top-color:hsl(30 45% 64%);border-radius:50%;animation:spin 1s linear infinite}
+      @keyframes spin{to{transform:rotate(360deg)}}
+    </style>
+    
+    <!-- Preconnect for fonts and API -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
-  </head>
+    <link rel="preconnect" href="https://pypqlqnfonixeocvmeoy.supabase.co" />
+    
+    <!-- Preload hero image para LCP (responsive) -->
+    <link rel="preload" href="/src/assets/clara-hero-1920.webp" as="image" type="image/webp" media="(min-width: 1024px)" />
+    <link rel="preload" href="/src/assets/clara-hero-1024.webp" as="image" type="image/webp" media="(min-width: 640px) and (max-width: 1023px)" />
+    <link rel="preload" href="/src/assets/clara-hero-640.webp" as="image" type="image/webp" media="(max-width: 639px)" />
+    
+    <!-- Async font loading for better FCP -->
+    <link rel="preload" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'" />
+    <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" /></noscript>
+    
+    <!-- Primary Meta Tags -->
+    <title>CLARA - Assistente de Legislação e Apoio Administrativo</title>
+    <meta name="title" content="CLARA - Assistente de Legislação e Apoio Administrativo" />
+    <meta name="description" content="Consultora de Legislação e Apoio a Rotinas Administrativas. Orientações passo a passo com indicação de fontes documentais.">
+    <meta name="keywords" content="SEI, legislação, administração pública, assistente virtual, CLARA, inteligência administrativa, procedimentos administrativos">
+    <meta name="author" content="CLARA" />
+    <meta name="robots" content="index, follow" />
+    <meta name="theme-color" content="#F59E0B" />
+    
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="/manifest.json" />
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" href="/favicon.png" />
+    <link rel="apple-touch-icon" sizes="192x192" href="/icon-192.png" />
+    <link rel="apple-touch-icon" sizes="512x512" href="/icon-512.png" />
+    
+    <!-- Legal pages for crawlers -->
+    <link rel="privacy-policy" href="/privacidade.html" />
+    <link rel="terms-of-service" href="/termos.html" />
+    <link rel="about" href="/sobre.html" />
+    
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://clarainova.lovable.app/" />
+    
+    
+    <meta property="og:image" content="https://storage.googleapis.com/gpt-engineer-file-uploads/M6AoZo7PiFhRM69NCDeO38SywO52/social-images/social-1769357155639-Captura de tela 2026-01-25 130535.png">
+    <meta property="og:locale" content="pt_BR" />
+    <meta property="og:site_name" content="CLARA" />
+
+    <!-- Twitter -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:url" content="https://clarainova.lovable.app/" />
+    
+    
+    <meta name="twitter:image" content="https://storage.googleapis.com/gpt-engineer-file-uploads/M6AoZo7PiFhRM69NCDeO38SywO52/social-images/social-1769357155639-Captura de tela 2026-01-25 130535.png">
+    
+    <!-- Mobile App capable -->
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="CLARA" />
+    <meta property="og:title" content="CLARA - Assistente de Legislação e Apoio Administrativo">
+  <meta name="twitter:title" content="CLARA - Assistente de Legislação e Apoio Administrativo">
+  <meta property="og:description" content="Sua assistente virtual especializada em SEI, SDP e procedimentos da 4ª CRE. Orientações passo a passo com indicação de fontes documentais.">
+  <meta name="twitter:description" content="Sua assistente virtual especializada em SEI, SDP e procedimentos da 4ª CRE. Orientações passo a passo com indicação de fontes documentais.">
+</head>
+
   <body>
-    <div id="root"></div>
+    <!-- Initial loading indicator for faster perceived FCP -->
+    <div id="root">
+      <div class="loading-container" id="initial-loader">
+        <div class="loading-spinner"></div>
+      </div>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
+    <script>
+      // Remove initial loader once React mounts
+      window.addEventListener('DOMContentLoaded', function() {
+        var loader = document.getElementById('initial-loader');
+        if (loader) {
+          setTimeout(function() { loader.style.display = 'none'; }, 100);
+        }
+      });
+    </script>
   </body>
 </html>
