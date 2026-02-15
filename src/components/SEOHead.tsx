@@ -77,7 +77,9 @@ export function SEOHead({
       updateMeta("twitter:image:alt", "CLARA - Inteligência Administrativa");
 
       // Add privacy policy link for Google verification
-      updateLink("privacy-policy", "/privacidade.html");
+      updateLink("privacy-policy", "/privacidade");
+      updateLink("terms-of-service", "/termos");
+      updateLink("about", "/sobre");
       updateLink("canonical", baseUrl);
 
       // Add Google site verification if provided

@@ -90,14 +90,14 @@ const Login = () => {
         >
           Ao continuar, você concorda com nossa{' '}
           <a 
-            href="/privacidade.html" 
+            href="/privacidade" 
             className="text-primary hover:underline font-medium"
           >
             Política de Privacidade
           </a>
           {' '}e{' '}
           <a 
-            href="/termos.html" 
+            href="/termos" 
             className="text-primary hover:underline font-medium"
           >
             Termos de Uso

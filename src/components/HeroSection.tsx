@@ -167,7 +167,7 @@ const HeroSection = ({ onOpenChat }: HeroSectionProps) => {
             >
               Ao usar nossos serviços, você concorda com nossa{' '}
               <a 
-                href="/privacidade.html" 
+                href="/privacidade" 
                 className="text-primary hover:underline font-medium transition-colors duration-150"
               >
                 Política de Privacidade

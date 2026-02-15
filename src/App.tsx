@@ -30,6 +30,7 @@ const Login = lazyWithRetry(() => import("./pages/Login"));
 const Admin = lazyWithRetry(() => import("./pages/Admin"));
 const Privacidade = lazyWithRetry(() => import("./pages/Privacidade"));
 const Termos = lazyWithRetry(() => import("./pages/Termos"));
+const Sobre = lazyWithRetry(() => import("./pages/Sobre"));
 const NotFound = lazyWithRetry(() => import("./pages/NotFound"));
 
 const queryClient = new QueryClient({
@@ -58,6 +59,7 @@ const App = () => (
                 <Route path="/admin" element={<Admin />} />
                 <Route path="/privacidade" element={<Privacidade />} />
                 <Route path="/termos" element={<Termos />} />
+                <Route path="/sobre" element={<Sobre />} />
                 {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                 <Route path="*" element={<NotFound />} />
               </Routes>

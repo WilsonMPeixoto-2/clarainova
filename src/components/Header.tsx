@@ -16,8 +16,8 @@ const Header = ({ onOpenChat }: HeaderProps) => {
   const navLinks = [
     { label: 'Base de Conhecimento', href: '#conhecimento' },
     { label: 'Dúvidas Frequentes', href: '#faq' },
-    { label: 'Política de Privacidade', href: '/privacidade.html' },
-    { label: 'Termos de Uso', href: '/termos.html' },
+    { label: 'Política de Privacidade', href: '/privacidade' },
+    { label: 'Termos de Uso', href: '/termos' },
   ];
 
   const isActiveLink = (href: string) => {

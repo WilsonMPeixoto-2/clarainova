@@ -27,20 +27,20 @@ const Footer = () => {
           {/* Links */}
           <nav className="flex flex-wrap justify-center gap-6 md:gap-8" aria-label="Links do rodapé">
             <a 
-              href="/sobre.html" 
+              href="/sobre" 
               rel="about"
               className="footer-link"
             >
               Sobre
             </a>
             <a 
-              href="/termos.html" 
+              href="/termos" 
               className="footer-link"
             >
               Termos de Serviço
             </a>
             <a 
-              href="/privacidade.html" 
+              href="/privacidade" 
               rel="privacy-policy"
               itemProp="privacyPolicy"
               className="footer-link"
