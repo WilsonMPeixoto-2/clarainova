@@ -1,52 +1,34 @@
-import { Button } from "@/components/ui/button";
-import { Home, SearchX } from "lucide-react";
-import { useLocation } from "wouter";
+import { useLocation } from "react-router-dom";
+import { useEffect } from "react";
 
-export default function NotFound() {
-  const [, setLocation] = useLocation();
+const NotFound = () => {
+  const location = useLocation();
+
+  useEffect(() => {
+    console.error("404 Error: User attempted to access non-existent route:", location.pathname);
+  }, [location.pathname]);
 
   return (
-    <div className="min-h-screen w-full flex items-center justify-center bg-background">
-      <div className="text-center px-6 max-w-lg mx-auto">
-        <div
-          className="size-20 rounded-2xl flex items-center justify-center mx-auto mb-8"
-          style={{
-            background: "oklch(0.70 0.18 45 / 0.12)",
-            border: "1px solid oklch(0.70 0.18 45 / 0.2)",
-            boxShadow: "0 0 30px oklch(0.70 0.18 45 / 0.15)",
-          }}
-        >
-          <SearchX className="size-10 text-primary" />
+    <div className="flex min-h-screen items-center justify-center bg-muted">
+      <div className="text-center">
+        <h1 className="mb-4 text-4xl font-bold">404</h1>
+        <p className="mb-4 text-xl text-muted-foreground">Página não encontrada</p>
+        <a href="/" className="text-primary underline hover:text-primary/90">
+          Voltar para o início
+        </a>
+        <div className="mt-8 text-center space-y-1">
+          <p className="text-xs text-muted-foreground/50">
+            Desenvolvido por Wilson M. Peixoto - SME/RJ
+          </p>
+          <p className="text-xs text-muted-foreground/40 flex flex-wrap items-center justify-center gap-2">
+            <span>📞 (21) 99497-4132</span>
+            <span>📧 wilsonmp2@gmail.com</span>
+            <a href="https://www.linkedin.com/in/wilsonmalafaia/" target="_blank" rel="noopener noreferrer" className="hover:text-primary transition-colors">🔗 LinkedIn</a>
+          </p>
         </div>
-
-        <h1
-          className="text-6xl font-bold text-primary mb-3"
-          style={{ fontFamily: "var(--font-heading)" }}
-        >
-          404
-        </h1>
-
-        <h2
-          className="text-xl font-semibold text-foreground mb-4"
-          style={{ fontFamily: "var(--font-heading)" }}
-        >
-          Página não encontrada
-        </h2>
-
-        <p className="text-muted-foreground mb-8 leading-relaxed">
-          A página que você procura não existe ou foi movida.
-          <br />
-          Verifique o endereço ou retorne à página inicial.
-        </p>
-
-        <Button
-          onClick={() => setLocation("/")}
-          className="bg-primary text-primary-foreground hover:bg-primary/90 px-6 py-2.5 rounded-xl transition-all duration-300 hover:shadow-[0_0_20px_var(--primary-glow)]"
-        >
-          <Home className="size-4 mr-2" />
-          Voltar ao Início
-        </Button>
       </div>
     </div>
   );
-}
+};
+
+export default NotFound;
