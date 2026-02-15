@@ -23,13 +23,16 @@ export default tseslint.config(
         'warn',
         { allowConstantExport: true },
       ],
+      // The following rules are disabled due to pre-existing codebase patterns
+      // These should be addressed in future refactoring work
       '@typescript-eslint/no-explicit-any': 'off',
       '@typescript-eslint/no-unused-vars': 'off',
-      '@typescript-eslint/no-require-imports': 'off',
-      '@typescript-eslint/no-empty-object-type': 'off',
-      'no-control-regex': 'off',
-      'no-useless-escape': 'off',
-      'no-empty': 'warn',
+      // These rules are disabled because they flag valid patterns in the codebase
+      '@typescript-eslint/no-require-imports': 'off', // Tailwind config uses require
+      '@typescript-eslint/no-empty-object-type': 'off', // Shadcn UI components use empty interfaces
+      'no-control-regex': 'off', // Text quality validator intentionally uses control chars
+      'no-useless-escape': 'off', // Regex patterns in validators need these escapes
+      'no-empty': 'warn', // Changed to warning rather than error
     },
   },
 );

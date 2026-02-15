@@ -21,6 +21,6 @@ jobs:
       - name: Lint
         run: pnpm lint
       - name: Type check
-        run: npx tsc --noEmit
+        run: pnpm exec tsc --noEmit
       - name: Build
         run: pnpm build
