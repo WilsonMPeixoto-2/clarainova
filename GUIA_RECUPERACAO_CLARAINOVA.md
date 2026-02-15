@@ -553,18 +553,21 @@ CREATE POLICY "Chunks are publicly readable" ON public.document_chunks FOR SELEC
 | `ADMIN_KEY` | Chave de admin para operações privilegiadas |
 | `FINGERPRINT_SALT` | Salt para fingerprint de sessão |
 | `RATELIMIT_SALT` | Salt para rate limiting |
-| `LOVABLE_API_KEY` | Chave da API Lovable (fallback LLM) |
 
 ### 4.3 Nota sobre a Edge Function `clara-chat`
 
-⚠️ **IMPORTANTE**: O arquivo `supabase/functions/clara-chat/index.ts` no repositório atual é um **STUB** — não contém a lógica real do chat. A versão real está deployada no Supabase e funcionando (testada com status 200). 
+✅ **Atualização (2026-02-15)**: o repositório já contém uma implementação funcional da Edge Function `supabase/functions/clara-chat/index.ts`, alinhada com o frontend atual (SSE streaming).
 
-Para recriar a edge function, você precisará implementar:
-1. Receber `{ message, conversationHistory }` no body
-2. Gerar embedding da query (via Google Gemini Embedding API)
-3. Buscar chunks similares via `hybrid_search_chunks` ou `search_document_chunks`
-4. Enviar contexto + query para o Gemini para gerar resposta
-5. Retornar `{ answer, sources, metrics }`
+Para aplicar em produção, faça o deploy via Supabase CLI:
+
+1. `npx supabase link --project-ref <SEU_PROJECT_REF>`
+2. `npx supabase functions deploy clara-chat`
+
+Resumo do contrato:
+
+1. Request: `{ message, history, mode, webSearchMode, continuation }` (também aceita `conversationHistory` por compatibilidade).
+2. Response: SSE (`text/event-stream`) com eventos `request_id`, `thinking`, `api_provider`, `sources`, `delta`, `done`, `error`.
+3. Se o client não pedir SSE, a function pode responder JSON (fallback).
 
 ---
 
@@ -573,22 +576,21 @@ Para recriar a edge function, você precisará implementar:
 ### No GitHub:
 - [ ] Reverter commits problemáticos
 - [ ] Verificar que `src/main.tsx` renderiza `<App />`
-- [ ] Remover `"packageManager"` do `package.json` (se existir)
-- [ ] Remover referência ao patch `wouter@3.7.1` (se existir)
-- [ ] Verificar que `server/_core/index.ts` existe (necessário para build)
+- [ ] Garantir que `pnpm-lock.yaml` está alinhado com `package.json` (instalação com `pnpm install --frozen-lockfile`)
+- [ ] Confirmar que não há lockfiles conflitantes (ex: `package-lock.json`)
 
 ### No Vercel:
-- [ ] Configurar as 3 variáveis de ambiente (VITE_SUPABASE_*)
+- [ ] Configurar variáveis de ambiente (Production): `VITE_SUPABASE_URL` e `VITE_SUPABASE_PUBLISHABLE_KEY`
 - [ ] Build Command: `vite build`
 - [ ] Output Directory: `dist`
-- [ ] Node.js 18.x
+- [ ] Node.js 20.x (recomendado)
 - [ ] Deletar projetos duplicados (manter apenas 1)
 - [ ] Forçar redeploy
 
 ### Backend (Supabase):
-- [ ] O backend em `mebucurgtfrrjejuched.supabase.co` continua ativo e funcional
+- [ ] Confirmar que o projeto Supabase está ativo e com URL/ref válidos
 - [ ] As Edge Functions estão deployadas e respondendo
-- [ ] Não é necessário recriar nada no backend a menos que queira migrar para outro Supabase
+- [ ] Verificar secrets: `SUPABASE_SERVICE_ROLE_KEY` + `GOOGLE_GENERATIVE_AI_API_KEY` (ou `GEMINI_API_KEY`)
 
 ---
 

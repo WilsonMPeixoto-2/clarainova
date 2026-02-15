@@ -1,10 +1,12 @@
 # 🚨 Diagnóstico e Correção: Erro 500 "Ambos os Provedores Falharam"
 
 **Projeto:** CLARA - Consultora de Legislação e Apoio a Rotinas Administrativas  
-**Plataforma:** Lovable (Supabase + Edge Functions)  
+**Plataforma:** Supabase (Edge Functions) + Vercel (frontend)  
 **Data:** 28 de Janeiro de 2026  
 **Status:** 🔴 CRÍTICO - Chat não funciona em produção  
-**Autor:** Manus AI
+**Autor:** Documento legado (gerado por agente automatizado)
+
+> **Atualização (2026-02-15):** o projeto não depende mais do Lovable AI Gateway. O contrato do chat foi alinhado para SSE (`text/event-stream`) e o backend deve ser mantido via deploy das Edge Functions no Supabase. Use este documento como referência histórica para debug de erro 500, mas valide as variáveis/secrets e o contrato atual.
 
 ---
 

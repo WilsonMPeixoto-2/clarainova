@@ -25,7 +25,7 @@ const providerConfig = {
     label: "Fallback",
     color: "text-amber-500",
     bgColor: "bg-amber-500/10",
-    description: "Lovable AI Gateway (fallback)",
+    description: "Provedor alternativo (fallback)",
   },
 };
 
