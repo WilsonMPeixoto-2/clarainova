@@ -1,34 +1,48 @@
-import { useState, useCallback } from "react";
+import { useEffect, useState, useCallback } from "react";
 
-export function useLocalStorage<T>(key: string, initialValue: T) {
-  const [storedValue, setStoredValue] = useState<T>(() => {
+export function useLocalStorage<T>(key: string, initialValue: T | (() => T)) {
+  const resolveInitialValue = useCallback((): T => {
+    return initialValue instanceof Function ? initialValue() : initialValue;
+  }, [initialValue]);
+
+  const readValue = useCallback((): T => {
     try {
       const item = localStorage.getItem(key);
-      return item ? JSON.parse(item) : initialValue;
+      return item ? JSON.parse(item) : resolveInitialValue();
     } catch (error) {
       console.error(`Erro ao ler localStorage[${key}]:`, error);
-      return initialValue;
+      return resolveInitialValue();
     }
-  });
+  }, [key, resolveInitialValue]);
+
+  const [storedValue, setStoredValue] = useState<T>(() => readValue());
+
+  // Keep value in sync when the key changes.
+  useEffect(() => {
+    setStoredValue(readValue());
+  }, [readValue]);
 
   const setValue = useCallback((value: T | ((val: T) => T)) => {
-    try {
-      const valueToStore = value instanceof Function ? value(storedValue) : value;
-      setStoredValue(valueToStore);
-      localStorage.setItem(key, JSON.stringify(valueToStore));
-    } catch (error) {
-      console.error(`Erro ao salvar localStorage[${key}]:`, error);
-    }
-  }, [key, storedValue]);
+    setStoredValue((prev) => {
+      try {
+        const valueToStore = value instanceof Function ? value(prev) : value;
+        localStorage.setItem(key, JSON.stringify(valueToStore));
+        return valueToStore;
+      } catch (error) {
+        console.error(`Erro ao salvar localStorage[${key}]:`, error);
+        return prev;
+      }
+    });
+  }, [key]);
 
   const removeValue = useCallback(() => {
     try {
       localStorage.removeItem(key);
-      setStoredValue(initialValue);
+      setStoredValue(resolveInitialValue());
     } catch (error) {
       console.error(`Erro ao remover localStorage[${key}]:`, error);
     }
-  }, [key, initialValue]);
+  }, [key, resolveInitialValue]);
 
   return [storedValue, setValue, removeValue] as const;
 }

@@ -5,15 +5,27 @@ import { ChatInput } from "./ChatInput";
 // Mock framer-motion
 vi.mock("framer-motion", () => ({
   motion: {
-    div: ({ children, ...props }: any) => <div {...props}>{children}</div>,
-    span: ({ children, ...props }: any) => <span {...props}>{children}</span>,
+    div: ({ children, whileHover, whileTap, layoutId, initial, animate, exit, transition, ...props }: any) => (
+      <div {...props}>{children}</div>
+    ),
+    span: ({ children, whileHover, whileTap, layoutId, initial, animate, exit, transition, ...props }: any) => (
+      <span {...props}>{children}</span>
+    ),
+    button: ({ children, whileHover, whileTap, layoutId, initial, animate, exit, transition, ...props }: any) => (
+      <button {...props}>{children}</button>
+    ),
   },
   AnimatePresence: ({ children }: any) => <>{children}</>,
 }));
 
 // Mock localStorage
 const localStorageMock = {
-  getItem: vi.fn(() => '"fast"'),
+  getItem: vi.fn((key: string) => {
+    // ChatInput stores these preferences via useLocalStorage
+    if (key === "clara-response-mode") return '"fast"';
+    if (key === "clara-web-search-mode") return '"auto"';
+    return null;
+  }),
   setItem: vi.fn(),
   removeItem: vi.fn(),
   clear: vi.fn(),
@@ -124,10 +136,10 @@ describe("ChatInput", () => {
   it("includes mode selector", () => {
     const { container } = render(<ChatInput onSend={mockOnSend} isLoading={false} />);
     
-    // Mode selector should be present (contains "Rápido" or similar)
-    const hasModeSelectorText = container.textContent?.includes("Rápido") || 
-                                container.textContent?.includes("Completo") ||
-                                container.textContent?.includes("Fast");
+    // Mode selector should be present (labels from ResponseModeSelector)
+    const hasModeSelectorText =
+      container.textContent?.includes("Direto") ||
+      container.textContent?.includes("Didático");
     expect(hasModeSelectorText).toBe(true);
   });
 });

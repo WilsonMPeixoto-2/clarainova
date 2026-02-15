@@ -2,13 +2,20 @@ import { describe, it, expect, vi } from "vitest";
 import { render } from "@testing-library/react";
 import { ChatMessage } from "./ChatMessage";
 import type { ChatMessage as ChatMessageType } from "@/hooks/useChat";
+import { TooltipProvider } from "@/components/ui/tooltip";
 
 // Mock framer-motion to avoid animation issues in tests
 vi.mock("framer-motion", () => ({
   motion: {
-    div: ({ children, ...props }: any) => <div {...props}>{children}</div>,
-    span: ({ children, ...props }: any) => <span {...props}>{children}</span>,
-    a: ({ children, ...props }: any) => <a {...props}>{children}</a>,
+    div: ({ children, whileHover, whileTap, layoutId, initial, animate, exit, transition, ...props }: any) => (
+      <div {...props}>{children}</div>
+    ),
+    span: ({ children, whileHover, whileTap, layoutId, initial, animate, exit, transition, ...props }: any) => (
+      <span {...props}>{children}</span>
+    ),
+    a: ({ children, whileHover, whileTap, layoutId, initial, animate, exit, transition, ...props }: any) => (
+      <a {...props}>{children}</a>
+    ),
   },
   AnimatePresence: ({ children }: any) => <>{children}</>,
 }));
@@ -23,9 +30,16 @@ describe("ChatMessage", () => {
     ...overrides,
   });
 
+  const renderWithProviders = (message: ChatMessageType) =>
+    render(
+      <TooltipProvider delayDuration={0}>
+        <ChatMessage message={message} />
+      </TooltipProvider>
+    );
+
   it("renders assistant message correctly", () => {
     const message = createMessage();
-    const { container } = render(<ChatMessage message={message} />);
+    const { container } = renderWithProviders(message);
     
     expect(container.textContent).toContain("Olá! Como posso ajudar?");
   });
@@ -35,14 +49,14 @@ describe("ChatMessage", () => {
       role: "user",
       content: "Como criar um processo?",
     });
-    const { container } = render(<ChatMessage message={message} />);
+    const { container } = renderWithProviders(message);
     
     expect(container.textContent).toContain("Como criar um processo?");
   });
 
   it("displays timestamp correctly", () => {
     const message = createMessage();
-    const { container } = render(<ChatMessage message={message} />);
+    const { container } = renderWithProviders(message);
     
     expect(container.textContent).toContain("10:30");
   });
@@ -51,7 +65,7 @@ describe("ChatMessage", () => {
     const message = createMessage({
       content: "Clique no botão **Incluir Documento**",
     });
-    const { container } = render(<ChatMessage message={message} />);
+    const { container } = renderWithProviders(message);
     
     const strongElement = container.querySelector("strong");
     expect(strongElement).toBeTruthy();
@@ -62,7 +76,7 @@ describe("ChatMessage", () => {
     const message = createMessage({
       content: "Acesse o menu `Processo`",
     });
-    const { container } = render(<ChatMessage message={message} />);
+    const { container } = renderWithProviders(message);
     
     const codeElement = container.querySelector("code");
     expect(codeElement).toBeTruthy();
@@ -73,7 +87,7 @@ describe("ChatMessage", () => {
     const message = createMessage({
       content: "1. Primeiro passo\n2. Segundo passo\n3. Terceiro passo",
     });
-    const { container } = render(<ChatMessage message={message} />);
+    const { container } = renderWithProviders(message);
     
     expect(container.textContent).toContain("Primeiro passo");
     expect(container.textContent).toContain("Segundo passo");
@@ -87,7 +101,7 @@ describe("ChatMessage", () => {
     const message = createMessage({
       content: "- Item A\n- Item B\n- Item C",
     });
-    const { container } = render(<ChatMessage message={message} />);
+    const { container } = renderWithProviders(message);
     
     expect(container.textContent).toContain("Item A");
     expect(container.textContent).toContain("Item B");
@@ -98,7 +112,7 @@ describe("ChatMessage", () => {
     const message = createMessage({
       content: "## Título Principal\n\nConteúdo abaixo",
     });
-    const { container } = render(<ChatMessage message={message} />);
+    const { container } = renderWithProviders(message);
     
     const heading = container.querySelector("h2");
     expect(heading).toBeTruthy();
@@ -107,7 +121,7 @@ describe("ChatMessage", () => {
 
   it("has correct accessibility attributes", () => {
     const message = createMessage();
-    const { container } = render(<ChatMessage message={message} />);
+    const { container } = renderWithProviders(message);
     
     const article = container.querySelector('[role="article"]');
     expect(article).toBeTruthy();
@@ -116,7 +130,7 @@ describe("ChatMessage", () => {
 
   it("has correct accessibility for user messages", () => {
     const message = createMessage({ role: "user" });
-    const { container } = render(<ChatMessage message={message} />);
+    const { container } = renderWithProviders(message);
     
     const article = container.querySelector('[role="article"]');
     expect(article).toBeTruthy();
@@ -130,8 +144,8 @@ describe("ChatMessage", () => {
         web: [],
       },
     });
-    const { container } = render(<ChatMessage message={message} />);
+    const { container } = renderWithProviders(message);
     
-    expect(container.textContent).toContain("2 fontes");
+    expect(container.textContent).toContain("Fontes (2)");
   });
 });
