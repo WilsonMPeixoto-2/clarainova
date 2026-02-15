@@ -16,8 +16,8 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { adminDashboardFetchJson } from "@/lib/adminApi";
 
 interface StorageStats {
   totalSessions: number;
@@ -46,7 +46,7 @@ function getStorageStatus(percentage: number): {
   return { label: "Crítico", color: "text-destructive", variant: "destructive" };
 }
 
-export function StorageMonitor() {
+export function StorageMonitor({ adminKey }: { adminKey: string }) {
   const { toast } = useToast();
   const [stats, setStats] = useState<StorageStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -56,12 +56,12 @@ export function StorageMonitor() {
   const fetchStats = useCallback(async () => {
     setIsLoading(true);
     try {
-      const { data, error } = await supabase.rpc("get_chat_storage_stats");
+      const { stats: row } = await adminDashboardFetchJson<{ stats: any }>(
+        adminKey,
+        "storage-stats",
+      );
 
-      if (error) throw error;
-
-      if (data && data.length > 0) {
-        const row = data[0];
+      if (row) {
         setStats({
           totalSessions: Number(row.total_sessions) || 0,
           totalSizeBytes: Number(row.total_size_bytes) || 0,
@@ -86,26 +86,21 @@ export function StorageMonitor() {
     } finally {
       setIsLoading(false);
     }
-  }, [toast]);
+  }, [toast, adminKey]);
 
   // Preview how many sessions would be deleted
   const fetchPreview = useCallback(async () => {
     try {
-      const cutoffDate = new Date();
-      cutoffDate.setDate(cutoffDate.getDate() - 90);
-
-      const { count, error } = await supabase
-        .from("chat_sessions")
-        .select("id", { count: "exact", head: true })
-        .lt("updated_at", cutoffDate.toISOString());
-
-      if (error) throw error;
+      const { count } = await adminDashboardFetchJson<{ count: number }>(
+        adminKey,
+        "storage-preview?days=90",
+      );
       setPreviewCount(count || 0);
     } catch (err) {
       console.error("[StorageMonitor] Error fetching preview:", err);
       setPreviewCount(null);
     }
-  }, []);
+  }, [adminKey]);
 
   useEffect(() => {
     fetchStats();
@@ -115,13 +110,12 @@ export function StorageMonitor() {
   const handleCleanup = async () => {
     setIsCleaning(true);
     try {
-      const { data, error } = await supabase.rpc("cleanup_old_chat_sessions", {
-        days_old: 90,
+      const { deleted } = await adminDashboardFetchJson<{ deleted: number }>(adminKey, "storage-cleanup", {
+        method: "POST",
+        jsonBody: { days_old: 90 },
       });
 
-      if (error) throw error;
-
-      const deletedCount = data || 0;
+      const deletedCount = deleted || 0;
       toast({
         title: "Limpeza concluída!",
         description: `${deletedCount} conversas antigas foram removidas.`,

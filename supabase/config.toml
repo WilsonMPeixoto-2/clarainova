@@ -2,10 +2,25 @@
 ## Run: `npx supabase link --project-ref <SEU_PROJECT_REF>` to set this correctly.
 project_id = "YOUR_PROJECT_REF"
 
+[functions.admin-auth]
+verify_jwt = false
+
+[functions.admin_get_upload_url]
+verify_jwt = false
+
+[functions.admin-dashboard]
+verify_jwt = false
+
 [functions.clara-chat]
 verify_jwt = false
 
+[functions.documents]
+verify_jwt = false
+
 [functions.log-frontend-error]
+verify_jwt = false
+
+[functions.re-embed-chunks]
 verify_jwt = false
 
 [functions.submit-feedback]

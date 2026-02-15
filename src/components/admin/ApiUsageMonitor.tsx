@@ -4,8 +4,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { RefreshCw, Sparkles, Zap, TrendingUp, Activity } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
+import { adminDashboardFetchJson } from "@/lib/adminApi";
 
 interface ApiUsageSummary {
   provider: string;
@@ -21,7 +21,7 @@ interface ApiUsageDetail {
   date: string;
 }
 
-export function ApiUsageMonitor() {
+export function ApiUsageMonitor({ adminKey }: { adminKey: string }) {
   const [summary, setSummary] = useState<ApiUsageSummary[]>([]);
   const [details, setDetails] = useState<ApiUsageDetail[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -30,25 +30,19 @@ export function ApiUsageMonitor() {
   const fetchStats = useCallback(async () => {
     setIsLoading(true);
     try {
-      // Fetch summary
-      const { data: summaryData, error: summaryError } = await supabase
-        .rpc("get_api_usage_summary", { p_days: parseInt(days) });
+      const data = await adminDashboardFetchJson<{
+        summary: ApiUsageSummary[];
+        details: ApiUsageDetail[];
+      }>(adminKey, `api-usage?days=${encodeURIComponent(days)}`);
 
-      if (summaryError) throw summaryError;
-      setSummary(summaryData || []);
-
-      // Fetch details
-      const { data: detailsData, error: detailsError } = await supabase
-        .rpc("get_api_usage_stats", { p_days: parseInt(days) });
-
-      if (detailsError) throw detailsError;
-      setDetails(detailsData || []);
+      setSummary(data.summary || []);
+      setDetails(data.details || []);
     } catch (error) {
       console.error("Failed to fetch API usage stats:", error);
     } finally {
       setIsLoading(false);
     }
-  }, [days]);
+  }, [days, adminKey]);
 
   useEffect(() => {
     fetchStats();

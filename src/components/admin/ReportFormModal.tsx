@@ -30,6 +30,7 @@ interface ReportFormModalProps {
   onOpenChange: (open: boolean) => void;
   report?: Report | null;
   onSave: (title: string, content: string, tagIds: string[]) => Promise<void>;
+  availableTags: ReportTag[];
   isSaving: boolean;
 }
 
@@ -38,6 +39,7 @@ export function ReportFormModal({
   onOpenChange,
   report,
   onSave,
+  availableTags,
   isSaving,
 }: ReportFormModalProps) {
   const [title, setTitle] = useState("");
@@ -122,6 +124,7 @@ export function ReportFormModal({
             <div className="space-y-2">
               <Label>Tags</Label>
               <ReportTagSelector
+                tags={availableTags}
                 selectedTagIds={selectedTagIds}
                 onChange={setSelectedTagIds}
                 disabled={isSaving}

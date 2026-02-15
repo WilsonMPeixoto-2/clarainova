@@ -204,6 +204,48 @@ const Admin = () => {
     });
   }, [toast]);
 
+  const fetchDocuments = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const key = getAdminKey();
+      const { data, error } = await supabase.functions.invoke('documents', {
+        method: 'GET',
+        headers: {
+          'x-admin-key': key,
+        },
+      });
+
+      if (error) {
+        const msg = (error as any)?.message || '';
+        if (msg.includes('401') || msg.toLowerCase().includes('not authorized')) {
+          handleAuthExpired();
+          return;
+        }
+        throw error;
+      }
+
+      const docs = data.documents || [];
+      setDocuments(docs);
+
+      // Track documents that are still processing
+      const stillProcessing = new Set<string>();
+      docs.forEach((doc: Document) => {
+        if (doc.status === 'processing' || doc.processing_status === 'pending' || doc.processing_status === 'processing') {
+          stillProcessing.add(doc.id);
+        }
+      });
+      setProcessingDocs(stillProcessing);
+    } catch (error: any) {
+      toast({
+        title: 'Erro ao carregar documentos',
+        description: error.message,
+        variant: 'destructive',
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  }, [getAdminKey, handleAuthExpired, toast]);
+
   // Check session storage for existing auth
   useEffect(() => {
     const storedKey = sessionStorage.getItem('clara_admin_key');
@@ -217,9 +259,9 @@ const Admin = () => {
   // Fetch documents when authenticated
   useEffect(() => {
     if (isAuthenticated) {
-      fetchDocuments();
+      void fetchDocuments();
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, fetchDocuments]);
 
   // Realtime subscription for document status updates
   useEffect(() => {
@@ -354,7 +396,7 @@ const Admin = () => {
         clearInterval(pollingIntervalRef.current);
       }
     };
-  }, [isAuthenticated, processingDocs.size, getAdminKey, toast]);
+  }, [isAuthenticated, processingDocs.size, getAdminKey, toast, fetchDocuments]);
 
   const handleAuthenticate = async () => {
     const key = getAdminKey();
@@ -409,49 +451,6 @@ const Admin = () => {
       });
     } finally {
       setIsAuthenticating(false);
-    }
-  };
-
-  const fetchDocuments = async () => {
-    setIsLoading(true);
-    try {
-      const key = getAdminKey();
-      const { data, error } = await supabase.functions.invoke('documents', {
-        method: 'GET',
-        headers: {
-          'x-admin-key': key,
-        },
-      });
-
-      if (error) {
-        const msg = (error as any)?.message || '';
-        if (msg.includes('401') || msg.toLowerCase().includes('not authorized')) {
-          handleAuthExpired();
-          return;
-        }
-        throw error;
-      }
-      
-      const docs = data.documents || [];
-      setDocuments(docs);
-      
-      // Track documents that are still processing
-      const stillProcessing = new Set<string>();
-      docs.forEach((doc: Document) => {
-        if (doc.status === 'processing' || doc.processing_status === 'pending' || doc.processing_status === 'processing') {
-          stillProcessing.add(doc.id);
-        }
-      });
-      setProcessingDocs(stillProcessing);
-      
-    } catch (error: any) {
-      toast({
-        title: 'Erro ao carregar documentos',
-        description: error.message,
-        variant: 'destructive',
-      });
-    } finally {
-      setIsLoading(false);
     }
   };
 
@@ -592,7 +591,7 @@ const Admin = () => {
     }
   };
 
-  const handleFileUpload = async (files: FileList | null) => {
+  const handleFileUpload = useCallback(async (files: FileList | null) => {
     debugLog('[Admin] handleFileUpload called with files:', files?.length);
     if (!files || files.length === 0) {
       debugLog('[Admin] No files provided');
@@ -1028,7 +1027,9 @@ const Admin = () => {
             // Cleanup uploaded file
             try {
               await supabase.storage.from('knowledge-base').remove([signedUrlData.path]);
-            } catch {}
+            } catch (cleanupError) {
+              debugLog('[Admin] Failed to cleanup uploaded file after ingestion failure:', cleanupError);
+            }
             
             throw new Error(`[${ingestResponse.status}] ${errorData.error || 'Erro ao processar documento'}`);
           }
@@ -1069,7 +1070,7 @@ const Admin = () => {
     setUploadProgress(0);
     setExtractionPhase('idle');
     setPayloadMetrics(null);
-  };
+  }, [fetchDocuments, getAdminKey, handleAuthExpired, toast]);
 
   // Helper function for file upload with retry
   const uploadFileWithRetry = async (fileToUpload: File, signedUrl: string): Promise<void> => {
@@ -2095,15 +2096,15 @@ const Admin = () => {
             </TabsContent>
 
             <TabsContent value="analytics">
-              <AnalyticsTab />
+              <AnalyticsTab adminKey={adminKey} />
             </TabsContent>
 
             <TabsContent value="feedback">
-              <FeedbackTab />
+              <FeedbackTab adminKey={adminKey} />
             </TabsContent>
 
             <TabsContent value="reports">
-              <ReportsTab />
+              <ReportsTab adminKey={adminKey} />
             </TabsContent>
 
             <TabsContent value="observability">
@@ -2111,7 +2112,7 @@ const Admin = () => {
             </TabsContent>
 
             <TabsContent value="metrics">
-              <ChatMetricsDashboard />
+              <ChatMetricsDashboard adminKey={adminKey} />
             </TabsContent>
           </Tabs>
         </main>

@@ -18,13 +18,13 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { ReportFormModal } from "./ReportFormModal";
 import { ReportViewModal } from "./ReportViewModal";
 import { generateReportPdf } from "@/utils/generateReportPdf";
 import { ReportTagBadges, getTagColorClass, type ReportTag } from "./ReportTagSelector";
 import { cn } from "@/lib/utils";
+import { adminDashboardFetchJson } from "@/lib/adminApi";
 
 interface Report {
   id: string;
@@ -39,7 +39,7 @@ interface ReportWithTags extends Report {
   tags: ReportTag[];
 }
 
-export function ReportsTab() {
+export function ReportsTab({ adminKey }: { adminKey: string }) {
   const [reports, setReports] = useState<ReportWithTags[]>([]);
   const [allTags, setAllTags] = useState<ReportTag[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -59,40 +59,13 @@ export function ReportsTab() {
   const fetchReports = useCallback(async () => {
     setIsLoading(true);
     try {
-      // Fetch reports
-      const { data: reportsData, error: reportsError } = await supabase
-        .from("development_reports")
-        .select("*")
-        .order("created_at", { ascending: false });
+      const data = await adminDashboardFetchJson<{
+        reports: ReportWithTags[];
+        tags: ReportTag[];
+      }>(adminKey, "reports");
 
-      if (reportsError) throw reportsError;
-
-      // Fetch all tags
-      const { data: tagsData, error: tagsError } = await supabase
-        .from("report_tags")
-        .select("*")
-        .order("name");
-
-      if (tagsError) throw tagsError;
-      setAllTags(tagsData || []);
-
-      // Fetch tag relations
-      const { data: relationsData, error: relationsError } = await supabase
-        .from("report_tag_relations")
-        .select("report_id, tag_id");
-
-      if (relationsError) throw relationsError;
-
-      // Map reports with their tags
-      const reportsWithTags: ReportWithTags[] = (reportsData || []).map((report) => {
-        const reportTagIds = (relationsData || [])
-          .filter((r) => r.report_id === report.id)
-          .map((r) => r.tag_id);
-        const tags = (tagsData || []).filter((t) => reportTagIds.includes(t.id));
-        return { ...report, tags };
-      });
-
-      setReports(reportsWithTags);
+      setReports(data.reports || []);
+      setAllTags(data.tags || []);
     } catch (error: any) {
       console.error("Error fetching reports:", error);
       toast({
@@ -103,7 +76,7 @@ export function ReportsTab() {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [adminKey]);
 
   useEffect(() => {
     fetchReports();
@@ -155,14 +128,13 @@ export function ReportsTab() {
 
     setIsDeleting(true);
     try {
-      const { error } = await supabase
-        .from("development_reports")
-        .delete()
-        .eq("id", reportToDelete.id);
+      await adminDashboardFetchJson<{ ok: true }>(
+        adminKey,
+        `reports/${reportToDelete.id}`,
+        { method: "DELETE" },
+      );
 
-      if (error) throw error;
-
-      setReports((prev) => prev.filter((r) => r.id !== reportToDelete.id));
+      await fetchReports();
       toast({
         title: "Relatório excluído",
         description: "O relatório foi removido permanentemente.",
@@ -184,67 +156,24 @@ export function ReportsTab() {
   const handleSaveReport = async (title: string, content: string, tagIds: string[]) => {
     setIsSaving(true);
     try {
-      // Generate summary from first 150 chars
-      const summary = content.replace(/[#*`\n]/g, " ").trim().substring(0, 150);
-
       if (selectedReport) {
-        // Update existing
-        const { error } = await supabase
-          .from("development_reports")
-          .update({ title, content, summary })
-          .eq("id", selectedReport.id);
-
-        if (error) throw error;
-
-        // Update tags: delete existing, insert new
-        await supabase
-          .from("report_tag_relations")
-          .delete()
-          .eq("report_id", selectedReport.id);
-
-        if (tagIds.length > 0) {
-          await supabase.from("report_tag_relations").insert(
-            tagIds.map((tagId) => ({
-              report_id: selectedReport.id,
-              tag_id: tagId,
-            }))
-          );
-        }
-
-        const updatedTags = allTags.filter((t) => tagIds.includes(t.id));
-        setReports((prev) =>
-          prev.map((r) =>
-            r.id === selectedReport.id
-              ? { ...r, title, content, summary, updated_at: new Date().toISOString(), tags: updatedTags }
-              : r
-          )
+        await adminDashboardFetchJson<{ report: Report }>(
+          adminKey,
+          `reports/${selectedReport.id}`,
+          { method: "PATCH", jsonBody: { title, content, tagIds } },
         );
+        await fetchReports();
         toast({
           title: "Relatório atualizado",
           description: "As alterações foram salvas.",
         });
       } else {
-        // Create new
-        const { data, error } = await supabase
-          .from("development_reports")
-          .insert({ title, content, summary })
-          .select()
-          .single();
-
-        if (error) throw error;
-
-        // Insert tag relations
-        if (tagIds.length > 0) {
-          await supabase.from("report_tag_relations").insert(
-            tagIds.map((tagId) => ({
-              report_id: data.id,
-              tag_id: tagId,
-            }))
-          );
-        }
-
-        const newTags = allTags.filter((t) => tagIds.includes(t.id));
-        setReports((prev) => [{ ...data, tags: newTags }, ...prev]);
+        await adminDashboardFetchJson<{ report: Report }>(
+          adminKey,
+          "reports",
+          { method: "POST", jsonBody: { title, content, tagIds } },
+        );
+        await fetchReports();
         toast({
           title: "Relatório salvo",
           description: "O relatório foi adicionado ao histórico.",
@@ -477,6 +406,7 @@ export function ReportsTab() {
         onOpenChange={setFormModalOpen}
         report={selectedReport}
         onSave={handleSaveReport}
+        availableTags={allTags}
         isSaving={isSaving}
       />
 

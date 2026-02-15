@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { X, FileText, AlertTriangle, MessageSquare, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { supabase } from "@/integrations/supabase/client";
+import { adminDashboardFetchJson } from "@/lib/adminApi";
 
 interface QueryAnalytics {
   id: string;
@@ -35,6 +35,7 @@ interface SessionContext {
 interface FeedbackDetailModalProps {
   feedback: ResponseFeedback | null;
   onClose: () => void;
+  adminKey: string;
 }
 
 const getCategoryLabel = (category: string | null): string => {
@@ -49,7 +50,7 @@ const getCategoryLabel = (category: string | null): string => {
   return labels[category || ""] || category || "Sem categoria";
 };
 
-export function FeedbackDetailModal({ feedback, onClose }: FeedbackDetailModalProps) {
+export function FeedbackDetailModal({ feedback, onClose, adminKey }: FeedbackDetailModalProps) {
   const [sessionContext, setSessionContext] = useState<SessionContext[]>([]);
   const [isLoadingContext, setIsLoadingContext] = useState(false);
 
@@ -63,16 +64,13 @@ export function FeedbackDetailModal({ feedback, onClose }: FeedbackDetailModalPr
     const fetchSessionContext = async () => {
       setIsLoadingContext(true);
       try {
-        const { data, error } = await supabase
-          .from("query_analytics")
-          .select("id, user_query, assistant_response, created_at")
-          .eq("session_fingerprint", feedback.query!.session_fingerprint!)
-          .order("created_at", { ascending: true })
-          .limit(10);
+        const fingerprint = feedback.query!.session_fingerprint!;
+        const data = await adminDashboardFetchJson<{ context: any[] }>(
+          adminKey,
+          `session-context?session_fingerprint=${encodeURIComponent(fingerprint)}&limit=10`,
+        );
 
-        if (error) throw error;
-
-        const context: SessionContext[] = (data || []).map((item) => ({
+        const context: SessionContext[] = (data.context || []).map((item) => ({
           id: item.id,
           user_query: item.user_query,
           assistant_response: item.assistant_response,
@@ -90,7 +88,7 @@ export function FeedbackDetailModal({ feedback, onClose }: FeedbackDetailModalPr
     };
 
     fetchSessionContext();
-  }, [feedback]);
+  }, [feedback, adminKey]);
 
   if (!feedback) return null;
 

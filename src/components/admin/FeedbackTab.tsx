@@ -1,5 +1,4 @@
 import { useState, useEffect, useMemo } from "react";
-import { supabase } from "@/integrations/supabase/client";
 import {
   Card,
   CardContent,
@@ -32,6 +31,7 @@ import {
   Cell,
 } from "recharts";
 import { motion, AnimatePresence } from "framer-motion";
+import { adminDashboardFetchJson } from "@/lib/adminApi";
 
 interface FeedbackItem {
   id: string;
@@ -70,7 +70,7 @@ const CATEGORY_COLORS: Record<string, string> = {
   other: "hsl(var(--accent-foreground))",
 };
 
-export function FeedbackTab() {
+export function FeedbackTab({ adminKey }: { adminKey: string }) {
   const [feedbackData, setFeedbackData] = useState<FeedbackItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -81,56 +81,11 @@ export function FeedbackTab() {
     const fetchFeedback = async () => {
       setIsLoading(true);
       try {
-        const startDate = new Date();
-        startDate.setDate(startDate.getDate() - timeRange);
-
-        // Fetch feedback with joined query data
-        const { data: feedback, error } = await supabase
-          .from("response_feedback")
-          .select(`
-            id,
-            query_id,
-            rating,
-            feedback_category,
-            feedback_text,
-            created_at
-          `)
-          .gte("created_at", startDate.toISOString())
-          .order("created_at", { ascending: false })
-          .limit(100);
-
-        if (error) throw error;
-
-        // Fetch related queries for negative feedback
-        const negativeFeedback = feedback?.filter((f) => !f.rating) || [];
-        const queryIds = negativeFeedback.map((f) => f.query_id);
-
-        let queriesMap: Record<string, { user_query: string; assistant_response: string }> = {};
-
-        if (queryIds.length > 0) {
-          const { data: queries, error: queryError } = await supabase
-            .from("query_analytics")
-            .select("id, user_query, assistant_response")
-            .in("id", queryIds);
-
-          if (!queryError && queries) {
-            queriesMap = queries.reduce(
-              (acc, q) => ({
-                ...acc,
-                [q.id]: { user_query: q.user_query, assistant_response: q.assistant_response },
-              }),
-              {}
-            );
-          }
-        }
-
-        // Merge feedback with query data
-        const enrichedFeedback = feedback?.map((f) => ({
-          ...f,
-          query: queriesMap[f.query_id],
-        })) || [];
-
-        setFeedbackData(enrichedFeedback);
+        const data = await adminDashboardFetchJson<{ feedback: FeedbackItem[] }>(
+          adminKey,
+          `feedback?days=${timeRange}&limit=100`,
+        );
+        setFeedbackData(data.feedback || []);
       } catch (err) {
         console.error("[FeedbackTab] Error fetching feedback:", err);
       } finally {
@@ -139,7 +94,7 @@ export function FeedbackTab() {
     };
 
     fetchFeedback();
-  }, [timeRange]);
+  }, [timeRange, adminKey]);
 
   // Calculate metrics
   const metrics = useMemo(() => {

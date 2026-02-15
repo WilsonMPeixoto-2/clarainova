@@ -56,21 +56,21 @@ Vá em **Vercel Dashboard → clarainova → Settings → Environment Variables*
 
 | Variável | Valor |
 |----------|-------|
-| `VITE_SUPABASE_URL` | `https://mebucurgtfrrjejuched.supabase.co` |
-| `VITE_SUPABASE_PUBLISHABLE_KEY` | `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1lYnVjdXJndGZycmplanVjaGVkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA0MjY1ODAsImV4cCI6MjA4NjAwMjU4MH0.xWNNmNFdTRYUGRTfaKOsHdQb0-PStWZy5V-1KgaQnQI` |
-| `VITE_SUPABASE_PROJECT_ID` | `mebucurgtfrrjejuched` |
+| `VITE_SUPABASE_URL` | `https://<YOUR_PROJECT_REF>.supabase.co` |
+| `VITE_SUPABASE_PUBLISHABLE_KEY` | `<YOUR_SUPABASE_ANON_KEY>` |
+| `VITE_SUPABASE_PROJECT_ID` | `<YOUR_PROJECT_REF>` |
 
 ### 2.2 Build Settings no Vercel
 
 | Campo | Valor |
 |-------|-------|
 | **Framework Preset** | Vite |
-| **Build Command** | `npm run build` ou `vite build` |
+| **Build Command** | `pnpm build` |
 | **Output Directory** | `dist` |
-| **Install Command** | `npm install` |
+| **Install Command** | `pnpm install --frozen-lockfile` |
 | **Node.js Version** | 18.x |
 
-> ⚠️ **IMPORTANTE**: Se o `package.json` tiver `"packageManager": "pnpm@..."`, REMOVA essa linha antes de buildar, ou o Vercel vai tentar usar pnpm e falhar.
+> Observação: este repositório usa `pnpm` (veja `packageManager` e `pnpm-lock.yaml`). No Vercel, mantenha isso para evitar divergência de dependências.
 
 ### 2.3 Limpar projetos duplicados no Vercel
 

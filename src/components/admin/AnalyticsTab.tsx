@@ -1,16 +1,16 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { RefreshCw, Download, TrendingUp, TrendingDown, MessageSquare, ThumbsUp, ThumbsDown, Eye, Search, BarChart3 } from "lucide-react";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { FeedbackDetailModal } from "./FeedbackDetailModal";
 import { StorageMonitor } from "./StorageMonitor";
 import { UsageHeatmap } from "./UsageHeatmap";
 import { KnowledgeGapAnalysis } from "./KnowledgeGapAnalysis";
 import { ApiUsageMonitor } from "./ApiUsageMonitor";
+import { adminDashboardFetchJson } from "@/lib/adminApi";
 
 interface QueryAnalytics {
   id: string;
@@ -54,41 +54,31 @@ const DOMAIN_KEYWORDS = [
   "comprovante", "relatório", "formulário", "sistema", "cadastro", "autorização"
 ];
 
-export function AnalyticsTab() {
+export function AnalyticsTab({ adminKey }: { adminKey: string }) {
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(true);
   const [queries, setQueries] = useState<QueryAnalytics[]>([]);
   const [feedbacks, setFeedbacks] = useState<ResponseFeedback[]>([]);
   const [selectedFeedback, setSelectedFeedback] = useState<ResponseFeedback | null>(null);
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     setIsLoading(true);
     try {
-      // Fetch queries
-      const { data: queriesData, error: queriesError } = await supabase
-        .from("query_analytics")
-        .select("*")
-        .order("created_at", { ascending: false })
-        .limit(1000);
+      const data = await adminDashboardFetchJson<{
+        queries: QueryAnalytics[];
+        feedbacks: ResponseFeedback[];
+      }>(adminKey, "analytics?queriesLimit=1000&feedbackLimit=500");
 
-      if (queriesError) throw queriesError;
+      const queriesData = data.queries || [];
+      const feedbacksData = data.feedbacks || [];
 
-      // Fetch feedbacks with query data
-      const { data: feedbacksData, error: feedbacksError } = await supabase
-        .from("response_feedback")
-        .select("*")
-        .order("created_at", { ascending: false })
-        .limit(500);
+      setQueries(queriesData);
 
-      if (feedbacksError) throw feedbacksError;
-
-      setQueries(queriesData || []);
-      
-      // Merge feedbacks with their queries
-      const feedbacksWithQueries = (feedbacksData || []).map(fb => ({
+      const feedbacksWithQueries = feedbacksData.map((fb) => ({
         ...fb,
-        query: queriesData?.find(q => q.id === fb.query_id),
+        query: queriesData.find((q) => q.id === fb.query_id),
       }));
+
       setFeedbacks(feedbacksWithQueries);
     } catch (error: any) {
       console.error("[AnalyticsTab] Error fetching data:", error);
@@ -100,11 +90,11 @@ export function AnalyticsTab() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [toast, adminKey]);
 
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [fetchData]);
 
   // Calculate metrics
   const metrics = useMemo(() => {
@@ -353,7 +343,7 @@ export function AnalyticsTab() {
       </div>
 
       {/* API Usage Monitor */}
-      <ApiUsageMonitor />
+      <ApiUsageMonitor adminKey={adminKey} />
 
       {/* Feedback Trend Chart */}
       <Card className="glass-card">
@@ -522,12 +512,13 @@ export function AnalyticsTab() {
       <KnowledgeGapAnalysis queries={queries} feedbacks={feedbacks} />
 
       {/* Storage Monitor */}
-      <StorageMonitor />
+      <StorageMonitor adminKey={adminKey} />
 
       {/* Detail Modal */}
       <FeedbackDetailModal
         feedback={selectedFeedback}
         onClose={() => setSelectedFeedback(null)}
+        adminKey={adminKey}
       />
     </div>
   );

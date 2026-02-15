@@ -19,10 +19,9 @@ export default tseslint.config(
     },
     rules: {
       ...reactHooks.configs.recommended.rules,
-      'react-refresh/only-export-components': [
-        'warn',
-        { allowConstantExport: true },
-      ],
+      // Not relevant for production correctness; it mainly affects Fast Refresh ergonomics.
+      // This codebase exports hooks/contexts/utilities from the same files as components.
+      'react-refresh/only-export-components': 'off',
       // The following rules are disabled due to pre-existing codebase patterns
       // These should be addressed in future refactoring work
       '@typescript-eslint/no-explicit-any': 'off',

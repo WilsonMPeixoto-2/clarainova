@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -10,8 +10,8 @@ import {
   Activity, Clock, AlertTriangle, TrendingUp, Zap, 
   Globe, Server, RefreshCw, AlertCircle 
 } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
+import { adminDashboardFetchJson } from '@/lib/adminApi';
 
 interface ChatMetricsSummary {
   date: string;
@@ -40,38 +40,35 @@ interface FrontendErrorsSummary {
   other_count: number;
 }
 
-export function ChatMetricsDashboard() {
+export function ChatMetricsDashboard({ adminKey }: { adminKey: string }) {
   const [chatMetrics, setChatMetrics] = useState<ChatMetricsSummary[]>([]);
   const [frontendErrors, setFrontendErrors] = useState<FrontendErrorsSummary[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchMetrics = async () => {
+  const fetchMetrics = useCallback(async () => {
     setIsLoading(true);
     setError(null);
     
     try {
-      const [chatResult, errorsResult] = await Promise.all([
-        supabase.rpc('get_chat_metrics_summary', { p_days: 7 }),
-        supabase.rpc('get_frontend_errors_summary', { p_days: 7 })
-      ]);
+      const data = await adminDashboardFetchJson<{
+        chatMetrics: ChatMetricsSummary[];
+        frontendErrors: FrontendErrorsSummary[];
+      }>(adminKey, "chat-metrics?days=7");
 
-      if (chatResult.error) throw chatResult.error;
-      if (errorsResult.error) throw errorsResult.error;
-
-      setChatMetrics((chatResult.data || []).reverse());
-      setFrontendErrors((errorsResult.data || []).reverse());
+      setChatMetrics((data.chatMetrics || []).reverse());
+      setFrontendErrors((data.frontendErrors || []).reverse());
     } catch (err: any) {
       console.error('[ChatMetricsDashboard] Error fetching metrics:', err);
       setError(err.message || 'Erro ao carregar métricas');
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [adminKey]);
 
   useEffect(() => {
     fetchMetrics();
-  }, []);
+  }, [fetchMetrics]);
 
   // Calculate summary stats from the most recent data
   const todayMetrics = chatMetrics[chatMetrics.length - 1];

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Check, X, Tag } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -8,7 +8,6 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
-import { supabase } from "@/integrations/supabase/client";
 
 export interface ReportTag {
   id: string;
@@ -17,6 +16,7 @@ export interface ReportTag {
 }
 
 interface ReportTagSelectorProps {
+  tags: ReportTag[];
   selectedTagIds: string[];
   onChange: (tagIds: string[]) => void;
   disabled?: boolean;
@@ -41,27 +41,12 @@ export function getTagColorClass(color: string): string {
 }
 
 export function ReportTagSelector({
+  tags,
   selectedTagIds,
   onChange,
   disabled = false,
 }: ReportTagSelectorProps) {
-  const [tags, setTags] = useState<ReportTag[]>([]);
   const [open, setOpen] = useState(false);
-
-  useEffect(() => {
-    fetchTags();
-  }, []);
-
-  const fetchTags = async () => {
-    const { data, error } = await supabase
-      .from("report_tags")
-      .select("*")
-      .order("name");
-
-    if (!error && data) {
-      setTags(data);
-    }
-  };
 
   const toggleTag = (tagId: string) => {
     if (selectedTagIds.includes(tagId)) {

@@ -54,6 +54,7 @@ export function DocumentEditorModal({
 }: DocumentEditorModalProps) {
   const { toast } = useToast();
   const [isSaving, setIsSaving] = useState(false);
+  const documentId = document?.id;
   
   // Form state
   const [tags, setTags] = useState<string[]>([]);
@@ -74,16 +75,14 @@ export function DocumentEditorModal({
   
   // Filter out current document from supersedes options
   const supersedesOptions = useMemo(() => {
-    return allDocuments.filter(d => d.id !== document?.id);
-  }, [allDocuments, document?.id]);
+    return allDocuments.filter(d => d.id !== documentId);
+  }, [allDocuments, documentId]);
   
   // Find documents that supersede this one (reverse lookup)
   const supersededBy = useMemo(() => {
-    if (!document) return [];
-    return allDocuments.filter(d => 
-      (d as any).supersedes_document_id === document.id
-    );
-  }, [allDocuments, document?.id]);
+    if (!documentId) return [];
+    return allDocuments.filter((d) => (d as any).supersedes_document_id === documentId);
+  }, [allDocuments, documentId]);
   
   const handleAddTag = () => {
     const trimmed = newTag.trim().toLowerCase();
