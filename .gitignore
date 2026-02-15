@@ -107,3 +107,7 @@ temp/
 *.sqlite3
 .vercel
 .env*.local
+
+# Supabase CLI temp/link artifacts
+supabase/.temp/
+.supabase/

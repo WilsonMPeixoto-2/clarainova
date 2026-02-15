@@ -1,4 +1,12 @@
-project_id = "pypqlqnfonixeocvmeoy"
+## Supabase project ref used by the CLI.
+## Run: `npx supabase link --project-ref <SEU_PROJECT_REF>` to set this correctly.
+project_id = "YOUR_PROJECT_REF"
 
 [functions.clara-chat]
+verify_jwt = false
+
+[functions.log-frontend-error]
+verify_jwt = false
+
+[functions.submit-feedback]
 verify_jwt = false

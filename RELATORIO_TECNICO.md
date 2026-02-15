@@ -31,6 +31,8 @@
 - Edge Functions (Deno):
   - `supabase/functions/clara-chat` (chat; resposta via SSE `text/event-stream`)
   - `supabase/functions/re-embed-chunks` (regera embeddings; protegida por `ADMIN_KEY`)
+  - `supabase/functions/submit-feedback` (feedback do usuario)
+  - `supabase/functions/log-frontend-error` (observabilidade de erros do frontend)
 
 ---
 

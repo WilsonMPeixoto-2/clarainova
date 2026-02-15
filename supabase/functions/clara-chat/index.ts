@@ -21,7 +21,8 @@ type ChatErrorCode = "RATE_LIMIT" | "PAYMENT" | "CONFIG" | "UPSTREAM" | "INPUT";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type, x-session-fingerprint",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
   "Access-Control-Max-Age": "86400",
 };
@@ -282,6 +283,7 @@ function userFacingErrorMessage(code: ChatErrorCode): string {
 type ComputeResult = {
   answer: string;
   model: string;
+  queryId: string | null;
   sources: { title: string; similarity: number; chunk_index: number }[];
   chunksFound: number;
   timings: {
@@ -386,13 +388,24 @@ async function computeAnswer(opts: {
     chunk_index: chunk.chunk_index,
   }));
 
+  let queryId: string | null = null;
   try {
-    await supabase.from("query_analytics").insert({
-      user_query: opts.message,
-      assistant_response: llm.text,
-      session_fingerprint: opts.sessionFingerprint,
-      sources_cited: sources.map((source) => source.title),
-    });
+    const { data: row, error } = await supabase
+      .from("query_analytics")
+      .insert({
+        user_query: opts.message,
+        assistant_response: llm.text,
+        session_fingerprint: opts.sessionFingerprint,
+        sources_cited: sources.map((source) => source.title),
+      })
+      .select("id")
+      .single();
+
+    if (error) {
+      console.error("[clara-chat] query_analytics insert failed", error);
+    } else {
+      queryId = row?.id ?? null;
+    }
   } catch (err) {
     console.error("[clara-chat] query_analytics insert failed", err);
   }
@@ -445,6 +458,7 @@ async function computeAnswer(opts: {
   return {
     answer: llm.text,
     model: llm.model,
+    queryId,
     sources,
     chunksFound: chunks.length,
     timings: {
@@ -491,6 +505,7 @@ serve(async (req: Request) => {
   }
 
   const sessionFingerprint =
+    req.headers.get("x-session-fingerprint") ||
     req.headers.get("x-forwarded-for") ||
     req.headers.get("cf-connecting-ip") ||
     req.headers.get("x-real-ip") ||
@@ -512,6 +527,7 @@ serve(async (req: Request) => {
         answer: result.answer,
         provider: "gemini-direct",
         sources: result.sources,
+        query_id: result.queryId,
         metrics: {
           provider: "gemini-direct",
           model: result.model,
@@ -573,7 +589,7 @@ serve(async (req: Request) => {
           }
         }
 
-        send("done", { ok: true });
+        send("done", { ok: true, query_id: result.queryId });
       } catch (error) {
         const message = error instanceof Error ? error.message : "UNKNOWN_ERROR";
         const classified = classifyError(message);
@@ -593,4 +609,3 @@ serve(async (req: Request) => {
 
   return sseResponse(stream, 200);
 });
-

@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { getSessionFingerprint } from "@/lib/sessionFingerprint";
 
 export type ResponseMode = "fast" | "deep";
 export type WebSearchMode = "auto" | "deep";
@@ -101,17 +101,6 @@ function saveMessagesToStorage(messages: ChatMessage[]) {
   }
 }
 
-// Get or create session fingerprint
-function getSessionFingerprint(): string {
-  const FINGERPRINT_KEY = "clara-session-fingerprint";
-  let fingerprint = sessionStorage.getItem(FINGERPRINT_KEY);
-  if (!fingerprint) {
-    fingerprint = `sess_${Date.now()}_${crypto.randomUUID().slice(0, 8)}`;
-    sessionStorage.setItem(FINGERPRINT_KEY, fingerprint);
-  }
-  return fingerprint;
-}
-
 export function useChat(options: UseChatOptions = {}) {
   const [messages, setMessages] = useState<ChatMessage[]>(() => loadMessagesFromStorage());
   const [isLoading, setIsLoading] = useState(false);
@@ -182,6 +171,7 @@ export function useChat(options: UseChatOptions = {}) {
     let apiProviderInfo: ApiProviderInfo | undefined;
     let noticeInfo: ChatNotice | undefined;
     let backendRequestId: string | undefined;
+    let backendQueryId: string | undefined;
 
     setMessages(prev => [
       ...prev,
@@ -205,6 +195,7 @@ export function useChat(options: UseChatOptions = {}) {
           headers: {
             "Content-Type": "application/json",
             "Accept": "text/event-stream",
+            "x-session-fingerprint": getSessionFingerprint(),
             // Supabase Edge Functions typically expect both apikey + Authorization
             "apikey": import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
             "Authorization": `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
@@ -238,6 +229,7 @@ export function useChat(options: UseChatOptions = {}) {
         }
 
         backendRequestId = data?.request_id || data?.requestId || backendRequestId;
+        backendQueryId = data?.query_id || data?.queryId || backendQueryId;
 
         // Map backend provider formats into UI expectations
         const providerRaw = String(data?.provider || data?.metrics?.provider || "").toLowerCase();
@@ -373,7 +365,10 @@ export function useChat(options: UseChatOptions = {}) {
                     break;
 
                   case "done":
-                    // Finalizar streaming
+                    if (data.query_id) {
+                      backendQueryId = data.query_id;
+                    }
+                    // Finalizar streaming (conteudo ja montado via deltas)
                     break;
 
                   case "error":
@@ -420,26 +415,6 @@ export function useChat(options: UseChatOptions = {}) {
           } 
         : undefined;
 
-      // Save to query_analytics (fire and forget)
-      let savedQueryId: string | null = null;
-      try {
-        const sessionFingerprint = getSessionFingerprint();
-        const { data: analyticsData } = await supabase
-          .from("query_analytics")
-          .insert({
-            user_query: content.trim(),
-            assistant_response: finalContent,
-            sources_cited: localSources,
-            session_fingerprint: sessionFingerprint,
-          })
-          .select("id")
-          .single();
-        
-        savedQueryId = analyticsData?.id || null;
-      } catch (err) {
-        console.warn("[useChat] Failed to save query analytics:", err);
-      }
-
       setMessages(prev => {
         const final = prev.map(msg => 
           msg.id === assistantId 
@@ -449,7 +424,7 @@ export function useChat(options: UseChatOptions = {}) {
                 isStreaming: false,
                 status: "done" as MessageStatus,
                 sources: finalSources,
-                queryId: savedQueryId || undefined,
+                queryId: backendQueryId,
                 userQuery: userQueryContent,
                 apiProvider: apiProviderInfo,
                 notice: noticeInfo,

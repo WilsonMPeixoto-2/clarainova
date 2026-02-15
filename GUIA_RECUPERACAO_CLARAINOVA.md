@@ -541,6 +541,8 @@ CREATE POLICY "Chunks are publicly readable" ON public.document_chunks FOR SELEC
 |------|-----------|
 | `clara-chat` | Chat principal com RAG + LLM (Gemini) |
 | `re-embed-chunks` | Re-gera embeddings dos chunks |
+| `submit-feedback` | Recebe feedback (thumbs) e grava em `response_feedback` |
+| `log-frontend-error` | Coleta erros do frontend (best-effort) em `frontend_errors` |
 
 ### 4.2 Secrets necessárias nas Edge Functions
 

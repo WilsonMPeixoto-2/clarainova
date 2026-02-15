@@ -1,6 +1,6 @@
 import { useState, useCallback } from "react";
-import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { getSessionFingerprint } from "@/lib/sessionFingerprint";
 
 interface SubmitFeedbackParams {
   queryId: string;
@@ -18,17 +18,37 @@ export function useFeedback() {
 
     setIsSubmitting(true);
     try {
-      const { error } = await supabase
-        .from("response_feedback")
-        .insert({
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+
+      if (!supabaseUrl || !anonKey) {
+        toast({
+          title: "Configuração ausente",
+          description: "Backend não configurado (Supabase).",
+          variant: "destructive",
+        });
+        return false;
+      }
+
+      const res = await fetch(`${supabaseUrl}/functions/v1/submit-feedback`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "apikey": anonKey,
+          "Authorization": `Bearer ${anonKey}`,
+          "x-session-fingerprint": getSessionFingerprint(),
+        },
+        body: JSON.stringify({
           query_id: params.queryId,
           rating: params.rating,
           feedback_category: params.category || null,
           feedback_text: params.feedbackText || null,
-        });
+        }),
+      });
 
-      if (error) {
-        console.error("[useFeedback] Error submitting feedback:", error);
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({} as any));
+        console.error("[useFeedback] Error submitting feedback:", body);
         toast({
           title: "Erro ao enviar feedback",
           description: "Tente novamente mais tarde.",

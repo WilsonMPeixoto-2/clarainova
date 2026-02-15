@@ -48,6 +48,8 @@ Edge functions em `supabase/functions/`:
 
 - `clara-chat`: chat principal (resposta via SSE `text/event-stream`)
 - `re-embed-chunks`: reprocessa embeddings (protegida por `ADMIN_KEY`)
+- `submit-feedback`: recebe feedback do usuario (thumbs up/down) e grava no banco
+- `log-frontend-error`: coleta erros do frontend (best-effort) para observabilidade
 
 Deploy (via Supabase CLI):
 
@@ -56,6 +58,8 @@ npx supabase login
 npx supabase link --project-ref <SEU_PROJECT_REF>
 npx supabase functions deploy clara-chat
 npx supabase functions deploy re-embed-chunks
+npx supabase functions deploy submit-feedback
+npx supabase functions deploy log-frontend-error
 ```
 
 ### Secrets Necessarios (Supabase)

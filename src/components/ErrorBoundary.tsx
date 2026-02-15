@@ -1,6 +1,7 @@
 import { Component, ErrorInfo, ReactNode } from "react";
 import { AlertTriangle, RefreshCw, Home } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { getSessionFingerprint } from "@/lib/sessionFingerprint";
 
 interface Props {
   children: ReactNode;
@@ -43,11 +44,13 @@ export class ErrorBoundary extends Component<Props, State> {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          "x-session-fingerprint": getSessionFingerprint(),
         },
         body: JSON.stringify({
           error_message: error.message?.slice(0, 500) || "Unknown error",
           component_stack: errorInfo.componentStack?.slice(0, 1000) || null,
           url: window.location.pathname,
+          user_agent: navigator.userAgent,
         }),
       });
     } catch {
