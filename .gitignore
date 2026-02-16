@@ -20,6 +20,8 @@ dist-ssr
 # Legacy tooling artifacts
 .lovable/
 pull_requests/
+supabase/.temp/
+.vercel/
 
 # Editor directories and files
 .vscode/*
