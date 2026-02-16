@@ -2,10 +2,9 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { GoogleGenerativeAI } from "https://esm.sh/@google/generative-ai@0.21.0";
-import { encodeBase64 } from "https://deno.land/std@0.224.0/encoding/base64.ts";
-// @ts-ignore - mammoth for DOCX parsing
+// @ts-expect-error -- mammoth does not ship types on esm.sh
 import mammoth from "https://esm.sh/mammoth@1.6.0";
-// @ts-ignore - pdfjs-serverless for deterministic PDF extraction
+// @ts-expect-error -- pdfjs-serverless does not ship types on esm.sh
 import { getDocument } from "https://esm.sh/pdfjs-serverless@1.1.0";
 
 const corsHeaders = {
@@ -49,9 +48,6 @@ const LIMITS = {
   LARGE_PDF_THRESHOLD_MB: 20, // Warning for large PDFs
 };
 
-// Lovable AI Gateway URL (only for OCR fallback now)
-const LOVABLE_AI_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
-
 const AI_TIMEOUT_MS = 120_000;
 const PAGES_PER_BATCH = 10;
 
@@ -76,12 +72,6 @@ async function withTimeout<T>(promise: Promise<T>, ms: number, label: string): P
     }, ms);
   });
   return (await Promise.race([promise, timeoutPromise])) as T;
-}
-
-async function blobToBase64(fileBlob: Blob): Promise<string> {
-  const arrayBuffer = await fileBlob.arrayBuffer();
-  const uint8Array = new Uint8Array(arrayBuffer);
-  return encodeBase64(uint8Array);
 }
 
 function isRateLimitError(error: unknown): boolean {
@@ -121,8 +111,9 @@ async function extractPdfTextDeterministic(
     try {
       const page = await doc.getPage(i);
       const textContent = await page.getTextContent();
-      const text = textContent.items
-        .map((item: any) => item.str || "")
+      const items = textContent.items as Array<{ str?: string }>;
+      const text = items
+        .map((item) => item.str || "")
         .join(" ")
         .replace(/\s+/g, " ")
         .trim();
@@ -137,98 +128,86 @@ async function extractPdfTextDeterministic(
 }
 
 // =============================================
-// LLM FALLBACK FOR OCR (scanned PDFs)
+// OCR HELPERS (Gemini direct)
 // =============================================
-async function extractPdfViaLovableAIBase64(
-  fileBlob: Blob,
-  lovableApiKey: string,
+function parseBase64DataUrl(dataUrl: string): { mimeType: string; base64Data: string } {
+  const match = dataUrl.match(/^data:([^;]+);base64,(.+)$/);
+  if (!match) {
+    throw new Error("dataUrl inválido (esperado: data:<mime>;base64,...)");
+  }
+  return { mimeType: match[1], base64Data: match[2] };
+}
+
+interface GeminiGenerateContentResult {
+  response: {
+    text: () => string;
+  };
+}
+
+interface GeminiTextModel {
+  generateContent: (input: unknown) => Promise<GeminiGenerateContentResult>;
+}
+
+interface GeminiEmbeddingResponse {
+  embedding?: {
+    values?: number[];
+  };
+}
+
+interface GeminiEmbeddingModel {
+  embedContent: (input: unknown) => Promise<GeminiEmbeddingResponse>;
+}
+
+interface DocumentChunkRecord {
+  document_id: string;
+  content: string;
+  chunk_index: number;
+  embedding: string | null;
+  metadata: Record<string, unknown>;
+  content_hash: string;
+}
+
+async function extractImageTextViaGemini(
+  dataUrl: string,
+  geminiApiKey: string,
+  prompt: string,
+  timeoutMs: number,
   requestId: string,
-  debug: DebugInfo
+  debug: DebugInfo,
 ): Promise<string> {
-  const sizeMB = fileBlob.size / (1024 * 1024);
-  
-  // Hard block for PDFs too large for LLM
-  if (sizeMB > LIMITS.MAX_LLM_PAYLOAD_MB) {
-    const errorMsg = `PDF muito grande para OCR (${sizeMB.toFixed(1)}MB). Limite: ${LIMITS.MAX_LLM_PAYLOAD_MB}MB. Use um PDF com texto selecionável ou divida em partes menores.`;
-    console.error(`[${requestId}] ✗ ocr_fallback: ${errorMsg}`);
-    throw new Error(errorMsg);
-  }
-  
-  // Warning for PDFs near the limit
-  if (sizeMB > LIMITS.MAX_BASE64_OCR_MB) {
-    console.warn(`[${requestId}] ⚠️ PDF grande para OCR: ${sizeMB.toFixed(1)}MB. Pode causar timeout ou erro de memória.`);
-  }
+  const { mimeType, base64Data } = parseBase64DataUrl(dataUrl);
+  const startedAt = Date.now();
 
-  console.log(`[${requestId}] OCR FALLBACK: Attempting PDF extraction via Lovable AI (${sizeMB.toFixed(1)}MB)...`);
+  const genAI = new GoogleGenerativeAI(geminiApiKey);
+  const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" }) as unknown as GeminiTextModel;
 
-  const startTime = Date.now();
-  const base64Data = await blobToBase64(fileBlob);
-  const dataUrl = `data:application/pdf;base64,${base64Data}`;
+  const result = await withTimeout(
+    model.generateContent(
+      [
+        { inlineData: { data: base64Data, mimeType } },
+        { text: prompt },
+      ] as unknown,
+    ),
+    timeoutMs,
+    "Gemini OCR",
+  );
 
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), AI_TIMEOUT_MS);
-
-  let response: Response;
-  try {
-    response = await fetch(LOVABLE_AI_URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${lovableApiKey}`,
-      },
-      signal: controller.signal,
-      body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
-        messages: [
-          {
-            role: "user",
-            content: [
-              { type: "image_url", image_url: { url: dataUrl } },
-              {
-                type: "text",
-                text: `Extraia TODO o texto deste documento mantendo a estrutura.
-Regras:
-- Preserve títulos, parágrafos, tabelas e listas
-- Não resuma e não omita conteúdo
-- Mantenha números/valores/códigos exatamente como no original
-Responda APENAS com o texto extraído.`,
-              },
-            ],
-          },
-        ],
-      }),
-    });
-  } finally {
-    clearTimeout(timeoutId);
-  }
-
-  const elapsed = Date.now() - startTime;
-
-  if (!response.ok) {
-    const errorText = await response.text().catch(() => "(no body)");
-    debug.provider = {
-      name: "lovable-ai",
-      http_status: response.status,
-      error_body_trunc: truncateErrorBody(errorText),
-      elapsed_ms: elapsed,
-    };
-    throw new Error(`LovableAI HTTP ${response.status}: ${truncateErrorBody(errorText, 500)}`);
-  }
-
-  const data = await response.json();
-  const extractedText = data.choices?.[0]?.message?.content || "";
-
-  if (!extractedText || extractedText.trim().length < 50) {
-    throw new Error("Texto extraído via Lovable AI muito curto");
-  }
+  const extractedText = result.response.text();
+  const elapsed = Date.now() - startedAt;
 
   debug.provider = {
-    name: "lovable-ai",
+    name: "gemini-ocr",
     http_status: 200,
     elapsed_ms: elapsed,
   };
 
-  console.log(`[${requestId}] ✓ ocr_fallback: ${extractedText.length} chars via Lovable AI in ${elapsed}ms`);
+  if (!extractedText || extractedText.trim().length < 10) {
+    throw new Error("Texto OCR muito curto");
+  }
+
+  console.log(
+    `[${requestId}] ✓ ocr: ${extractedText.length} chars mime=${mimeType} in ${elapsed}ms`,
+  );
   return extractedText;
 }
 
@@ -290,9 +269,9 @@ function detectSectionAnchor(text: string): { title: string | null; level: numbe
   return { title: null, level: 0 };
 }
 
-function splitIntoChunks(text: string): { content: string; metadata: Record<string, any> }[] {
+function splitIntoChunks(text: string): { content: string; metadata: Record<string, unknown> }[] {
   const normalizedText = normalizeText(text);
-  const chunks: { content: string; metadata: Record<string, any> }[] = [];
+  const chunks: { content: string; metadata: Record<string, unknown> }[] = [];
   let start = 0;
   let chunkIndex = 0;
   
@@ -410,7 +389,7 @@ function validateAdminKey(req: Request): boolean {
 // PROCESS CHUNKS AND EMBEDDINGS (Idempotent)
 // =============================================
 async function processChunksAndEmbeddings(
-  supabase: any,
+  supabase: ReturnType<typeof createClient>,
   documentId: string,
   contentText: string,
   geminiApiKey: string | undefined,
@@ -427,16 +406,16 @@ async function processChunksAndEmbeddings(
   debug.steps_completed.push("chunk");
   console.log(`[${requestId}] ✓ chunk: ${chunks.length} chunks in ${debug.timings.chunk_ms}ms`);
   
-  const chunkRecords: Array<any> = [];
+  const chunkRecords: DocumentChunkRecord[] = [];
   let embeddingsWarning: string | null = null;
-  let embeddingModel: any = null;
+  let embeddingModel: GeminiEmbeddingModel | null = null;
 
   if (!geminiApiKey) {
     embeddingsWarning = "Embeddings não geradas (GEMINI_API_KEY não configurada).";
   } else {
     try {
       const genAI = new GoogleGenerativeAI(geminiApiKey);
-      embeddingModel = genAI.getGenerativeModel({ model: "text-embedding-004" });
+      embeddingModel = genAI.getGenerativeModel({ model: "text-embedding-004" }) as unknown as GeminiEmbeddingModel;
     } catch (e) {
       embeddingsWarning = `Embeddings desativadas: ${e instanceof Error ? e.message : String(e)}`;
     }
@@ -452,12 +431,12 @@ async function processChunksAndEmbeddings(
     let embeddingJson: string | null = null;
     if (!embeddingsDisabled && embeddingModel) {
       try {
-        const embeddingResult = await withTimeout<any>(
-          embeddingModel.embedContent(content) as Promise<any>,
+        const embeddingResult = await withTimeout<GeminiEmbeddingResponse>(
+          embeddingModel.embedContent(content),
           AI_TIMEOUT_MS,
           "Gemini embedContent"
         );
-        const embedding = embeddingResult?.embedding?.values;
+        const embedding = embeddingResult.embedding?.values;
         if (!embedding) throw new Error("Embedding inválido");
         embeddingJson = JSON.stringify(embedding);
       } catch (e) {
@@ -561,7 +540,7 @@ async function processChunksAndEmbeddings(
 function createDebugResponse(
   success: boolean,
   status: number,
-  data: Record<string, any>,
+  data: Record<string, unknown>,
   debug: DebugInfo,
   startTime: number
 ): Response {
@@ -607,9 +586,8 @@ serve(async (req) => {
   const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
   const supabase = createClient(supabaseUrl, supabaseServiceKey);
   
-  // GEMINI_API_KEY for embeddings, LOVABLE_API_KEY for OCR fallback
+  // GEMINI_API_KEY is used for embeddings and OCR (no external gateways)
   const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
-  const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
 
   const url = new URL(req.url);
   const pathParts = url.pathname.split("/").filter(Boolean);
@@ -846,8 +824,14 @@ serve(async (req) => {
         .select("document_id, status, next_page, total_pages")
         .in("status", ["pending", "processing"]);
 
-      const jobMap = new Map<string, any>();
-      jobs?.forEach(j => jobMap.set(j.document_id, j));
+      type DocumentJobRow = {
+        document_id: string;
+        status: string;
+        next_page: number;
+        total_pages: number;
+      };
+      const jobMap = new Map<string, DocumentJobRow>();
+      (jobs as DocumentJobRow[] | null | undefined)?.forEach((j) => jobMap.set(j.document_id, j));
       
       const documentsWithInfo = documents?.map(doc => ({
         ...doc,
@@ -1185,7 +1169,7 @@ serve(async (req) => {
       console.log(`[${requestId}] INGEST-TEXT: ${charCount} chars (~${mbSize}MB), ${metadata?.totalPages || '?'} pages`);
 
       // Build extraction_metadata from client metadata
-      const extractionMetadata: Record<string, any> = {
+      const extractionMetadata: Record<string, unknown> = {
         method: metadata?.extractionMethod || 'unknown',
         quality_score: metadata?.qualityScore ?? null,
         quality_issues: metadata?.qualityIssues || [],
@@ -1261,10 +1245,8 @@ serve(async (req) => {
         return createDebugResponse(false, 401, { error: "Não autorizado" }, debug, startTime);
       }
 
-      if (!LOVABLE_API_KEY) {
-        return createDebugResponse(false, 500, { 
-          error: "LOVABLE_API_KEY não configurada para OCR" 
-        }, debug, startTime);
+      if (!GEMINI_API_KEY) {
+        return createDebugResponse(false, 500, { error: "GEMINI_API_KEY não configurada para OCR" }, debug, startTime);
       }
 
       const body = await req.json();
@@ -1284,37 +1266,14 @@ serve(async (req) => {
       for (const { pageNum, dataUrl } of pageImages) {
         const pageStart = Date.now();
         try {
-          const response = await withTimeout(
-            fetch(LOVABLE_AI_URL, {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                Authorization: `Bearer ${LOVABLE_API_KEY}`,
-              },
-              body: JSON.stringify({
-                model: "google/gemini-3-flash-preview",
-                messages: [{
-                  role: "user",
-                  content: [
-                    { type: "image_url", image_url: { url: dataUrl } },
-                    { type: "text", text: "Extraia TODO o texto desta página. Responda APENAS com o texto extraído." }
-                  ]
-                }]
-              }),
-            }),
+          const text = await extractImageTextViaGemini(
+            dataUrl,
+            GEMINI_API_KEY,
+            "Extraia TODO o texto desta página. Responda APENAS com o texto extraído.",
             60000,
-            `OCR page ${pageNum}`
+            requestId,
+            debug,
           );
-
-          if (!response.ok) {
-            const errorText = await response.text().catch(() => "");
-            console.error(`[${requestId}] OCR failed for page ${pageNum}: HTTP ${response.status}`);
-            extractedTexts.push({ pageNum, text: `[Erro OCR página ${pageNum}]` });
-            continue;
-          }
-
-          const data = await response.json();
-          const text = data.choices?.[0]?.message?.content || "";
           extractedTexts.push({ pageNum, text });
           console.log(`[${requestId}] ✓ OCR page ${pageNum}: ${text.length} chars in ${Date.now() - pageStart}ms`);
         } catch (ocrError) {
@@ -1379,10 +1338,8 @@ serve(async (req) => {
         return createDebugResponse(false, 401, { error: "Não autorizado" }, debug, startTime);
       }
 
-      if (!LOVABLE_API_KEY) {
-        return createDebugResponse(false, 500, { 
-          error: "LOVABLE_API_KEY não configurada para OCR" 
-        }, debug, startTime);
+      if (!GEMINI_API_KEY) {
+        return createDebugResponse(false, 500, { error: "GEMINI_API_KEY não configurada para OCR" }, debug, startTime);
       }
 
       const body = await req.json();
@@ -1411,47 +1368,23 @@ serve(async (req) => {
       const ocrResults: Array<{ pageIndex: number; text: string }> = [];
       const ocrStart = Date.now();
 
-      for (const { pageIndex, dataUrl } of ocrPages) {
+      for (let i = 0; i < ocrPages.length; i++) {
+        const { pageIndex, dataUrl } = ocrPages[i];
         const pageStart = Date.now();
         try {
-          const response = await withTimeout(
-            fetch(LOVABLE_AI_URL, {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                Authorization: `Bearer ${LOVABLE_API_KEY}`,
-              },
-              body: JSON.stringify({
-                model: "google/gemini-3-flash-preview",
-                messages: [{
-                  role: "user",
-                  content: [
-                    { type: "image_url", image_url: { url: dataUrl } },
-                    { 
-                      type: "text", 
-                      text: `Extraia TODO o texto desta página mantendo a estrutura.
+          const text = await extractImageTextViaGemini(
+            dataUrl,
+            GEMINI_API_KEY,
+            `Extraia TODO o texto desta página mantendo a estrutura.
 Regras:
 - Preserve títulos, parágrafos, tabelas e listas
 - Não resuma e não omita conteúdo
 - Mantenha números/valores/códigos exatamente como no original
-Responda APENAS com o texto extraído.` 
-                    }
-                  ]
-                }]
-              }),
-            }),
+Responda APENAS com o texto extraído.`,
             90000,
-            `OCR page ${pageIndex + 1}`
+            requestId,
+            debug,
           );
-
-          if (!response.ok) {
-            console.error(`[${requestId}] OCR failed for page ${pageIndex + 1}: HTTP ${response.status}`);
-            ocrResults.push({ pageIndex, text: `[Erro OCR página ${pageIndex + 1}]` });
-            continue;
-          }
-
-          const data = await response.json();
-          const text = data.choices?.[0]?.message?.content || "";
           ocrResults.push({ pageIndex, text });
           console.log(`[${requestId}] ✓ OCR page ${pageIndex + 1}: ${text.length} chars in ${Date.now() - pageStart}ms`);
         } catch (ocrError) {
@@ -1460,7 +1393,7 @@ Responda APENAS com o texto extraído.`
         }
 
         // Rate limit between OCR calls
-        if (ocrPages.indexOf({ pageIndex, dataUrl }) < ocrPages.length - 1) {
+        if (i < ocrPages.length - 1) {
           await new Promise(resolve => setTimeout(resolve, 200));
         }
       }
@@ -1490,7 +1423,7 @@ Responda APENAS com o texto extraído.`
       console.log(`[${requestId}] Hybrid merge complete: ${charCount} chars (~${mbSize}MB), ${allPages.length} pages`);
 
       // Step 3: Create document and process
-      const extractionMetadata: Record<string, any> = {
+      const extractionMetadata: Record<string, unknown> = {
         method: 'hybrid_ocr',
         pdfjs_pages: textPages.length,
         ocr_pages: ocrResults.length,
@@ -1616,23 +1549,14 @@ Responda APENAS com o texto extraído.`
           console.log(`[${requestId}] ✓ extract: ${pages.length}/${totalPages} pages in ${debug.timings.extract_ms}ms`);
 
           const totalChars = pages.reduce((sum, p) => sum + p.length, 0);
-          
-          // OCR fallback for scanned PDFs
-          if (totalChars < 100 && totalPages > 0 && LOVABLE_API_KEY) {
-            const sizeMB = fileData.size / (1024 * 1024);
-            if (sizeMB <= LIMITS.MAX_LLM_PAYLOAD_MB) {
-              try {
-                contentText = await extractPdfViaLovableAIBase64(fileData, LOVABLE_API_KEY, requestId, debug);
-              } catch (ocrError) {
-                console.error(`[${requestId}] OCR fallback failed:`, ocrError);
-                contentText = partialText;
-              }
-            } else {
-              contentText = partialText;
-            }
-          } else {
-            contentText = partialText;
+
+          if (totalChars < 100 && totalPages > 0) {
+            console.warn(
+              `[${requestId}] ⚠ PDF parece escaneado (texto muito curto). Use o fluxo OCR (hybrid-ocr) no Admin.`,
+            );
           }
+
+          contentText = partialText;
 
           // If more pages, create background job
           if (totalPages > PAGES_PER_BATCH) {
@@ -1809,23 +1733,14 @@ Responda APENAS com o texto extraído.`
           console.log(`[${requestId}] ✓ extract: ${pages.length}/${totalPages} pages in ${debug.timings.extract_ms}ms`);
           
           const totalChars = pages.reduce((sum, p) => sum + p.length, 0);
-          
-          if (totalChars < 100 && totalPages > 0 && LOVABLE_API_KEY) {
-            const sizeMB = fileData.size / (1024 * 1024);
-            if (sizeMB <= LIMITS.MAX_LLM_PAYLOAD_MB) {
-              try {
-                contentText = await extractPdfViaLovableAIBase64(fileData, LOVABLE_API_KEY, requestId, debug);
-              } catch (ocrError) {
-                console.error(`[${requestId}] OCR fallback failed:`, ocrError);
-                contentText = partialText;
-              }
-            } else {
-              console.warn(`[${requestId}] PDF too large for OCR (${sizeMB.toFixed(1)}MB), using partial text`);
-              contentText = partialText;
-            }
-          } else {
-            contentText = partialText;
+
+          if (totalChars < 100 && totalPages > 0) {
+            console.warn(
+              `[${requestId}] ⚠ PDF parece escaneado (texto muito curto). Use o fluxo OCR (hybrid-ocr) no Admin.`,
+            );
           }
+
+          contentText = partialText;
           
           // Create document in database
           const { data: document, error: docError } = await supabase
@@ -1884,25 +1799,12 @@ Responda APENAS com o texto extraído.`
         } catch (pdfError) {
           console.error(`[${requestId}] ✗ pdf_extraction: ${pdfError}`);
           debug.steps_failed.push("extract");
-          
-          // Try OCR as last resort
-          if (LOVABLE_API_KEY && fileData.size < LIMITS.MAX_LLM_PAYLOAD_MB * 1024 * 1024) {
-            console.log(`[${requestId}] Trying OCR fallback...`);
-            try {
-              contentText = await extractPdfViaLovableAIBase64(fileData, LOVABLE_API_KEY, requestId, debug);
-            } catch (ocrError) {
-              return createDebugResponse(false, 500, {
-                error: "Falha ao processar PDF",
-                details: pdfError instanceof Error ? pdfError.message : String(pdfError),
-                ocrError: ocrError instanceof Error ? ocrError.message : String(ocrError)
-              }, debug, startTime);
-            }
-          } else {
-            return createDebugResponse(false, 500, {
-              error: "Falha ao processar PDF",
-              details: pdfError instanceof Error ? pdfError.message : String(pdfError)
-            }, debug, startTime);
-          }
+
+          return createDebugResponse(false, 500, {
+            error: "Falha ao processar PDF",
+            details: pdfError instanceof Error ? pdfError.message : String(pdfError),
+            hint: "Se o PDF for escaneado, use o fluxo OCR (hybrid-ocr) no Admin.",
+          }, debug, startTime);
         }
       } else if (isDOCX) {
         try {

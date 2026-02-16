@@ -3,7 +3,6 @@ import { motion, AnimatePresence } from "framer-motion";
 import { X, FileText, AlertTriangle, MessageSquare, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { supabase } from "@/integrations/supabase/client";
 
 interface QueryAnalytics {
   id: string;
@@ -33,6 +32,7 @@ interface SessionContext {
 }
 
 interface FeedbackDetailModalProps {
+  adminKey: string;
   feedback: ResponseFeedback | null;
   onClose: () => void;
 }
@@ -49,7 +49,15 @@ const getCategoryLabel = (category: string | null): string => {
   return labels[category || ""] || category || "Sem categoria";
 };
 
-export function FeedbackDetailModal({ feedback, onClose }: FeedbackDetailModalProps) {
+function getSupabaseUrl(): string {
+  return import.meta.env.VITE_SUPABASE_URL || "";
+}
+
+function getSupabaseAnonKey(): string {
+  return import.meta.env.VITE_SUPABASE_ANON_KEY || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || "";
+}
+
+export function FeedbackDetailModal({ adminKey, feedback, onClose }: FeedbackDetailModalProps) {
   const [sessionContext, setSessionContext] = useState<SessionContext[]>([]);
   const [isLoadingContext, setIsLoadingContext] = useState(false);
 
@@ -63,16 +71,45 @@ export function FeedbackDetailModal({ feedback, onClose }: FeedbackDetailModalPr
     const fetchSessionContext = async () => {
       setIsLoadingContext(true);
       try {
-        const { data, error } = await supabase
-          .from("query_analytics")
-          .select("id, user_query, assistant_response, created_at")
-          .eq("session_fingerprint", feedback.query!.session_fingerprint!)
-          .order("created_at", { ascending: true })
-          .limit(10);
+        const supabaseUrl = getSupabaseUrl();
+        const anonKey = getSupabaseAnonKey();
+        const key = adminKey.trim();
 
-        if (error) throw error;
+        if (!supabaseUrl || !anonKey) {
+          throw new Error("Supabase não configurado (VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY).");
+        }
+        if (!key) {
+          throw new Error("Chave de administrador ausente.");
+        }
 
-        const context: SessionContext[] = (data || []).map((item) => ({
+        const fingerprint = feedback.query!.session_fingerprint!;
+
+        const response = await fetch(
+          `${supabaseUrl}/functions/v1/admin-analytics/queries-by-fingerprint?fingerprint=${encodeURIComponent(fingerprint)}&limit=10`,
+          {
+            method: "GET",
+            headers: {
+              apikey: anonKey,
+              Authorization: `Bearer ${anonKey}`,
+              "x-admin-key": key,
+            },
+          },
+        );
+
+        if (!response.ok) {
+          const errorData = (await response.json().catch(() => ({}))) as Record<string, unknown>;
+          throw new Error(typeof errorData.error === "string" ? errorData.error : `Erro ${response.status}`);
+        }
+
+        const payload = (await response.json().catch(() => ({}))) as Record<string, unknown>;
+        const rows = (Array.isArray(payload.queries) ? payload.queries : []) as Array<{
+          id: string;
+          user_query: string;
+          assistant_response: string;
+          created_at: string;
+        }>;
+
+        const context: SessionContext[] = rows.map((item) => ({
           id: item.id,
           user_query: item.user_query,
           assistant_response: item.assistant_response,
@@ -90,7 +127,7 @@ export function FeedbackDetailModal({ feedback, onClose }: FeedbackDetailModalPr
     };
 
     fetchSessionContext();
-  }, [feedback]);
+  }, [feedback, adminKey]);
 
   if (!feedback) return null;
 

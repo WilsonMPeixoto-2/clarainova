@@ -272,7 +272,7 @@ async function fetchPageNative(url: string): Promise<{ content: string; success:
     const response = await fetch(url, {
       signal: controller.signal,
       headers: {
-        "User-Agent": "CLARA-Bot/1.0 (https://clarainova.lovable.app)",
+        "User-Agent": "CLARA-Bot/1.0",
         "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
       },
     });
@@ -305,8 +305,7 @@ interface DomainInfo {
 }
 
 async function getDomainInfo(
-  // deno-lint-ignore no-explicit-any
-  supabase: any,
+  supabase: ReturnType<typeof createClient>,
   url: string
 ): Promise<DomainInfo> {
   const domain = extractDomain(url);
@@ -377,8 +376,7 @@ function calculateConfidence(
 // =============================================
 
 async function performWebSearch(
-  // deno-lint-ignore no-explicit-any
-  supabase: any,
+  supabase: ReturnType<typeof createClient>,
   query: string,
   requestedMode: "quick" | "deep" | "auto"
 ): Promise<WebSearchResult> {

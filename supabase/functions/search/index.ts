@@ -92,6 +92,25 @@ interface SearchWeights {
   reason: string;
 }
 
+type ChunkRow = {
+  id: string;
+  document_id: string;
+  content: string;
+  metadata: Record<string, unknown> | null;
+  chunk_index: number;
+  similarity?: number;
+  combined_score?: number;
+  text_rank?: number;
+  [key: string]: unknown;
+};
+
+type RankedChunk = {
+  chunk: ChunkRow;
+  score: number;
+  semanticRank?: number;
+  keywordRank?: number | null;
+};
+
 /**
  * Dynamically adjust RRF weights based on query patterns.
  * - Queries with specific numbers (e.g., "Decreto 45.123") → favor keyword search
@@ -111,7 +130,7 @@ function getSearchWeights(query: string): SearchWeights {
   const hasLegalCode = /\b(art\.?\s*\d+|§\s*\d+|inciso\s+[ivxlcdm]+|alínea\s+[a-z])\b/i.test(normalizedQuery);
   
   // Pattern: Protocol/process numbers (e.g., "SEI 12345.678901/2024-00")
-  const hasProtocolNumber = /\d{5,}[\.\/-]\d+/.test(normalizedQuery);
+  const hasProtocolNumber = /\d{5,}[./-]\d+/.test(normalizedQuery);
   
   // Strong keyword preference: specific identifiers
   if (hasProtocolNumber || hasLegalCode) {
@@ -267,7 +286,7 @@ serve(async (req) => {
     const embedMs = Date.now() - embedStart;
     
     // Try hybrid search first (uses ts_vector + vector similarity)
-    let finalResults: any[] = [];
+    let finalResults: RankedChunk[] = [];
     
     // Get dynamic weights based on query pattern
     const weights = getSearchWeights(query);
@@ -287,14 +306,16 @@ serve(async (req) => {
     );
     vectorSearchMs = Date.now() - hybridStart;
     
-    if (!hybridError && hybridResults?.length > 0) {
+    const hybridRows = Array.isArray(hybridResults) ? (hybridResults as ChunkRow[]) : [];
+
+    if (!hybridError && hybridRows.length > 0) {
       console.log(`[search] Hybrid search returned ${hybridResults.length} results in ${vectorSearchMs}ms`);
-      totalChunksScanned = hybridResults.length;
-      finalResults = hybridResults.map((r: any, index: number) => ({
+      totalChunksScanned = hybridRows.length;
+      finalResults = hybridRows.map((r, index) => ({
         chunk: r,
-        score: r.combined_score,
+        score: typeof r.combined_score === "number" ? r.combined_score : 0,
         semanticRank: index + 1,
-        keywordRank: r.text_rank > 0 ? index + 1 : null
+        keywordRank: typeof r.text_rank === "number" && r.text_rank > 0 ? index + 1 : null,
       }));
     } else {
       // Fallback to original RRF approach if hybrid search fails
@@ -335,11 +356,12 @@ serve(async (req) => {
         .slice(0, 15);
       
       // Reciprocal Rank Fusion
-      const chunkScores = new Map<string, { chunk: any; score: number; semanticRank?: number; keywordRank?: number }>();
+      const chunkScores = new Map<string, { chunk: ChunkRow; score: number; semanticRank?: number; keywordRank?: number }>();
       const k = 60;
       
       // Adicionar scores da busca semântica
-      (semanticChunks || []).forEach((chunk: any, index: number) => {
+      const semanticRows = Array.isArray(semanticChunks) ? (semanticChunks as ChunkRow[]) : [];
+      semanticRows.forEach((chunk, index) => {
         const rrfScore = 1 / (k + index + 1);
         chunkScores.set(chunk.id, { 
           chunk: { ...chunk, similarity: chunk.similarity },

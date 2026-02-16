@@ -115,7 +115,7 @@ serve(async (req) => {
     // Note: createSignedUploadUrl has a default 2-hour expiration (sufficient for uploads)
     
     // Sanitize filename and create unique path
-    const safeName = filename.replace(/[^\w.\-]+/g, "_");
+    const safeName = filename.replace(/[^\w.-]+/g, "_");
     const path = `documents/${Date.now()}_${safeName}`;
 
     console.log(`[admin_get_upload_url] ========== GENERATING SIGNED URL ==========`);

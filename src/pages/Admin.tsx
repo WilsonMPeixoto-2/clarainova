@@ -62,6 +62,20 @@ const debugLog = (...args: unknown[]) => {
   }
 };
 
+function getSupabaseAnonKey(): string {
+  return import.meta.env.VITE_SUPABASE_ANON_KEY || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || "";
+}
+
+function getErrorMessage(error: unknown): string {
+  if (error instanceof Error) return error.message;
+  if (typeof error === "string") return error;
+  if (typeof error === "object" && error !== null && "message" in error) {
+    const msg = (error as Record<string, unknown>).message;
+    if (typeof msg === "string") return msg;
+  }
+  return "Erro desconhecido";
+}
+
 // Guard function to ensure file is a valid Blob (prevents silent failures)
 function assertIsBlobLike(x: unknown, filename: string): asserts x is Blob {
   if (!(x instanceof Blob)) {
@@ -125,6 +139,7 @@ function isDocumentStuck(doc: Document): boolean {
 const Admin = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const supabaseAnonKey = getSupabaseAnonKey();
   
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [adminKey, setAdminKey] = useState('');
@@ -151,7 +166,10 @@ const Admin = () => {
   const [showQualityDialog, setShowQualityDialog] = useState(false);
   const [qualityResult, setQualityResult] = useState<TextQualityResult | null>(null);
   const [qualityFile, setQualityFile] = useState<File | null>(null);
-  const [qualityExtractionResult, setQualityExtractionResult] = useState<{ fullText: string; metadata: any } | null>(null);
+  const [qualityExtractionResult, setQualityExtractionResult] = useState<{
+    fullText: string;
+    metadata: Record<string, unknown>;
+  } | null>(null);
   
   // Track documents being processed
   const [processingDocs, setProcessingDocs] = useState<Set<string>>(new Set());
@@ -312,8 +330,8 @@ const Admin = () => {
             method: 'POST',
             headers: {
               'x-admin-key': key,
-              apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-              Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+              apikey: supabaseAnonKey,
+              Authorization: `Bearer ${supabaseAnonKey}`,
               'Content-Type': 'application/json',
             },
             body: JSON.stringify({}),
@@ -377,8 +395,8 @@ const Admin = () => {
           headers: {
             'Content-Type': 'application/json',
             'x-admin-key': key,
-            apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+            apikey: supabaseAnonKey,
+            Authorization: `Bearer ${supabaseAnonKey}`,
           },
           body: JSON.stringify({}),
         }
@@ -400,11 +418,11 @@ const Admin = () => {
         title: 'Autenticado',
         description: 'Acesso concedido à área administrativa.',
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('[Admin] Authentication failed:', error);
       toast({
         title: 'Acesso negado',
-        description: error.message || 'Chave de administrador inválida.',
+        description: getErrorMessage(error) || 'Chave de administrador inválida.',
         variant: 'destructive',
       });
     } finally {
@@ -424,7 +442,7 @@ const Admin = () => {
       });
 
       if (error) {
-        const msg = (error as any)?.message || '';
+        const msg = getErrorMessage(error);
         if (msg.includes('401') || msg.toLowerCase().includes('not authorized')) {
           handleAuthExpired();
           return;
@@ -444,10 +462,10 @@ const Admin = () => {
       });
       setProcessingDocs(stillProcessing);
       
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast({
         title: 'Erro ao carregar documentos',
-        description: error.message,
+        description: getErrorMessage(error),
         variant: 'destructive',
       });
     } finally {
@@ -473,8 +491,8 @@ const Admin = () => {
           method: 'POST',
           headers: {
             'x-admin-key': key,
-            apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+            apikey: supabaseAnonKey,
+            Authorization: `Bearer ${supabaseAnonKey}`,
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({ document_id: documentId }),
@@ -508,7 +526,7 @@ const Admin = () => {
 
       await fetchDocuments();
 
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('[Admin] Process error:', error);
       
       setProcessingDocs(prev => {
@@ -519,7 +537,7 @@ const Admin = () => {
       
       toast({
         title: 'Erro ao processar',
-        description: error.message,
+        description: getErrorMessage(error),
         variant: 'destructive',
       });
       
@@ -545,8 +563,8 @@ const Admin = () => {
           method: 'POST',
           headers: {
             'x-admin-key': key,
-            apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+            apikey: supabaseAnonKey,
+            Authorization: `Bearer ${supabaseAnonKey}`,
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({ documentId }),
@@ -573,7 +591,7 @@ const Admin = () => {
 
       await fetchDocuments();
 
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('[Admin] Retry error:', error);
       
       setProcessingDocs(prev => {
@@ -584,7 +602,7 @@ const Admin = () => {
       
       toast({
         title: 'Erro ao reprocessar',
-        description: error.message,
+        description: getErrorMessage(error),
         variant: 'destructive',
       });
       
@@ -772,8 +790,8 @@ const Admin = () => {
               headers: {
                 'Content-Type': 'application/json',
                 'x-admin-key': key,
-                apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-                Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+                apikey: supabaseAnonKey,
+                Authorization: `Bearer ${supabaseAnonKey}`,
               },
               body: JSON.stringify({ 
                 filename: file.name, 
@@ -802,8 +820,8 @@ const Admin = () => {
               method: 'POST',
               headers: {
                 'x-admin-key': key,
-                apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-                Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+                apikey: supabaseAnonKey,
+                Authorization: `Bearer ${supabaseAnonKey}`,
                 'Content-Type': 'application/json',
               },
               body: JSON.stringify({
@@ -851,8 +869,8 @@ const Admin = () => {
             headers: {
               'Content-Type': 'application/json',
               'x-admin-key': key,
-              apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-              Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+              apikey: supabaseAnonKey,
+              Authorization: `Bearer ${supabaseAnonKey}`,
             },
             body: JSON.stringify({ 
               filename: file.name, 
@@ -899,8 +917,8 @@ const Admin = () => {
               headers: {
                 'x-admin-key': key,
                 'Content-Type': 'application/json',
-                apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-                Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+                apikey: supabaseAnonKey,
+                Authorization: `Bearer ${supabaseAnonKey}`,
               },
               body: JSON.stringify({
                 title: file.name.replace(/\.[^/.]+$/, ''),
@@ -932,8 +950,8 @@ const Admin = () => {
                 headers: {
                   'x-admin-key': key,
                   'Content-Type': 'application/json',
-                  apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-                  Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+                  apikey: supabaseAnonKey,
+                  Authorization: `Bearer ${supabaseAnonKey}`,
                 },
                 body: JSON.stringify({
                   documentId,
@@ -962,8 +980,8 @@ const Admin = () => {
               headers: {
                 'x-admin-key': key,
                 'Content-Type': 'application/json',
-                apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-                Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+                apikey: supabaseAnonKey,
+                Authorization: `Bearer ${supabaseAnonKey}`,
               },
               body: JSON.stringify({ documentId }),
             }
@@ -999,8 +1017,8 @@ const Admin = () => {
               headers: {
                 'x-admin-key': key,
                 'Content-Type': 'application/json',
-                apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-                Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+                apikey: supabaseAnonKey,
+                Authorization: `Bearer ${supabaseAnonKey}`,
               },
               body: JSON.stringify({
                 title: file.name.replace(/\.[^/.]+$/, ''),
@@ -1028,7 +1046,9 @@ const Admin = () => {
             // Cleanup uploaded file
             try {
               await supabase.storage.from('knowledge-base').remove([signedUrlData.path]);
-            } catch {}
+            } catch {
+              // Best-effort cleanup after an ingestion failure.
+            }
             
             throw new Error(`[${ingestResponse.status}] ${errorData.error || 'Erro ao processar documento'}`);
           }
@@ -1045,12 +1065,12 @@ const Admin = () => {
           });
         }
 
-      } catch (error: any) {
+      } catch (error: unknown) {
         hasErrors = true;
         console.error('[Admin] Upload/processing error:', error);
         toast({
           title: `Erro: ${file.name}`,
-          description: error.message || 'Erro desconhecido',
+          description: getErrorMessage(error) || 'Erro desconhecido',
           variant: 'destructive',
         });
       }
@@ -1111,12 +1131,18 @@ const Admin = () => {
         }
 
         return uploadRes;
-      } catch (err: any) {
+      } catch (err: unknown) {
         clearTimeout(timeoutId);
-        if (err?.name === "AbortError") {
+        if (typeof err === "object" && err !== null && "name" in err) {
+          const name = (err as Record<string, unknown>).name;
+          if (name === "AbortError") {
+            throw new Error("Upload excedeu o tempo limite.");
+          }
+        }
+        if (err instanceof Error && err.name === "AbortError") {
           throw new Error("Upload excedeu o tempo limite.");
         }
-        throw err;
+        throw err instanceof Error ? err : new Error(getErrorMessage(err));
       }
     };
 
@@ -1189,8 +1215,8 @@ const Admin = () => {
             headers: {
               'x-admin-key': key,
               'Content-Type': 'application/json',
-              apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-              Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+              apikey: supabaseAnonKey,
+              Authorization: `Bearer ${supabaseAnonKey}`,
             },
             body: JSON.stringify({ pageImages }),
           }
@@ -1220,8 +1246,8 @@ const Admin = () => {
           headers: {
             'Content-Type': 'application/json',
             'x-admin-key': key,
-            apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+            apikey: supabaseAnonKey,
+            Authorization: `Bearer ${supabaseAnonKey}`,
           },
           body: JSON.stringify({ 
             filename: ocrFile.name, 
@@ -1248,8 +1274,8 @@ const Admin = () => {
           headers: {
             'x-admin-key': key,
             'Content-Type': 'application/json',
-            apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+            apikey: supabaseAnonKey,
+            Authorization: `Bearer ${supabaseAnonKey}`,
           },
           body: JSON.stringify({
             title: ocrFile.name.replace(/\.[^/.]+$/, ''),
@@ -1280,11 +1306,11 @@ const Admin = () => {
 
       await fetchDocuments();
 
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('[Admin] OCR processing error:', error);
       toast({
         title: 'Erro no OCR',
-        description: error.message || 'Erro desconhecido',
+        description: getErrorMessage(error) || 'Erro desconhecido',
         variant: 'destructive',
       });
     } finally {
@@ -1324,8 +1350,8 @@ const Admin = () => {
           headers: {
             'Content-Type': 'application/json',
             'x-admin-key': key,
-            apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+            apikey: supabaseAnonKey,
+            Authorization: `Bearer ${supabaseAnonKey}`,
           },
           body: JSON.stringify({ 
             filename: file.name, 
@@ -1359,8 +1385,8 @@ const Admin = () => {
           headers: {
             'x-admin-key': key,
             'Content-Type': 'application/json',
-            apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+            apikey: supabaseAnonKey,
+            Authorization: `Bearer ${supabaseAnonKey}`,
           },
           body: JSON.stringify({
             title: file.name.replace(/\.[^/.]+$/, ''),
@@ -1388,11 +1414,11 @@ const Admin = () => {
 
       await fetchDocuments();
 
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('[Admin] Use extracted text error:', error);
       toast({
         title: 'Erro ao processar',
-        description: error.message || 'Erro desconhecido',
+        description: getErrorMessage(error) || 'Erro desconhecido',
         variant: 'destructive',
       });
     } finally {
@@ -1456,8 +1482,8 @@ const Admin = () => {
             headers: {
               'x-admin-key': key,
               'Content-Type': 'application/json',
-              apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-              Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+              apikey: supabaseAnonKey,
+              Authorization: `Bearer ${supabaseAnonKey}`,
             },
             body: JSON.stringify({ pageImages }),
           }
@@ -1487,8 +1513,8 @@ const Admin = () => {
           headers: {
             'Content-Type': 'application/json',
             'x-admin-key': key,
-            apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+            apikey: supabaseAnonKey,
+            Authorization: `Bearer ${supabaseAnonKey}`,
           },
           body: JSON.stringify({ 
             filename: file.name, 
@@ -1515,8 +1541,8 @@ const Admin = () => {
           headers: {
             'x-admin-key': key,
             'Content-Type': 'application/json',
-            apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+            apikey: supabaseAnonKey,
+            Authorization: `Bearer ${supabaseAnonKey}`,
           },
           body: JSON.stringify({
             title: file.name.replace(/\.[^/.]+$/, ''),
@@ -1549,11 +1575,11 @@ const Admin = () => {
 
       await fetchDocuments();
 
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('[Admin] Quality OCR error:', error);
       toast({
         title: 'Erro no OCR',
-        description: error.message || 'Erro desconhecido',
+        description: getErrorMessage(error) || 'Erro desconhecido',
         variant: 'destructive',
       });
     } finally {
@@ -1578,7 +1604,7 @@ const Admin = () => {
       });
 
       if (error) {
-        const msg = (error as any)?.message || '';
+        const msg = getErrorMessage(error);
         if (msg.includes('401') || msg.toLowerCase().includes('not authorized')) {
           handleAuthExpired();
           return;
@@ -1597,10 +1623,10 @@ const Admin = () => {
         next.delete(documentToDelete.id);
         return next;
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast({
         title: 'Erro ao remover',
-        description: error.message,
+        description: getErrorMessage(error),
         variant: 'destructive',
       });
     } finally {
@@ -2095,11 +2121,11 @@ const Admin = () => {
             </TabsContent>
 
             <TabsContent value="analytics">
-              <AnalyticsTab />
+              <AnalyticsTab adminKey={adminKey} />
             </TabsContent>
 
             <TabsContent value="feedback">
-              <FeedbackTab />
+              <FeedbackTab adminKey={adminKey} />
             </TabsContent>
 
             <TabsContent value="reports">

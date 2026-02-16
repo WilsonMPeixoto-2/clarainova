@@ -9,7 +9,10 @@ export function useOnlineStatus(options: UseOnlineStatusOptions = {}) {
   const [isOnline, setIsOnline] = useState(() => 
     typeof navigator !== "undefined" ? navigator.onLine : true
   );
-  const [wasOffline, setWasOffline] = useState(false);
+  // Treat initial offline state as "wasOffline" so onOnline fires on first reconnect.
+  const [wasOffline, setWasOffline] = useState(() =>
+    typeof navigator !== "undefined" ? !navigator.onLine : false
+  );
 
   const handleOnline = useCallback(() => {
     setIsOnline(true);

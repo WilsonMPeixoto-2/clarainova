@@ -93,11 +93,12 @@ export function ReportsTab() {
       });
 
       setReports(reportsWithTags);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Error fetching reports:", error);
+      const message = error instanceof Error ? error.message : String(error);
       toast({
         title: "Erro ao carregar relatórios",
-        description: error.message,
+        description: message,
         variant: "destructive",
       });
     } finally {
@@ -167,11 +168,12 @@ export function ReportsTab() {
         title: "Relatório excluído",
         description: "O relatório foi removido permanentemente.",
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Error deleting report:", error);
+      const message = error instanceof Error ? error.message : String(error);
       toast({
         title: "Erro ao excluir",
-        description: error.message,
+        description: message,
         variant: "destructive",
       });
     } finally {
@@ -253,11 +255,12 @@ export function ReportsTab() {
 
       setFormModalOpen(false);
       setSelectedReport(null);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Error saving report:", error);
+      const message = error instanceof Error ? error.message : String(error);
       toast({
         title: "Erro ao salvar",
-        description: error.message,
+        description: message,
         variant: "destructive",
       });
     } finally {

@@ -61,9 +61,9 @@ export function ChatMetricsDashboard() {
 
       setChatMetrics((chatResult.data || []).reverse());
       setFrontendErrors((errorsResult.data || []).reverse());
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('[ChatMetricsDashboard] Error fetching metrics:', err);
-      setError(err.message || 'Erro ao carregar métricas');
+      setError(err instanceof Error ? err.message : 'Erro ao carregar métricas');
     } finally {
       setIsLoading(false);
     }
@@ -101,7 +101,6 @@ export function ChatMetricsDashboard() {
   const providerChartData = chatMetrics.map(d => ({
     date: new Date(d.date).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }),
     Gemini: d.gemini_count,
-    Lovable: d.lovable_count,
     'Web Search': d.web_search_count,
   }));
 
@@ -321,12 +320,11 @@ export function ChatMetricsDashboard() {
                       borderRadius: '8px'
                     }}
                   />
-                  <Legend />
-                  <Area type="monotone" dataKey="Gemini" stackId="1" fill="hsl(var(--primary))" stroke="hsl(var(--primary))" />
-                  <Area type="monotone" dataKey="Lovable" stackId="1" fill="hsl(var(--accent))" stroke="hsl(var(--accent))" />
-                  <Area type="monotone" dataKey="Web Search" stackId="2" fill="hsl(220, 70%, 50%)" stroke="hsl(220, 70%, 50%)" fillOpacity={0.3} />
-                </AreaChart>
-              </ResponsiveContainer>
+                   <Legend />
+                   <Area type="monotone" dataKey="Gemini" stackId="1" fill="hsl(var(--primary))" stroke="hsl(var(--primary))" />
+                   <Area type="monotone" dataKey="Web Search" stackId="2" fill="hsl(220, 70%, 50%)" stroke="hsl(220, 70%, 50%)" fillOpacity={0.3} />
+                 </AreaChart>
+               </ResponsiveContainer>
             </CardContent>
           </Card>
         </div>

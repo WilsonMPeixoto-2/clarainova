@@ -1,10 +1,9 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { RefreshCw, Download, TrendingUp, TrendingDown, MessageSquare, ThumbsUp, ThumbsDown, Eye, Search, BarChart3 } from "lucide-react";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { FeedbackDetailModal } from "./FeedbackDetailModal";
 import { StorageMonitor } from "./StorageMonitor";
@@ -54,57 +53,83 @@ const DOMAIN_KEYWORDS = [
   "comprovante", "relatório", "formulário", "sistema", "cadastro", "autorização"
 ];
 
-export function AnalyticsTab() {
+interface AnalyticsTabProps {
+  adminKey: string;
+}
+
+function getSupabaseUrl(): string {
+  return import.meta.env.VITE_SUPABASE_URL || "";
+}
+
+function getSupabaseAnonKey(): string {
+  return import.meta.env.VITE_SUPABASE_ANON_KEY || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || "";
+}
+
+export function AnalyticsTab({ adminKey }: AnalyticsTabProps) {
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(true);
   const [queries, setQueries] = useState<QueryAnalytics[]>([]);
   const [feedbacks, setFeedbacks] = useState<ResponseFeedback[]>([]);
   const [selectedFeedback, setSelectedFeedback] = useState<ResponseFeedback | null>(null);
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     setIsLoading(true);
     try {
-      // Fetch queries
-      const { data: queriesData, error: queriesError } = await supabase
-        .from("query_analytics")
-        .select("*")
-        .order("created_at", { ascending: false })
-        .limit(1000);
+      const supabaseUrl = getSupabaseUrl();
+      const anonKey = getSupabaseAnonKey();
+      const key = adminKey.trim();
 
-      if (queriesError) throw queriesError;
+      if (!supabaseUrl || !anonKey) {
+        throw new Error("Supabase não configurado (VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY).");
+      }
+      if (!key) {
+        throw new Error("Chave de administrador ausente.");
+      }
 
-      // Fetch feedbacks with query data
-      const { data: feedbacksData, error: feedbacksError } = await supabase
-        .from("response_feedback")
-        .select("*")
-        .order("created_at", { ascending: false })
-        .limit(500);
+      const response = await fetch(
+        `${supabaseUrl}/functions/v1/admin-analytics/analytics?limit_queries=1000&limit_feedback=500`,
+        {
+          method: "GET",
+          headers: {
+            apikey: anonKey,
+            Authorization: `Bearer ${anonKey}`,
+            "x-admin-key": key,
+          },
+        },
+      );
 
-      if (feedbacksError) throw feedbacksError;
+      if (!response.ok) {
+        const errorData = (await response.json().catch(() => ({}))) as Record<string, unknown>;
+        throw new Error(typeof errorData.error === "string" ? errorData.error : `Erro ${response.status}`);
+      }
 
-      setQueries(queriesData || []);
-      
-      // Merge feedbacks with their queries
-      const feedbacksWithQueries = (feedbacksData || []).map(fb => ({
+      const data = (await response.json().catch(() => ({}))) as Record<string, unknown>;
+      const queriesData = (Array.isArray(data.queries) ? data.queries : []) as QueryAnalytics[];
+      const feedbacksData = (Array.isArray(data.feedbacks) ? data.feedbacks : []) as ResponseFeedback[];
+
+      setQueries(queriesData);
+
+      const feedbacksWithQueries = feedbacksData.map((fb) => ({
         ...fb,
-        query: queriesData?.find(q => q.id === fb.query_id),
+        query: queriesData.find((q) => q.id === fb.query_id),
       }));
       setFeedbacks(feedbacksWithQueries);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("[AnalyticsTab] Error fetching data:", error);
+      const message = error instanceof Error ? error.message : String(error);
       toast({
         title: "Erro ao carregar analytics",
-        description: error.message,
+        description: message,
         variant: "destructive",
       });
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [adminKey, toast]);
 
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [fetchData]);
 
   // Calculate metrics
   const metrics = useMemo(() => {
@@ -526,6 +551,7 @@ export function AnalyticsTab() {
 
       {/* Detail Modal */}
       <FeedbackDetailModal
+        adminKey={adminKey}
         feedback={selectedFeedback}
         onClose={() => setSelectedFeedback(null)}
       />

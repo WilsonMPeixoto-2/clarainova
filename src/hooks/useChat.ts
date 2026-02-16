@@ -1,5 +1,4 @@
 import { useState, useCallback, useRef } from "react";
-import { supabase } from "@/integrations/supabase/client";
 
 export type ResponseMode = "fast" | "deep";
 export type WebSearchMode = "auto" | "deep";
@@ -8,7 +7,7 @@ export type WebSearchMode = "auto" | "deep";
 export type MessageStatus = "streaming" | "done" | "stopped" | "error";
 
 export interface ApiProviderInfo {
-  provider: "gemini" | "lovable";
+  provider: "gemini";
   model: string;
 }
 
@@ -77,11 +76,42 @@ function loadMessagesFromStorage(): ChatMessage[] {
   try {
     const stored = localStorage.getItem(STORAGE_KEY);
     if (stored) {
-      const parsed = JSON.parse(stored);
-      return parsed.map((msg: any) => ({
-        ...msg,
-        timestamp: new Date(msg.timestamp)
-      }));
+      const parsed: unknown = JSON.parse(stored);
+      if (!Array.isArray(parsed)) return [];
+
+      return parsed
+        .filter((msg): msg is Record<string, unknown> => typeof msg === "object" && msg !== null)
+        .map((msg) => {
+          const timestampRaw = msg.timestamp;
+          const timestamp =
+            typeof timestampRaw === "string" || typeof timestampRaw === "number"
+              ? new Date(timestampRaw)
+              : new Date();
+
+          return {
+            id: typeof msg.id === "string" ? msg.id : crypto.randomUUID(),
+            role: msg.role === "assistant" ? "assistant" : "user",
+            content: typeof msg.content === "string" ? msg.content : "",
+            timestamp,
+            sources:
+              typeof msg.sources === "object" && msg.sources !== null
+                ? (msg.sources as ChatMessageSources)
+                : undefined,
+            status: typeof msg.status === "string" ? (msg.status as MessageStatus) : undefined,
+            isStreaming: typeof msg.isStreaming === "boolean" ? msg.isStreaming : undefined,
+            queryId: typeof msg.queryId === "string" ? msg.queryId : undefined,
+            userQuery: typeof msg.userQuery === "string" ? msg.userQuery : undefined,
+            apiProvider:
+              typeof msg.apiProvider === "object" && msg.apiProvider !== null
+                ? (msg.apiProvider as ApiProviderInfo)
+                : undefined,
+            notice:
+              typeof msg.notice === "object" && msg.notice !== null
+                ? (msg.notice as ChatNotice)
+                : undefined,
+            requestId: typeof msg.requestId === "string" ? msg.requestId : undefined,
+          } satisfies ChatMessage;
+        });
     }
   } catch (e) {
     console.error("Erro ao carregar histórico:", e);
@@ -182,6 +212,7 @@ export function useChat(options: UseChatOptions = {}) {
     let apiProviderInfo: ApiProviderInfo | undefined;
     let noticeInfo: ChatNotice | undefined;
     let backendRequestId: string | undefined;
+    let queryId: string | undefined;
 
     setMessages(prev => [
       ...prev,
@@ -197,6 +228,12 @@ export function useChat(options: UseChatOptions = {}) {
 
     try {
       abortControllerRef.current = new AbortController();
+      const anonKey =
+        import.meta.env.VITE_SUPABASE_ANON_KEY || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+
+      if (!import.meta.env.VITE_SUPABASE_URL || !anonKey) {
+        throw new Error("Supabase não configurado (VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY).");
+      }
 
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/clara-chat`,
@@ -204,7 +241,10 @@ export function useChat(options: UseChatOptions = {}) {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            "Authorization": `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`
+            Accept: "text/event-stream",
+            apikey: anonKey,
+            Authorization: `Bearer ${anonKey}`,
+            "x-session-fingerprint": getSessionFingerprint(),
           },
           body: JSON.stringify({
             message: isContinuation ? "" : content,
@@ -212,6 +252,7 @@ export function useChat(options: UseChatOptions = {}) {
             mode: mode,
             webSearchMode: webSearchMode,
             continuation: isContinuation, // Signal backend to continue previous response
+            stream: true,
           }),
           signal: abortControllerRef.current.signal
         }
@@ -222,52 +263,66 @@ export function useChat(options: UseChatOptions = {}) {
         throw new Error(errorData.error || `Erro ${response.status}`);
       }
 
-      if (!response.body) {
-        throw new Error("Resposta sem corpo");
-      }
+      const contentType = response.headers.get("content-type") || "";
 
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = "";
+      // Safety: if the backend responds with JSON (non-streaming), handle it gracefully.
+      if (contentType.includes("application/json")) {
+        const data = (await response.json().catch(() => ({}))) as Record<string, unknown>;
+        const answer = typeof data.answer === "string" ? data.answer : "";
+        queryId = typeof data.query_id === "string" ? data.query_id : undefined;
+        const sources = Array.isArray(data.sources) ? data.sources : [];
+        localSources = sources
+          .map((s) => (typeof s === "object" && s !== null ? (s as Record<string, unknown>).title : null))
+          .filter((t): t is string => typeof t === "string");
+        quorumMet = localSources.length > 0;
+        assistantContent = answer || "Desculpe, não consegui gerar uma resposta.";
+      } else {
+        if (!response.body) {
+          throw new Error("Resposta sem corpo");
+        }
 
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = "";
 
-        buffer += decoder.decode(value, { stream: true });
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
 
-        // Processar linhas completas
-        let newlineIndex: number;
-        while ((newlineIndex = buffer.indexOf("\n")) !== -1) {
-          const line = buffer.slice(0, newlineIndex).trim();
-          buffer = buffer.slice(newlineIndex + 1);
+          buffer += decoder.decode(value, { stream: true });
 
-          if (!line || line.startsWith(":")) continue;
+          // Processar linhas completas
+          let newlineIndex: number;
+          while ((newlineIndex = buffer.indexOf("\n")) !== -1) {
+            const line = buffer.slice(0, newlineIndex).trim();
+            buffer = buffer.slice(newlineIndex + 1);
 
-          if (line.startsWith("event: ")) {
-            const eventType = line.slice(7);
+            if (!line || line.startsWith(":")) continue;
+
+            if (line.startsWith("event: ")) {
+              const eventType = line.slice(7);
             
-            // Pegar a linha de dados seguinte se estiver no buffer
-            const dataLineEnd = buffer.indexOf("\n");
-            if (dataLineEnd === -1) {
-              // Dados incompletos, colocar de volta
-              buffer = line + "\n" + buffer;
-              break;
-            }
+              // Pegar a linha de dados seguinte se estiver no buffer
+              const dataLineEnd = buffer.indexOf("\n");
+              if (dataLineEnd === -1) {
+                // Dados incompletos, colocar de volta
+                buffer = line + "\n" + buffer;
+                break;
+              }
             
-            const dataLine = buffer.slice(0, dataLineEnd).trim();
-            buffer = buffer.slice(dataLineEnd + 1);
+              const dataLine = buffer.slice(0, dataLineEnd).trim();
+              buffer = buffer.slice(dataLineEnd + 1);
             
-            if (!dataLine.startsWith("data: ")) continue;
-            const jsonStr = dataLine.slice(6);
+              if (!dataLine.startsWith("data: ")) continue;
+              const jsonStr = dataLine.slice(6);
 
-            try {
-              const data = JSON.parse(jsonStr);
+              try {
+                const data = JSON.parse(jsonStr) as Record<string, unknown>;
 
-              switch (eventType) {
+                switch (eventType) {
                 case "request_id":
                   // Store backend request ID for tracking
-                  if (data.id) {
+                  if (typeof data.id === "string") {
                     backendRequestId = data.id;
                     activeRequestIdRef.current = data.id;
                     setMessages(prev => 
@@ -281,8 +336,8 @@ export function useChat(options: UseChatOptions = {}) {
                   break;
 
                 case "api_provider":
-                  if (data.provider && data.model) {
-                    apiProviderInfo = { provider: data.provider, model: data.model };
+                  if (typeof data.provider === "string" && typeof data.model === "string") {
+                    apiProviderInfo = { provider: data.provider as ApiProviderInfo["provider"], model: data.model };
                     setMessages(prev => 
                       prev.map(msg => 
                         msg.id === assistantId 
@@ -294,11 +349,11 @@ export function useChat(options: UseChatOptions = {}) {
                   break;
 
                 case "thinking":
-                  setThinking({ isThinking: true, step: data.step || "Processando..." });
+                  setThinking({ isThinking: true, step: String(data.step ?? "Processando...") });
                   break;
                   
                 case "delta":
-                  if (data.content) {
+                  if (typeof data.content === "string") {
                     assistantContent += data.content;
                     setMessages(prev => 
                       prev.map(msg => 
@@ -312,20 +367,20 @@ export function useChat(options: UseChatOptions = {}) {
                   break;
                   
                 case "sources":
-                  if (data.local) {
-                    localSources = data.local;
+                  if (Array.isArray(data.local)) {
+                    localSources = data.local.filter((x): x is string => typeof x === "string");
                   }
-                  if (data.web) {
-                    webSources = data.web;
+                  if (Array.isArray(data.web)) {
+                    webSources = data.web as WebSourceData[] | string[];
                   }
-                  if (typeof data.quorum_met === 'boolean') {
+                  if (typeof data.quorum_met === "boolean") {
                     quorumMet = data.quorum_met;
                   }
                   break;
 
                 case "notice":
-                  if (data.type && data.message) {
-                    noticeInfo = { type: data.type, message: data.message };
+                  if (typeof data.type === "string" && typeof data.message === "string") {
+                    noticeInfo = { type: data.type as NoticeType, message: data.message };
                     setMessages(prev => 
                       prev.map(msg => 
                         msg.id === assistantId 
@@ -336,36 +391,37 @@ export function useChat(options: UseChatOptions = {}) {
                   }
                   break;
                   
-                case "done":
-                  // Finalizar streaming
-                  break;
+                  case "done":
+                    if (typeof data.query_id === "string") {
+                      queryId = data.query_id;
+                    }
+                    break;
                   
                 case "error":
-                  throw new Error(data.message || "Erro no streaming");
+                  throw new Error(typeof data.message === "string" ? data.message : "Erro no streaming");
               }
-            } catch (parseError) {
-              // Ignorar erros de parse de eventos individuais
-              console.warn("Erro ao parsear evento SSE:", parseError);
-            }
-          } else if (line.startsWith("data: ")) {
-            // Formato alternativo sem event:
-            const jsonStr = line.slice(6);
-            if (jsonStr === "[DONE]") continue;
-            
-            try {
-              const data = JSON.parse(jsonStr);
-              if (data.content) {
-                assistantContent += data.content;
-                setMessages(prev => 
-                  prev.map(msg => 
-                    msg.id === assistantId 
-                      ? { ...msg, content: assistantContent }
-                      : msg
-                  )
-                );
+              } catch (parseError) {
+                // Ignorar erros de parse de eventos individuais
+                console.warn("Erro ao parsear evento SSE:", parseError);
               }
-            } catch {
-              // Ignorar
+            } else if (line.startsWith("data: ")) {
+              // Formato alternativo sem event:
+              const jsonStr = line.slice(6);
+              if (jsonStr === "[DONE]") continue;
+
+              try {
+                const data = JSON.parse(jsonStr) as Record<string, unknown>;
+                if (typeof data.content === "string") {
+                  assistantContent += data.content;
+                  setMessages((prev) =>
+                    prev.map((msg) =>
+                      msg.id === assistantId ? { ...msg, content: assistantContent } : msg,
+                    ),
+                  );
+                }
+              } catch {
+                // Ignorar
+              }
             }
           }
         }
@@ -383,26 +439,6 @@ export function useChat(options: UseChatOptions = {}) {
           } 
         : undefined;
 
-      // Save to query_analytics (fire and forget)
-      let savedQueryId: string | null = null;
-      try {
-        const sessionFingerprint = getSessionFingerprint();
-        const { data: analyticsData } = await supabase
-          .from("query_analytics")
-          .insert({
-            user_query: content.trim(),
-            assistant_response: finalContent,
-            sources_cited: localSources,
-            session_fingerprint: sessionFingerprint,
-          })
-          .select("id")
-          .single();
-        
-        savedQueryId = analyticsData?.id || null;
-      } catch (err) {
-        console.warn("[useChat] Failed to save query analytics:", err);
-      }
-
       setMessages(prev => {
         const final = prev.map(msg => 
           msg.id === assistantId 
@@ -412,7 +448,7 @@ export function useChat(options: UseChatOptions = {}) {
                 isStreaming: false,
                 status: "done" as MessageStatus,
                 sources: finalSources,
-                queryId: savedQueryId || undefined,
+                queryId: queryId,
                 userQuery: userQueryContent,
                 apiProvider: apiProviderInfo,
                 notice: noticeInfo,

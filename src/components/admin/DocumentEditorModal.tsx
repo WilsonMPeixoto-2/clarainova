@@ -33,6 +33,7 @@ interface DocumentForEdit {
 interface DocumentListItem {
   id: string;
   title: string;
+  supersedes_document_id?: string | null;
 }
 
 interface DocumentEditorModalProps {
@@ -80,9 +81,7 @@ export function DocumentEditorModal({
   // Find documents that supersede this one (reverse lookup)
   const supersededBy = useMemo(() => {
     if (!document) return [];
-    return allDocuments.filter(d => 
-      (d as any).supersedes_document_id === document.id
-    );
+    return allDocuments.filter((d) => d.supersedes_document_id === document.id);
   }, [allDocuments, document?.id]);
   
   const handleAddTag = () => {
@@ -130,11 +129,11 @@ export function DocumentEditorModal({
       
       onSaved();
       onOpenChange(false);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('[DocumentEditor] Save error:', error);
       toast({
         title: 'Erro ao salvar',
-        description: error.message || 'Falha ao atualizar documento.',
+        description: error instanceof Error ? error.message : 'Falha ao atualizar documento.',
         variant: 'destructive',
       });
     } finally {

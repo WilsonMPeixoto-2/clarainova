@@ -124,8 +124,9 @@ export async function extractPdfTextClient(
     try {
       const page = await pdf.getPage(i);
       const textContent = await page.getTextContent();
-      const text = textContent.items
-        .map((item: any) => item.str || '')
+      const items = textContent.items as Array<{ str?: string }>;
+      const text = items
+        .map((item) => item.str || '')
         .join(' ')
         .replace(/\s+/g, ' ')
         .trim();

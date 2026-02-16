@@ -1,1 +1,35 @@
-project_id = "pypqlqnfonixeocvmeoy"
+# Supabase project ref (set by `supabase link --project-ref ...`)
+# Keep this as a placeholder to avoid accidentally deploying to an old/deleted project.
+project_id = "REPLACE_WITH_YOUR_PROJECT_REF"
+
+# This project uses header-based access (anon key + x-admin-key) and does not rely on Supabase Auth JWTs.
+# Keep verify_jwt disabled for the functions invoked directly from the frontend.
+[functions.clara-chat]
+verify_jwt = false
+
+[functions.log-frontend-error]
+verify_jwt = false
+
+[functions.admin-auth]
+verify_jwt = false
+
+[functions.admin-analytics]
+verify_jwt = false
+
+[functions.admin-upload]
+verify_jwt = false
+
+[functions.admin_get_upload_url]
+verify_jwt = false
+
+[functions.documents]
+verify_jwt = false
+
+[functions.search]
+verify_jwt = false
+
+[functions.web-search]
+verify_jwt = false
+
+[functions.re-embed-chunks]
+verify_jwt = false

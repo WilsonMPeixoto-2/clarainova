@@ -1,6 +1,6 @@
 import { memo } from "react";
 import { motion } from "framer-motion";
-import { Sparkles, Zap } from "lucide-react";
+import { Sparkles } from "lucide-react";
 import type { ApiProviderInfo } from "@/hooks/useChat";
 import {
   Tooltip,
@@ -19,13 +19,6 @@ const providerConfig = {
     color: "text-blue-500",
     bgColor: "bg-blue-500/10",
     description: "API direta do Google Gemini",
-  },
-  lovable: {
-    icon: Zap,
-    label: "Fallback",
-    color: "text-amber-500",
-    bgColor: "bg-amber-500/10",
-    description: "Lovable AI Gateway (fallback)",
   },
 };
 

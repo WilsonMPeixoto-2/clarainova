@@ -3,7 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { RefreshCw, Sparkles, Zap, TrendingUp, Activity } from "lucide-react";
+import { RefreshCw, Sparkles, TrendingUp, Activity } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -56,7 +56,6 @@ export function ApiUsageMonitor() {
 
   const totalRequests = summary.reduce((acc, s) => acc + Number(s.total_count), 0);
   const geminiStats = summary.find(s => s.provider === "gemini");
-  const lovableStats = summary.find(s => s.provider === "lovable");
 
   // Group details by date for the chart-like display
   const detailsByDate = details.reduce((acc, d) => {
@@ -75,7 +74,7 @@ export function ApiUsageMonitor() {
               Uso das APIs
             </CardTitle>
             <CardDescription>
-              Monitoramento de requisições Gemini vs Fallback
+              Monitoramento de requisições por provedor
             </CardDescription>
           </div>
           <div className="flex items-center gap-2">
@@ -116,7 +115,7 @@ export function ApiUsageMonitor() {
         ) : (
           <>
             {/* Summary Cards */}
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-2 gap-3">
               {/* Total */}
               <div className="bg-muted/30 rounded-lg p-3 text-center">
                 <TrendingUp className="w-5 h-5 mx-auto mb-1 text-muted-foreground" />
@@ -134,17 +133,6 @@ export function ApiUsageMonitor() {
                   Gemini ({geminiStats?.percentage || 0}%)
                 </p>
               </div>
-
-              {/* Lovable Fallback */}
-              <div className="bg-amber-500/10 rounded-lg p-3 text-center">
-                <Zap className="w-5 h-5 mx-auto mb-1 text-amber-500" />
-                <p className="text-2xl font-bold text-amber-600">
-                  {lovableStats?.total_count || 0}
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  Fallback ({lovableStats?.percentage || 0}%)
-                </p>
-              </div>
             </div>
 
             {/* Usage Bar */}
@@ -160,21 +148,11 @@ export function ApiUsageMonitor() {
                     style={{ width: `${geminiStats.percentage}%` }}
                   />
                 )}
-                {lovableStats && lovableStats.percentage > 0 && (
-                  <div
-                    className="h-full bg-amber-500 transition-all duration-500"
-                    style={{ width: `${lovableStats.percentage}%` }}
-                  />
-                )}
               </div>
               <div className="flex justify-between text-xs">
                 <div className="flex items-center gap-1">
                   <div className="w-2 h-2 rounded-full bg-blue-500" />
                   <span>Gemini</span>
-                </div>
-                <div className="flex items-center gap-1">
-                  <div className="w-2 h-2 rounded-full bg-amber-500" />
-                  <span>Fallback</span>
                 </div>
               </div>
             </div>
@@ -207,14 +185,15 @@ export function ApiUsageMonitor() {
                               className={`text-xs ${
                                 item.provider === "gemini"
                                   ? "bg-blue-500/10 text-blue-600"
-                                  : "bg-amber-500/10 text-amber-600"
+                                  : "bg-muted text-muted-foreground"
                               }`}
                             >
                               {item.provider === "gemini" ? (
                                 <Sparkles className="w-3 h-3 mr-1" />
                               ) : (
-                                <Zap className="w-3 h-3 mr-1" />
+                                <Activity className="w-3 h-3 mr-1" />
                               )}
+                              {item.provider}:
                               {item.total_count}
                             </Badge>
                           ))}

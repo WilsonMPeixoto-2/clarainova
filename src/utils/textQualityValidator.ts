@@ -95,13 +95,15 @@ const COMMON_WORDS_EN = new Set([
 
 // Patterns that indicate font mapping/encoding errors
 const SUSPICIOUS_PATTERNS = [
+  // eslint-disable-next-line no-control-regex
   /[\x00-\x08\x0B\x0C\x0E-\x1F]{2,}/,    // Control characters (except tab, newline, CR)
   /[\uFFFD]{2,}/,                         // Unicode replacement characters
   /[a-zA-Z]{25,}/,                        // Absurdly long "words" (encoding concatenation)
   /[\u0080-\u009F]{3,}/,                  // C1 control characters (often bad encoding)
+  // eslint-disable-next-line no-control-regex
   /[^\x00-\x7F\u00A0-\u024F\u1E00-\u1EFF]{10,}/, // Long non-Latin sequences
   /(.)\1{10,}/,                           // Same character repeated 10+ times
-  /[!@#$%^&*()_+=\[\]{}|\\;:'",.<>?\/]{8,}/, // Long sequences of special chars
+  /[!@#$%^&*()_+=[\]{}|\\;:'",.<>?/]{8,}/, // Long sequences of special chars
   /\d{20,}/,                              // Very long number sequences (often errors)
 ];
 

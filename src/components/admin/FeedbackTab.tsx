@@ -1,5 +1,4 @@
 import { useState, useEffect, useMemo } from "react";
-import { supabase } from "@/integrations/supabase/client";
 import {
   Card,
   CardContent,
@@ -70,7 +69,19 @@ const CATEGORY_COLORS: Record<string, string> = {
   other: "hsl(var(--accent-foreground))",
 };
 
-export function FeedbackTab() {
+interface FeedbackTabProps {
+  adminKey: string;
+}
+
+function getSupabaseUrl(): string {
+  return import.meta.env.VITE_SUPABASE_URL || "";
+}
+
+function getSupabaseAnonKey(): string {
+  return import.meta.env.VITE_SUPABASE_ANON_KEY || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || "";
+}
+
+export function FeedbackTab({ adminKey }: FeedbackTabProps) {
   const [feedbackData, setFeedbackData] = useState<FeedbackItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -81,65 +92,47 @@ export function FeedbackTab() {
     const fetchFeedback = async () => {
       setIsLoading(true);
       try {
-        const startDate = new Date();
-        startDate.setDate(startDate.getDate() - timeRange);
+        const supabaseUrl = getSupabaseUrl();
+        const anonKey = getSupabaseAnonKey();
+        const key = adminKey.trim();
 
-        // Fetch feedback with joined query data
-        const { data: feedback, error } = await supabase
-          .from("response_feedback")
-          .select(`
-            id,
-            query_id,
-            rating,
-            feedback_category,
-            feedback_text,
-            created_at
-          `)
-          .gte("created_at", startDate.toISOString())
-          .order("created_at", { ascending: false })
-          .limit(100);
-
-        if (error) throw error;
-
-        // Fetch related queries for negative feedback
-        const negativeFeedback = feedback?.filter((f) => !f.rating) || [];
-        const queryIds = negativeFeedback.map((f) => f.query_id);
-
-        let queriesMap: Record<string, { user_query: string; assistant_response: string }> = {};
-
-        if (queryIds.length > 0) {
-          const { data: queries, error: queryError } = await supabase
-            .from("query_analytics")
-            .select("id, user_query, assistant_response")
-            .in("id", queryIds);
-
-          if (!queryError && queries) {
-            queriesMap = queries.reduce(
-              (acc, q) => ({
-                ...acc,
-                [q.id]: { user_query: q.user_query, assistant_response: q.assistant_response },
-              }),
-              {}
-            );
-          }
+        if (!supabaseUrl || !anonKey) {
+          throw new Error("Supabase não configurado (VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY).");
+        }
+        if (!key) {
+          throw new Error("Chave de administrador ausente.");
         }
 
-        // Merge feedback with query data
-        const enrichedFeedback = feedback?.map((f) => ({
-          ...f,
-          query: queriesMap[f.query_id],
-        })) || [];
+        const response = await fetch(
+          `${supabaseUrl}/functions/v1/admin-analytics/feedback?days=${timeRange}&limit=100`,
+          {
+            method: "GET",
+            headers: {
+              apikey: anonKey,
+              Authorization: `Bearer ${anonKey}`,
+              "x-admin-key": key,
+            },
+          },
+        );
 
-        setFeedbackData(enrichedFeedback);
+        if (!response.ok) {
+          const errorData = (await response.json().catch(() => ({}))) as Record<string, unknown>;
+          throw new Error(typeof errorData.error === "string" ? errorData.error : `Erro ${response.status}`);
+        }
+
+        const data = (await response.json().catch(() => ({}))) as Record<string, unknown>;
+        const feedback = (Array.isArray(data.feedback) ? data.feedback : []) as FeedbackItem[];
+        setFeedbackData(feedback);
       } catch (err) {
         console.error("[FeedbackTab] Error fetching feedback:", err);
+        setFeedbackData([]);
       } finally {
         setIsLoading(false);
       }
     };
 
     fetchFeedback();
-  }, [timeRange]);
+  }, [timeRange, adminKey]);
 
   // Calculate metrics
   const metrics = useMemo(() => {

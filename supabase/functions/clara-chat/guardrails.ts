@@ -27,7 +27,6 @@ const INJECTION_PATTERNS: Array<{ pattern: RegExp; category: string; description
   { pattern: /SUPABASE_SERVICE_ROLE_KEY/i, category: "extract_secrets", description: "Menção a service role key" },
   { pattern: /ADMIN_KEY/i, category: "extract_secrets", description: "Menção a admin key" },
   { pattern: /GEMINI_API_KEY/i, category: "extract_secrets", description: "Menção a Gemini API key" },
-  { pattern: /LOVABLE_API_KEY/i, category: "extract_secrets", description: "Menção a Lovable API key" },
   { pattern: /FINGERPRINT_SALT/i, category: "extract_secrets", description: "Menção a fingerprint salt" },
   { pattern: /RATELIMIT_SALT/i, category: "extract_secrets", description: "Menção a ratelimit salt" },
   { pattern: /x-admin-key/i, category: "extract_secrets", description: "Menção a header de admin" },
