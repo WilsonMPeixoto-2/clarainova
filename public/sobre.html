@@ -6,13 +6,13 @@
   <title>Sobre - CLARA | Documentação Técnica do Projeto</title>
   <meta name="description" content="Documentação completa do projeto CLARA - Consultora de Legislação e Apoio a Rotinas Administrativas. Stack tecnológica, arquitetura, funcionalidades e segurança.">
   <meta name="robots" content="index, follow">
-  <link rel="canonical" href="https://clarainova.lovable.app/sobre.html">
+  <link rel="canonical" href="/sobre.html">
   
   <!-- Open Graph -->
   <meta property="og:title" content="Sobre - CLARA | Documentação Técnica">
   <meta property="og:description" content="Documentação completa do assistente virtual de IA especializado em SEI, SDP e procedimentos da 4ª CRE.">
   <meta property="og:type" content="website">
-  <meta property="og:url" content="https://clarainova.lovable.app/sobre.html">
+  <meta property="og:url" content="/sobre.html">
   <meta property="og:locale" content="pt_BR">
   
   <style>
@@ -259,7 +259,7 @@
 <body>
   <div class="container">
     <nav>
-      <a href="https://clarainova.lovable.app">← Voltar para CLARA</a>
+      <a href="/">← Voltar para CLARA</a>
       <a href="/privacidade.html">Privacidade</a>
       <a href="/termos.html">Termos</a>
       <a href="/llm.txt">llm.txt</a>
@@ -334,7 +334,7 @@
           </div>
           
           <div class="tech-card">
-            <h4>Backend (Lovable Cloud)</h4>
+            <h4>Backend (Supabase)</h4>
             <ul>
               <li>PostgreSQL</li>
               <li>pgvector (embeddings)</li>
@@ -347,10 +347,10 @@
           <div class="tech-card">
             <h4>Inteligência Artificial</h4>
             <ul>
-              <li>google/gemini-2.5-flash (chat)</li>
+              <li>gemini-2.0-flash (chat)</li>
               <li>text-embedding-004 (embeddings)</li>
               <li>768 dimensões vetoriais</li>
-              <li>Lovable AI Gateway</li>
+              <li>API Gemini (direta)</li>
             </ul>
           </div>
         </div>
@@ -372,7 +372,7 @@
             │                    │                  │
             ▼                    ▼                  ▼
 ┌─────────────────────────────────────────────────────────────┐
-│                   LOVABLE CLOUD (Backend)                    │
+│                    SUPABASE (Backend)                        │
 │  ┌─────────────────┐  ┌─────────────────┐  ┌──────────────┐ │
 │  │   PostgreSQL    │  │ Edge Functions  │  │   Storage    │ │
 │  │   + pgvector    │  │  (clara-chat)   │  │ (Documentos) │ │
@@ -383,9 +383,9 @@
                                  │
                                  ▼
 ┌─────────────────────────────────────────────────────────────┐
-│                    LOVABLE AI GATEWAY                        │
+│                  GOOGLE GEMINI API (Direct)                  │
 │  ┌─────────────────────────────────────────────────────────┐│
-│  │  google/gemini-2.5-flash  │  Streaming SSE  │  Rate Limit││
+│  │      gemini-2.0-flash     │  Streaming SSE  │  Rate Limit││
 │  └─────────────────────────────────────────────────────────┘│
 └─────────────────────────────────────────────────────────────┘
 </pre>
@@ -397,7 +397,7 @@
           <li>Frontend envia request para Edge Function <code>clara-chat</code></li>
           <li>Edge Function gera embedding da pergunta via <code>text-embedding-004</code></li>
           <li>Busca semântica no PostgreSQL/pgvector encontra chunks relevantes</li>
-          <li>Contexto + pergunta são enviados ao <code>gemini-2.5-flash</code></li>
+          <li>Contexto + pergunta são enviados ao <code>gemini-2.0-flash</code></li>
           <li>Resposta é transmitida via SSE (streaming) ao frontend</li>
           <li>Frontend renderiza resposta em tempo real com citações de fontes</li>
         </ol>
@@ -434,15 +434,15 @@
         <div class="links-grid">
           <div class="link-item">
             <span>Página Principal</span>
-            <a href="https://clarainova.lovable.app">clarainova.lovable.app</a>
+            <a href="/">/</a>
           </div>
           <div class="link-item">
             <span>Login</span>
-            <a href="https://clarainova.lovable.app/login">/login</a>
+            <a href="/login">/login</a>
           </div>
           <div class="link-item">
             <span>Painel Admin</span>
-            <a href="https://clarainova.lovable.app/admin">/admin</a>
+            <a href="/admin">/admin</a>
           </div>
           <div class="link-item">
             <span>Política de Privacidade</span>
@@ -539,7 +539,7 @@
     </main>
 
     <div class="footer-links">
-      <a href="https://clarainova.lovable.app">Página Inicial</a>
+      <a href="/">Página Inicial</a>
       <a href="/privacidade.html">Privacidade</a>
       <a href="/termos.html">Termos</a>
       <a href="/llm.txt">llm.txt</a>

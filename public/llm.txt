@@ -1,8 +1,8 @@
 # CLARA - Consultora de Legislação e Apoio a Rotinas Administrativas
 # Versão: 1.0
 # Atualizado: 25/01/2026
-# URL: https://clarainova.lovable.app
-# Documentação completa: https://clarainova.lovable.app/sobre.html
+# URL: /
+# Documentação completa: /sobre.html
 
 ## Descrição
 CLARA é uma assistente virtual de IA especializada em orientações sobre:
@@ -32,14 +32,14 @@ Diferencial: Cita fontes documentais oficiais nas respostas
 - Framer Motion (animações)
 - TanStack Query (estado)
 
-### Backend (Lovable Cloud)
+### Backend (Supabase)
 - PostgreSQL + pgvector
 - Edge Functions (Deno)
 - Storage (documentos PDF)
 - Auth (Google OAuth 2.0)
 
 ### Inteligência Artificial
-- Modelo de chat: google/gemini-2.5-flash (via Lovable AI Gateway)
+- Modelo de chat: gemini-2.0-flash (API direta)
 - Embeddings: text-embedding-004 (768 dimensões)
 - Arquitetura: RAG (Retrieval Augmented Generation)
 
@@ -55,7 +55,7 @@ Edge Function (clara-chat)
     │
     ├──► PostgreSQL/pgvector (busca semântica)
     │
-    └──► gemini-2.5-flash (gera resposta com contexto)
+    └──► gemini-2.0-flash (gera resposta com contexto)
             │
             ▼
         Streaming SSE → Frontend

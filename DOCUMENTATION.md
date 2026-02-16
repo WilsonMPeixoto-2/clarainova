@@ -19,7 +19,7 @@ Assistente de IA especializada em sistemas eletrônicos de informação (SEI) e 
          │                 │                   │
          ▼                 ▼                   ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│                    LOVABLE CLOUD (Supabase)                      │
+│                    SUPABASE (Projeto Próprio)                   │
 ├──────────────┬──────────────┬──────────────┬────────────────────┤
 │   Database   │   Storage    │ Edge Functions│     Auth          │
 │  (PostgreSQL │ (knowledge-  │              │   (Disabled)       │
@@ -45,7 +45,7 @@ Assistente de IA especializada em sistemas eletrônicos de informação (SEI) e 
 | Lucide React | 0.462.0 | Ícones |
 | Sonner | 1.7.4 | Toasts/Notificações |
 
-### Backend (Lovable Cloud)
+### Backend (Supabase)
 
 | Componente | Tecnologia | Uso |
 |------------|------------|-----|
@@ -213,7 +213,7 @@ search_document_chunks(
 | `SUPABASE_SERVICE_ROLE_KEY` | Admin operations |
 | `SUPABASE_URL` | Endpoint Supabase |
 | `SUPABASE_ANON_KEY` | Cliente público |
-| `LOVABLE_API_KEY` | Lovable AI Gateway |
+| `FIRECRAWL_API_KEY` | (Opcional) Web search via Firecrawl |
 
 ---
 
@@ -280,9 +280,9 @@ User Query → Edge Function → Embedding da Query
 
 ## 🔗 URLs
 
-- **Preview**: https://id-preview--c2cb3c6c-0685-4c69-9d34-431f47c427eb.lovable.app
-- **Produção**: https://clarainova.lovable.app
-- **Supabase Project ID**: `pypqlqnfonixeocvmeoy`
+- **Preview**: (defina seu ambiente de preview)
+- **Produção**: (defina seu domínio de produção)
+- **Supabase Project ID**: (seu project ref)
 
 ---
 
@@ -314,7 +314,7 @@ User Query → Edge Function → Embedding da Query
 
 ### Rollback
 
-- Lovable mantém histórico de versões no Git
+- Git mantém histórico de versões
 - Em caso de falha crítica: reverter para commit anterior via interface
 - Documentar incidente no CHANGELOG.md (seção "Corrigido")
 - Comunicar equipe sobre ações tomadas

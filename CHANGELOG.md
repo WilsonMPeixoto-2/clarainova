@@ -52,7 +52,7 @@ O formato segue [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/).
 - **Dashboard de Métricas de Chat:**
   - Nova aba "Métricas" no Admin
   - Latência média por etapa (embedding/search/LLM)
-  - Taxa de fallback Gemini → Lovable
+  - Taxa de fallback entre modelos Gemini
   - Distribuição de providers e uso de web search
   - Alertas visuais para fallback > 20% e erros frequentes
 - **RPCs de Observabilidade:**
@@ -92,7 +92,7 @@ O formato segue [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/).
   - Busca híbrida (semântica + keywords)
   - Reciprocal Rank Fusion (RRF) para ranking
   - Google Search grounding automático
-  - Fallback Gemini → Lovable AI Gateway
+  - Fallback entre modelos Gemini
 - **Interface Administrativa:**
   - Gestão de documentos (upload, processamento, exclusão)
   - Analytics de uso e satisfação
@@ -121,4 +121,4 @@ O formato segue [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/).
 2. **Upload-then-Process:** Bypass do limite de 6MB das Edge Functions
 3. **Busca Híbrida com RRF:** Combina precisão semântica com recall de keywords
 4. **Streaming SSE:** UX responsiva com feedback em tempo real
-5. **Fallback para Lovable Gateway:** Resiliência contra rate limits do Gemini
+5. **Fallback de modelos Gemini:** Resiliência contra falhas/limites por modelo

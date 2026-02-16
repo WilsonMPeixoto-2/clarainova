@@ -35,7 +35,7 @@ Tempo estimado: **10-15 minutos**
 - [ ] Modo **Direto** funciona (respostas concisas)
 - [ ] Modo **Didático** funciona (explicações completas)
 - [ ] Web search ativado quando base local insuficiente
-- [ ] Fallback Gemini → Lovable Gateway funciona (simular 429)
+- [ ] Fallback entre modelos Gemini funciona (simular falha/limite)
 - [ ] Indicador "pensando" aparece durante geração
 - [ ] API Provider badge exibe corretamente
 
@@ -142,7 +142,7 @@ Tempo estimado: **10-15 minutos**
 
 ## Rollback
 
-- Lovable mantém histórico de versões
+- Git mantém histórico de versões
 - Em caso de falha crítica: reverter para commit anterior
 - Comunicar equipe sobre incidente
 

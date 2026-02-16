@@ -14,13 +14,13 @@ Assistente de IA especializada em sistemas eletrônicos de informação (SEI) e 
 
 - **Frontend**: React 18 + TypeScript + Vite + Tailwind CSS
 - **UI**: shadcn/ui
-- **Backend**: Lovable Cloud
-- **IA**: Google Gemini 2.5 Pro
+- **Backend**: Supabase (Postgres + Storage + Edge Functions)
+- **IA**: Google Gemini (API)
 - **Busca**: pgvector + embeddings 768d
 
 ## Acesso
 
-**Produção**: https://clarainova.lovable.app
+**Produção**: (defina seu domínio de deploy)
 
 ## Documentação
 

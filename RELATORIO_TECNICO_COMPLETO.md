@@ -4,6 +4,10 @@
 **Data:** 26 de Janeiro de 2026  
 **Autor:** Gerado automaticamente pelo sistema  
 
+> Nota (2026-02-15): este relatório é histórico e pode conter referências legadas ao Lovable.  
+> O projeto atual foi desligado do Lovable e usa **Supabase (projeto próprio)**.  
+> Para setup atual, veja `SUPABASE_SETUP.md`.
+
 ---
 
 ## 📌 Sumário Executivo
@@ -34,7 +38,7 @@
                                     │
                                     ▼
 ┌─────────────────────────────────────────────────────────────────────────┐
-│                        LOVABLE CLOUD (Supabase)                          │
+│                        SUPABASE (Projeto Próprio)                        │
 ├────────────────┬────────────────┬────────────────┬───────────────────────┤
 │   PostgreSQL   │    Storage     │ Edge Functions │   Authentication      │
 │   + pgvector   │ (knowledge-    │                │   (Google OAuth)      │
@@ -62,7 +66,7 @@
 | Sonner | 1.7.4 | Sistema de toasts | `src/components/ui/sonner.tsx` |
 | jsPDF | 4.0.0 | Geração de PDFs | `src/components/chat/DownloadPdfButton.tsx` |
 
-### Backend (Lovable Cloud / Supabase)
+### Backend (Supabase)
 
 | Componente | Tecnologia | Configuração |
 |------------|------------|--------------|
@@ -75,8 +79,8 @@
 
 | Modelo | Provider | Uso | Configuração |
 |--------|----------|-----|--------------|
-| `google/gemini-3-flash-preview` | Lovable AI Gateway | Chat modo "Rápido" | temp: 0.5, max: 4096 tokens |
-| `google/gemini-3-pro-preview` | Lovable AI Gateway | Chat modo "Análise Completa" | temp: 0.3, max: 8192 tokens |
+| `gemini-2.0-flash` | Google Gemini (API) | Chat modo "Direto" | temp: 0.3, max: 2048 tokens |
+| `gemini-1.5-flash` | Google Gemini (API) | Chat modo "Didático" | temp: 0.3, max: 2048 tokens |
 | `text-embedding-004` | Google (direto) | Geração de embeddings | 768 dimensões |
 | `gemini-2.0-flash` | Google (direto) | Extração de texto PDF | Vision + OCR |
 
@@ -413,7 +417,7 @@ CREATE FUNCTION has_role(_user_id UUID, _role app_role) RETURNS BOOLEAN
    - Keywords: scoring com boost SEI-específico
    - Fusão: Reciprocal Rank Fusion (k=60)
 6. **Montagem de Contexto** (top 12 chunks)
-7. **Geração via Lovable AI Gateway** (streaming SSE)
+7. **Geração via Google Gemini API** (streaming SSE)
 8. **Eventos SSE:** `thinking`, `delta`, `sources`, `done`, `error`
 
 **System Prompt:** 279 linhas incluindo:
@@ -618,7 +622,7 @@ Todas as tabelas possuem Row Level Security:
                                     │
                                     ▼
                            ┌──────────────────┐
-                           │ Lovable AI       │
+                           │ Google Gemini    │
                            │ Gateway          │
                            │ (Gemini 3 Flash/ │
                            │  Pro streaming)  │
@@ -691,7 +695,7 @@ Todas as tabelas possuem Row Level Security:
 
 ### Fase 1: Fundação (Início)
 - [x] Setup inicial React + Vite + TypeScript
-- [x] Integração Lovable Cloud (Supabase)
+- [x] Integração Supabase (projeto próprio)
 - [x] Landing page com design system
 - [x] Sistema de chat básico
 
@@ -802,17 +806,17 @@ Todas as tabelas possuem Row Level Security:
 | `SUPABASE_PUBLISHABLE_KEY` | Alias da anon key | Cliente |
 | `SUPABASE_DB_URL` | Connection string | Migrações |
 | `GEMINI_API_KEY` | Google AI Studio | Embeddings, PDF extraction |
-| `LOVABLE_API_KEY` | Lovable AI Gateway | Chat completion |
+| `FIRECRAWL_API_KEY` | (Opcional) Web search via Firecrawl | Edge Function web-search |
 | `ADMIN_KEY` | Chave admin panel | Autenticação /admin |
 
 ---
 
 ## 🔗 URLs do Projeto
 
-- **Preview:** https://id-preview--c2cb3c6c-0685-4c69-9d34-431f47c427eb.lovable.app
-- **Produção:** https://clarainova.lovable.app
+- **Preview:** (defina seu ambiente de preview)
+- **Produção:** (defina seu domínio de produção)
 - **GitHub:** https://github.com/WilsonMPeixoto-2/clarainova
-- **Supabase Project ID:** pypqlqnfonixeocvmeoy
+- **Supabase Project ID:** (seu project ref)
 
 ---
 
