@@ -79,10 +79,11 @@ export function DocumentEditorModal({
   }, [allDocuments, document?.id]);
   
   // Find documents that supersede this one (reverse lookup)
+  const currentDocumentId = document?.id;
   const supersededBy = useMemo(() => {
-    if (!document) return [];
-    return allDocuments.filter((d) => d.supersedes_document_id === document.id);
-  }, [allDocuments, document?.id]);
+    if (!currentDocumentId) return [];
+    return allDocuments.filter((d) => d.supersedes_document_id === currentDocumentId);
+  }, [allDocuments, currentDocumentId]);
   
   const handleAddTag = () => {
     const trimmed = newTag.trim().toLowerCase();

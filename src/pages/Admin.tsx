@@ -222,6 +222,49 @@ const Admin = () => {
     });
   }, [toast]);
 
+  const fetchDocuments = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const key = getAdminKey();
+      const { data, error } = await supabase.functions.invoke('documents', {
+        method: 'GET',
+        headers: {
+          'x-admin-key': key,
+        },
+      });
+
+      if (error) {
+        const msg = getErrorMessage(error);
+        if (msg.includes('401') || msg.toLowerCase().includes('not authorized')) {
+          handleAuthExpired();
+          return;
+        }
+        throw error;
+      }
+
+      const docs = data.documents || [];
+      setDocuments(docs);
+
+      // Track documents that are still processing
+      const stillProcessing = new Set<string>();
+      docs.forEach((doc: Document) => {
+        if (doc.status === 'processing' || doc.processing_status === 'pending' || doc.processing_status === 'processing') {
+          stillProcessing.add(doc.id);
+        }
+      });
+      setProcessingDocs(stillProcessing);
+
+    } catch (error: unknown) {
+      toast({
+        title: 'Erro ao carregar documentos',
+        description: getErrorMessage(error),
+        variant: 'destructive',
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  }, [getAdminKey, handleAuthExpired, toast]);
+
   // Check session storage for existing auth
   useEffect(() => {
     const storedKey = sessionStorage.getItem('clara_admin_key');
@@ -237,7 +280,7 @@ const Admin = () => {
     if (isAuthenticated) {
       fetchDocuments();
     }
-  }, [isAuthenticated]);
+  }, [fetchDocuments, isAuthenticated]);
 
   // Realtime subscription for document status updates
   useEffect(() => {
@@ -372,7 +415,7 @@ const Admin = () => {
         clearInterval(pollingIntervalRef.current);
       }
     };
-  }, [isAuthenticated, processingDocs.size, getAdminKey, toast]);
+  }, [fetchDocuments, isAuthenticated, processingDocs.size, getAdminKey, supabaseAnonKey, toast]);
 
   const handleAuthenticate = async () => {
     const key = getAdminKey();
@@ -427,49 +470,6 @@ const Admin = () => {
       });
     } finally {
       setIsAuthenticating(false);
-    }
-  };
-
-  const fetchDocuments = async () => {
-    setIsLoading(true);
-    try {
-      const key = getAdminKey();
-      const { data, error } = await supabase.functions.invoke('documents', {
-        method: 'GET',
-        headers: {
-          'x-admin-key': key,
-        },
-      });
-
-      if (error) {
-        const msg = getErrorMessage(error);
-        if (msg.includes('401') || msg.toLowerCase().includes('not authorized')) {
-          handleAuthExpired();
-          return;
-        }
-        throw error;
-      }
-      
-      const docs = data.documents || [];
-      setDocuments(docs);
-      
-      // Track documents that are still processing
-      const stillProcessing = new Set<string>();
-      docs.forEach((doc: Document) => {
-        if (doc.status === 'processing' || doc.processing_status === 'pending' || doc.processing_status === 'processing') {
-          stillProcessing.add(doc.id);
-        }
-      });
-      setProcessingDocs(stillProcessing);
-      
-    } catch (error: unknown) {
-      toast({
-        title: 'Erro ao carregar documentos',
-        description: getErrorMessage(error),
-        variant: 'destructive',
-      });
-    } finally {
-      setIsLoading(false);
     }
   };
 
@@ -1645,11 +1645,11 @@ const Admin = () => {
     setIsDragOver(false);
   }, []);
 
-  const handleDrop = useCallback((e: React.DragEvent) => {
+  const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     setIsDragOver(false);
     handleFileUpload(e.dataTransfer.files);
-  }, [handleFileUpload]);
+  };
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('pt-BR', {

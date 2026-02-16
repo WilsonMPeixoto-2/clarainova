@@ -29,4 +29,15 @@ export default tseslint.config(
       "@typescript-eslint/no-explicit-any": "off",
     },
   },
+  {
+    files: [
+      "src/components/ui/**/*.tsx",
+      "src/components/admin/ReportTagSelector.tsx",
+      "src/components/admin/ReportTemplates.tsx",
+      "src/contexts/AuthContext.tsx",
+    ],
+    rules: {
+      "react-refresh/only-export-components": "off",
+    },
+  },
 );

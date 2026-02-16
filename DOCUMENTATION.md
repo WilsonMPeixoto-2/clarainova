@@ -209,7 +209,7 @@ search_document_chunks(
 | Secret | Uso |
 |--------|-----|
 | `GEMINI_API_KEY` | API Google Generative AI |
-| `ADMIN_KEY` | Autenticação /admin |
+| `ADMIN_KEYS` (`ADMIN_KEY` fallback) | Autenticação /admin |
 | `SUPABASE_SERVICE_ROLE_KEY` | Admin operations |
 | `SUPABASE_URL` | Endpoint Supabase |
 | `SUPABASE_ANON_KEY` | Cliente público |
