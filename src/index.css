@@ -245,11 +245,11 @@
   .hero-overlay {
     background: linear-gradient(
       90deg,
-      hsl(216 45% 7% / 0.98) 0%,
-      hsl(216 45% 7% / 0.94) 30%,
-      hsl(216 45% 7% / 0.75) 50%,
-      hsl(216 45% 7% / 0.35) 70%,
-      hsl(216 45% 7% / 0.1) 85%,
+      hsl(216 45% 7% / 1) 0%,
+      hsl(216 45% 7% / 0.98) 30%,
+      hsl(216 45% 7% / 0.86) 52%,
+      hsl(216 45% 7% / 0.48) 70%,
+      hsl(216 45% 7% / 0.18) 86%,
       hsl(216 45% 7% / 0) 100%
     );
   }
@@ -257,10 +257,30 @@
   .hero-overlay-mobile {
     background: linear-gradient(
       180deg,
-      hsl(216 45% 7% / 0.92) 0%,
-      hsl(216 45% 7% / 0.85) 40%,
+      hsl(216 45% 7% / 0.94) 0%,
+      hsl(216 45% 7% / 0.84) 46%,
       hsl(216 45% 7% / 0.7) 100%
     );
+  }
+
+  .hero-image {
+    object-position: 60% center;
+    filter: saturate(1.06) contrast(1.05);
+  }
+
+  @media (min-width: 768px) {
+    .hero-image {
+      transform: translateX(9%) scale(1.04);
+      transform-origin: center;
+    }
+  }
+
+  @media (max-width: 767px) {
+    .hero-image {
+      object-position: 54% center;
+      transform: scale(1.03);
+      transform-origin: center;
+    }
   }
 
   /* ============================================
@@ -435,6 +455,21 @@
     background: hsl(var(--primary) / 0.15);
     border: 1px solid hsl(var(--primary) / 0.3);
     color: hsl(var(--primary));
+  }
+
+  .maintenance-chip {
+    @apply inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium;
+    background: linear-gradient(135deg, hsl(var(--primary) / 0.14), hsl(var(--accent) / 0.1));
+    border: 1px solid hsl(var(--primary) / 0.35);
+    color: hsl(var(--text-secondary));
+    box-shadow: 0 8px 20px hsl(216 45% 7% / 0.28);
+    backdrop-filter: blur(6px);
+  }
+
+  .maintenance-dot {
+    @apply w-2 h-2 rounded-full;
+    background: hsl(var(--primary));
+    box-shadow: 0 0 12px hsl(var(--primary) / 0.65);
   }
 
   .test-badge {
@@ -912,6 +947,10 @@
     .btn-clara-primary:hover,
     .btn-clara-secondary:hover,
     .feature-card:hover {
+      transform: none;
+    }
+
+    .hero-image {
       transform: none;
     }
   }

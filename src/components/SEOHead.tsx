@@ -15,7 +15,7 @@ export function SEOHead({
   description = "Consultora de Legislação e Apoio a Rotinas Administrativas. Sua assistente especializada em sistemas eletrônicos de informação e procedimentos administrativos.",
   keywords = ["SEI", "legislação", "administração pública", "assistente virtual", "CLARA", "inteligência administrativa", "procedimentos administrativos"],
   type = "website",
-  image = "/og-image.png",
+  image = "/og-image.jpg",
   noIndex = false,
   googleVerification,
 }: SEOHeadProps) {

@@ -1,8 +1,8 @@
 /// <reference lib="webworker" />
 
-const CACHE_NAME = 'clara-v1';
-const STATIC_CACHE_NAME = 'clara-static-v1';
-const DYNAMIC_CACHE_NAME = 'clara-dynamic-v1';
+const CACHE_NAME = 'clara-v2';
+const STATIC_CACHE_NAME = 'clara-static-v2';
+const DYNAMIC_CACHE_NAME = 'clara-dynamic-v2';
 
 // Static assets to cache on install
 const STATIC_ASSETS = [
@@ -10,7 +10,7 @@ const STATIC_ASSETS = [
   '/index.html',
   '/manifest.json',
   '/favicon.ico',
-  '/og-image.png',
+  '/og-image.jpg',
 ];
 
 // Install event - cache static assets

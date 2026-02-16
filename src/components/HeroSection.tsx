@@ -2,11 +2,10 @@ import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Search, MessageCircle, BookOpen, Sparkles } from 'lucide-react';
 import { useIsMobile } from '@/hooks/use-mobile';
-// Responsive WebP images for better LCP performance
-import claraHeroLarge from '@/assets/clara-hero-1920.webp';
-import claraHeroMedium from '@/assets/clara-hero-1024.webp';
-import claraHeroSmall from '@/assets/clara-hero-640.webp';
-import claraHeroFallback from '@/assets/clara-hero.png';
+import claraHeroLarge from '@/assets/clara-hero-desktop-1920.jpg';
+import claraHeroMedium from '@/assets/clara-hero-desktop-1024.jpg';
+import claraHeroSmall from '@/assets/clara-hero-mobile-640.jpg';
+import claraHeroFallback from '@/assets/clara-hero-fallback.jpg';
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -37,7 +36,7 @@ const HeroSection = ({ onOpenChat }: HeroSectionProps) => {
 
   return (
     <section className="relative min-h-screen flex items-center overflow-hidden">
-      {/* Background Image Layer - Using img for LCP optimization */}
+      {/* Background Image Layer */}
       <motion.div 
         initial={isMobile ? { opacity: 0 } : { scale: 1.1, opacity: 0 }}
         animate={isMobile ? { opacity: 1 } : { scale: 1, opacity: 1 }}
@@ -45,29 +44,27 @@ const HeroSection = ({ onOpenChat }: HeroSectionProps) => {
         className="absolute inset-0 z-0 pointer-events-none"
       >
         <picture>
-          {/* WebP sources with responsive sizes for LCP optimization */}
           <source
-            type="image/webp"
+            type="image/jpeg"
             media="(max-width: 640px)"
             srcSet={claraHeroSmall}
           />
           <source
-            type="image/webp"
+            type="image/jpeg"
             media="(max-width: 1024px)"
             srcSet={claraHeroMedium}
           />
           <source
-            type="image/webp"
+            type="image/jpeg"
             srcSet={claraHeroLarge}
           />
-          {/* PNG fallback for older browsers */}
           <img 
             src={claraHeroFallback}
             alt=""
             fetchPriority="high"
             loading="eager"
             decoding="async"
-            className="w-full h-full object-cover object-right"
+            className="w-full h-full object-cover hero-image"
             aria-hidden="true"
           />
         </picture>
@@ -101,6 +98,13 @@ const HeroSection = ({ onOpenChat }: HeroSectionProps) => {
                 <Sparkles className="w-3 h-3 text-primary" aria-hidden="true" />
                 Inteligência Administrativa
               </span>
+            </motion.div>
+
+            <motion.div variants={itemVariants}>
+              <div className="maintenance-chip" role="status" aria-live="polite">
+                <span className="maintenance-dot animate-pulse-subtle" aria-hidden="true" />
+                CLARA em manutenção e atualização. Volta em breve.
+              </div>
             </motion.div>
 
             {/* H1 - CLARA with tighter tracking for brand signature */}
