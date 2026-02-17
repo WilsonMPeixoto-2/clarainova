@@ -44,7 +44,7 @@ const HeroSection = ({ onOpenChat }: HeroSectionProps) => {
   ];
 
   return (
-    <section className="relative min-h-screen flex items-center overflow-hidden">
+    <section className="hero-shell relative min-h-screen flex items-center overflow-hidden">
       {/* Background Image Layer */}
       <motion.div 
         initial={{ opacity: 0 }}
