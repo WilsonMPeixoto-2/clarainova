@@ -78,14 +78,14 @@ const HeroSection = ({ onOpenChat }: HeroSectionProps) => {
 
 
       {/* Content Layer */}
-      <div className="container mx-auto px-6 relative z-20 pt-24 md:pt-32 pb-16 md:pb-24">
+      <div className="container mx-auto px-6 relative z-20 pt-24 md:pt-28 pb-16 md:pb-24">
         <div className="grid grid-cols-1 md:grid-cols-12 gap-8 items-center">
           {/* Left Column - Content (60%) */}
           <motion.div 
             variants={containerVariants}
             initial="hidden"
             animate="visible"
-            className="md:col-span-7 lg:col-span-7 space-y-6 md:space-y-8"
+            className="md:col-span-7 lg:col-span-7 space-y-6 md:space-y-9"
           >
             {/* Badge Chip */}
             <motion.div variants={itemVariants}>
@@ -109,7 +109,7 @@ const HeroSection = ({ onOpenChat }: HeroSectionProps) => {
 
             {/* H1 - CLARA with tighter tracking for brand signature */}
             <motion.h1 variants={itemVariants}>
-              <span className="text-5xl sm:text-6xl md:text-8xl lg:text-9xl font-bold tracking-tighter text-primary amber-glow inline-block">
+              <span className="hero-title amber-glow inline-block">
                 CLARA
               </span>
             </motion.h1>
@@ -117,7 +117,7 @@ const HeroSection = ({ onOpenChat }: HeroSectionProps) => {
             {/* Subtitle - with elegant leading */}
             <motion.p 
               variants={itemVariants}
-              className="text-xl sm:text-2xl md:text-3xl font-medium text-foreground tracking-tight text-glow max-w-xl leading-snug"
+              className="hero-subtitle text-glow"
             >
               <span className="text-primary">C</span>onsultora de{' '}
               <span className="text-primary">L</span>egislação e{' '}
@@ -129,7 +129,7 @@ const HeroSection = ({ onOpenChat }: HeroSectionProps) => {
             {/* Description */}
             <motion.p 
               variants={itemVariants}
-              className="text-body max-w-lg"
+              className="text-body max-w-[42ch]"
             >
               Sua assistente especializada em sistemas eletrônicos de informações e procedimentos administrativos. Orientações passo a passo com indicação de fontes documentais.
             </motion.p>
@@ -137,12 +137,12 @@ const HeroSection = ({ onOpenChat }: HeroSectionProps) => {
             {/* CTAs */}
             <motion.div 
               variants={itemVariants}
-              className="flex flex-col sm:flex-row gap-4 pt-2"
+              className="flex flex-col sm:flex-row gap-4 pt-3"
             >
               <motion.button 
                 onClick={() => onOpenChat()}
-                className="btn-clara-primary flex items-center justify-center gap-2"
-                whileHover={{ scale: 1.03, boxShadow: "0 10px 30px -10px hsl(var(--primary) / 0.4)" }}
+                className="btn-clara-primary type-label flex items-center justify-center gap-2"
+                whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
                 transition={{ type: "spring", stiffness: 400 }}
               >
@@ -154,8 +154,8 @@ const HeroSection = ({ onOpenChat }: HeroSectionProps) => {
                   const featuresSection = document.getElementById('features');
                   featuresSection?.scrollIntoView({ behavior: 'smooth' });
                 }}
-                className="btn-clara-secondary flex items-center justify-center gap-2"
-                whileHover={{ scale: 1.03 }}
+                className="btn-clara-secondary type-label flex items-center justify-center gap-2"
+                whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
                 transition={{ type: "spring", stiffness: 400 }}
               >
@@ -167,7 +167,7 @@ const HeroSection = ({ onOpenChat }: HeroSectionProps) => {
             {/* Privacy Policy Link */}
             <motion.p 
               variants={itemVariants}
-              className="text-caption"
+              className="text-caption max-w-[44ch]"
             >
               Ao usar nossos serviços, você concorda com nossa{' '}
               <a 
@@ -179,7 +179,7 @@ const HeroSection = ({ onOpenChat }: HeroSectionProps) => {
             </motion.p>
 
             {/* Search Bar */}
-            <motion.div variants={itemVariants} className="pt-4 space-y-3">
+            <motion.div variants={itemVariants} className="pt-5 space-y-3">
               <form 
                 onSubmit={(e) => {
                   e.preventDefault();
