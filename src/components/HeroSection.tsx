@@ -1,6 +1,5 @@
-import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Search, MessageCircle, BookOpen, Sparkles } from 'lucide-react';
+import { MessageCircle, BookOpen, Sparkles } from 'lucide-react';
 import { useIsMobile } from '@/hooks/use-mobile';
 import claraHeroLarge from '@/assets/clara-hero-desktop-1920.jpg';
 import claraHeroMedium from '@/assets/clara-hero-desktop-1024.jpg';
@@ -30,9 +29,19 @@ interface HeroSectionProps {
 }
 
 const HeroSection = ({ onOpenChat }: HeroSectionProps) => {
-  const [searchQuery, setSearchQuery] = useState('');
-  const [isSearchFocused, setIsSearchFocused] = useState(false);
   const isMobile = useIsMobile();
+  const quickQuestions = [
+    "Como anexar documentos no SEI?",
+    "Prazos de prestação de contas",
+    "Modelos SEI-Rio disponíveis",
+    "Como solicitar diárias?",
+    "O que é bloco de assinatura?",
+    "Como encaminhar processos?",
+    "Como atualizar dados no SDP?",
+    "Regras para afastamento temporário",
+    "Configurações de assinatura digital",
+    "Checklist para licitações"
+  ];
 
   return (
     <section className="relative min-h-screen flex items-center overflow-hidden">
@@ -178,69 +187,20 @@ const HeroSection = ({ onOpenChat }: HeroSectionProps) => {
               </a>
             </motion.p>
 
-            {/* Search Bar */}
-            <motion.div variants={itemVariants} className="pt-5 space-y-3">
-              <form 
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  if (searchQuery.trim()) {
-                    onOpenChat(searchQuery.trim());
-                    setSearchQuery('');
-                  }
-                }}
-                className="relative max-w-xl"
-                role="search"
-              >
-                <label htmlFor="hero-search" className="sr-only">
-                  Pesquisar dúvidas
-                </label>
-                <motion.div
-                  animate={{ 
-                    boxShadow: isSearchFocused 
-                      ? "0 0 0 2px hsl(var(--primary) / 0.3), 0 10px 30px -10px hsl(var(--primary) / 0.2)"
-                      : "0 4px 20px -5px hsl(var(--primary) / 0.1)"
-                  }}
-                  transition={{ duration: 0.2 }}
-                  className="relative rounded-2xl overflow-hidden"
-                >
-                  <Search 
-                    className="absolute left-4 top-1/2 -translate-y-1/2 text-text-muted z-10" 
-                    size={20}
-                    aria-hidden="true"
-                  />
-                  <input
-                    id="hero-search"
-                    type="search"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    onFocus={() => setIsSearchFocused(true)}
-                    onBlur={() => setIsSearchFocused(false)}
-                    placeholder="Descreva sua dúvida…"
-                    className="search-input-clara pl-12"
-                    autoComplete="off"
-                  />
-                </motion.div>
-              </form>
-
-              {/* Suggestion Chips */}
-              <div className="flex flex-wrap gap-2 max-w-xl" role="list" aria-label="Sugestões de perguntas">
-                {[
-                  "Como solicitar diárias?",
-                  "Prazos de prestação de contas",
-                  "Modelos SEI-Rio"
-                ].map((suggestion, i) => (
-                  <motion.button
-                    key={suggestion}
+            {/* Quick Actions Carousel */}
+            <motion.div variants={itemVariants} className="pt-5">
+              <p className="text-caption mb-2 text-text-secondary">Perguntas rápidas</p>
+              <div className="quick-carousel" role="list" aria-label="Perguntas rápidas">
+                {quickQuestions.map((question, i) => (
+                  <button
+                    key={question}
                     type="button"
-                    onClick={() => onOpenChat(suggestion)}
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.6 + i * 0.1 }}
-                    className="suggestion-chip"
-                    role="listitem"
+                    className="quick-chip"
+                    onClick={() => onOpenChat(question)}
+                    style={{ animationDelay: `${0.05 * i}s` }}
                   >
-                    {suggestion}
-                  </motion.button>
+                    {question}
+                  </button>
                 ))}
               </div>
             </motion.div>
