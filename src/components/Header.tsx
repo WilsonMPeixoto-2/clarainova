@@ -95,7 +95,7 @@ const Header = ({ onOpenChat }: HeaderProps) => {
       {/* Menu Drawer Overlay */}
       {menuOpen && (
         <div 
-          className="fixed inset-0 z-40 bg-[hsl(var(--bg-base)/0.72)] backdrop-blur-[1.5px]"
+          className="menu-backdrop"
           onClick={() => setMenuOpen(false)}
           aria-hidden="true"
         />

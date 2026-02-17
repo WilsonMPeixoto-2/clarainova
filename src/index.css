@@ -433,12 +433,14 @@
     position: fixed;
     inset: 0;
     z-index: 45;
-    background: linear-gradient(
-      180deg,
-      hsl(var(--bg-base) / 0.94),
-      hsl(var(--bg-base) / 0.85)
-    );
+    pointer-events: auto;
+    background:
+      radial-gradient(circle at 20% 20%, hsl(var(--gold-1) / 0.18), transparent 35%),
+      radial-gradient(circle at 80% 20%, hsl(var(--gold-2) / 0.12), transparent 42%),
+      linear-gradient(180deg, hsl(var(--bg-base) / 0.96), hsl(var(--bg-base) / 0.86));
     backdrop-filter: blur(16px);
+    border-top: 1px solid hsl(var(--stroke) / 0.45);
+    box-shadow: inset 0 1px 0 hsl(var(--stroke) / 0.25);
   }
 
   .hero-image {
