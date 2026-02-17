@@ -38,9 +38,9 @@ const HeroSection = ({ onOpenChat }: HeroSectionProps) => {
     <section className="relative min-h-screen flex items-center overflow-hidden">
       {/* Background Image Layer */}
       <motion.div 
-        initial={isMobile ? { opacity: 0 } : { scale: 1.1, opacity: 0 }}
-        animate={isMobile ? { opacity: 1 } : { scale: 1, opacity: 1 }}
-        transition={{ duration: isMobile ? 0.6 : 1.2, ease: "easeOut" }}
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: isMobile ? 0.55 : 0.9, ease: "easeOut" }}
         className="absolute inset-0 z-0 pointer-events-none"
       >
         <picture>
@@ -69,12 +69,12 @@ const HeroSection = ({ onOpenChat }: HeroSectionProps) => {
           />
         </picture>
       </motion.div>
-      
-      {/* Desktop Gradient Overlay */}
-      <div className="absolute inset-0 z-10 pointer-events-none hidden md:block hero-overlay" />
-      
-      {/* Mobile Gradient Overlay */}
-      <div className="absolute inset-0 z-10 pointer-events-none md:hidden hero-overlay-mobile" />
+
+      {/* Overlay Layer (separate from media layer to avoid washing image details) */}
+      <div className="absolute inset-0 z-10 pointer-events-none" aria-hidden="true">
+        <div className="absolute inset-0 hidden md:block hero-overlay" />
+        <div className="absolute inset-0 md:hidden hero-overlay-mobile" />
+      </div>
 
 
       {/* Content Layer */}

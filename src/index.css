@@ -243,43 +243,55 @@
      HERO OVERLAYS
      ============================================ */
   .hero-overlay {
-    background: linear-gradient(
-      90deg,
-      hsl(216 45% 7% / 1) 0%,
-      hsl(216 45% 7% / 0.98) 30%,
-      hsl(216 45% 7% / 0.86) 52%,
-      hsl(216 45% 7% / 0.48) 70%,
-      hsl(216 45% 7% / 0.18) 86%,
-      hsl(216 45% 7% / 0) 100%
-    );
+    background:
+      linear-gradient(
+        90deg,
+        hsl(216 45% 7% / 0.9) 0%,
+        hsl(216 45% 7% / 0.8) 30%,
+        hsl(216 45% 7% / 0.6) 50%,
+        hsl(216 45% 7% / 0.34) 70%,
+        hsl(216 45% 7% / 0.12) 86%,
+        hsl(216 45% 7% / 0) 100%
+      ),
+      linear-gradient(
+        180deg,
+        hsl(216 45% 7% / 0.1) 0%,
+        hsl(216 45% 7% / 0.04) 48%,
+        hsl(216 45% 7% / 0.22) 100%
+      );
   }
 
   .hero-overlay-mobile {
-    background: linear-gradient(
-      180deg,
-      hsl(216 45% 7% / 0.94) 0%,
-      hsl(216 45% 7% / 0.84) 46%,
-      hsl(216 45% 7% / 0.7) 100%
-    );
+    background:
+      linear-gradient(
+        180deg,
+        hsl(216 45% 7% / 0.82) 0%,
+        hsl(216 45% 7% / 0.68) 46%,
+        hsl(216 45% 7% / 0.5) 100%
+      ),
+      linear-gradient(
+        90deg,
+        hsl(216 45% 7% / 0.2) 0%,
+        hsl(216 45% 7% / 0.06) 55%,
+        hsl(216 45% 7% / 0.14) 100%
+      );
   }
 
   .hero-image {
-    object-position: 60% center;
-    filter: saturate(1.06) contrast(1.05);
+    object-fit: cover;
+    object-position: 66% 24%;
+    filter: saturate(1.04) contrast(1.03);
   }
 
-  @media (min-width: 768px) {
+  @media (max-width: 1023px) {
     .hero-image {
-      transform: translateX(9%) scale(1.04);
-      transform-origin: center;
+      object-position: 62% 22%;
     }
   }
 
   @media (max-width: 767px) {
     .hero-image {
-      object-position: 54% center;
-      transform: scale(1.03);
-      transform-origin: center;
+      object-position: 58% 20%;
     }
   }
 
