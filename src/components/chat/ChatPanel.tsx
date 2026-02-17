@@ -118,7 +118,7 @@ function EmptyState({ onSuggestionClick, isLoading }: { onSuggestionClick: (quer
             whileTap="tap"
             onClick={() => onSuggestionClick(suggestion)}
             disabled={isLoading}
-            className="text-left px-4 py-3 rounded-xl border border-border-subtle bg-card/40 text-sm text-foreground/85 hover:bg-card hover:border-primary/25 transition-all duration-fast disabled:opacity-50 focus-halo"
+            className="drawer-suggestion-chip"
           >
             {suggestion}
           </motion.button>
@@ -308,12 +308,12 @@ export function ChatPanel({ open, onOpenChange, initialQuery }: ChatPanelProps) 
       <Sheet open={open} onOpenChange={onOpenChange}>
         <SheetContent 
           side="right" 
-          className={`flex flex-col p-0 gap-0 ${
+          className={`drawer-shell flex flex-col p-0 gap-0 ${
             isMobile ? 'w-full max-w-full' : 'w-[550px] lg:w-[600px] sm:max-w-[600px]'
           }`}
         >
           {/* Header */}
-          <SheetHeader className="flex-shrink-0 px-4 py-3 border-b border-border-subtle bg-background">
+          <SheetHeader className="drawer-header-surface flex-shrink-0 px-4 py-3 border-b">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-primary/15 flex items-center justify-center">
@@ -442,7 +442,7 @@ export function ChatPanel({ open, onOpenChange, initialQuery }: ChatPanelProps) 
           </main>
 
           {/* Input Area */}
-          <footer className="flex-shrink-0 border-t border-border-subtle bg-background/80 backdrop-blur-xl px-4 py-3 chat-input-footer">
+          <footer className="drawer-footer-surface flex-shrink-0 border-t px-4 py-3 chat-input-footer">
             <ChatInput
               onSend={sendMessage}
               isLoading={isLoading}
