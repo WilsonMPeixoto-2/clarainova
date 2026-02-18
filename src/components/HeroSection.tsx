@@ -208,16 +208,16 @@ const HeroSection = ({ onOpenChat }: HeroSectionProps) => {
 
 
       {/* Content Layer */}
-      <div className="container mx-auto px-6 relative z-20 pt-24 md:pt-28 pb-16 md:pb-24">
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-8 items-end md:items-center">
+      <div className="container mx-auto max-w-[1440px] px-6 md:px-8 xl:px-10 relative z-20 pt-24 md:pt-28 pb-16 md:pb-24">
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-8 lg:gap-12 xl:gap-14 items-end md:items-center">
           {/* Left Column - Editorial Stack */}
           <motion.div 
             variants={containerVariants}
             initial="hidden"
             animate="visible"
-            className="md:col-span-6 lg:col-span-5"
+            className="md:col-span-7 lg:col-span-6 xl:col-span-6"
           >
-            <div className="hero-copy-panel space-y-6 md:space-y-9">
+            <div className="hero-copy-panel space-y-6 md:space-y-9 w-full">
               {/* Badge Chip */}
               <motion.div variants={itemVariants}>
                 <span className="badge-chip">
@@ -260,7 +260,7 @@ const HeroSection = ({ onOpenChat }: HeroSectionProps) => {
               {/* Description */}
               <motion.p 
                 variants={itemVariants}
-                className="text-body max-w-[42ch]"
+                className="text-body max-w-[50ch]"
               >
                 Sua assistente especializada em sistemas eletrônicos de informações e procedimentos administrativos. Orientações passo a passo com indicação de fontes documentais.
               </motion.p>
@@ -373,7 +373,7 @@ const HeroSection = ({ onOpenChat }: HeroSectionProps) => {
           </motion.div>
 
           {/* Right Column - intentionally left for art direction balance */}
-          <div className="hidden md:block md:col-span-6 lg:col-span-7" aria-hidden="true" />
+          <div className="hidden md:block md:col-span-5 lg:col-span-6 xl:col-span-6" aria-hidden="true" />
         </div>
       </div>
 

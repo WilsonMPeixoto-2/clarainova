@@ -353,7 +353,7 @@
     line-height: 1.05;
     letter-spacing: -0.018em;
     font-weight: 620;
-    max-width: 20ch;
+    max-width: 23ch;
     text-wrap: balance;
   }
 
@@ -622,6 +622,8 @@
   .hero-copy-panel {
     @apply rounded-3xl px-5 py-6 md:px-7 md:py-8;
     position: relative;
+    width: 100%;
+    max-width: min(100%, 46rem);
     border: 1px solid hsl(var(--stroke) / 0.7);
     background:
       radial-gradient(circle at 100% 0%, hsl(var(--gold-2) / 0.14), transparent 42%),
@@ -643,6 +645,7 @@
 
   @media (max-width: 767px) {
     .hero-copy-panel {
+      max-width: 100%;
       border-color: hsl(var(--stroke) / 0.55);
       backdrop-filter: blur(4px);
     }
