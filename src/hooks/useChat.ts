@@ -61,8 +61,21 @@ interface ThinkingState {
   step: string;
 }
 
+export interface ChatErrorDetails {
+  code: "config" | "http" | "network" | "response" | "unknown";
+  requestUrl?: string;
+  method?: string;
+  status?: number;
+  durationMs?: number;
+  requestId?: string;
+  webSearchMode?: WebSearchMode;
+  hint?: string;
+  technicalMessage?: string;
+  responseSnippet?: string;
+}
+
 interface UseChatOptions {
-  onError?: (error: string) => void;
+  onError?: (error: string, details?: ChatErrorDetails) => void;
 }
 
 // Options for sendMessage to support continuation
@@ -142,6 +155,38 @@ function getSessionFingerprint(): string {
   return fingerprint;
 }
 
+function getRequestDurationMs(startedAt: number): number {
+  return Math.max(1, Math.round(performance.now() - startedAt));
+}
+
+function resolveInternalWebSearchMode(
+  query: string,
+  mode: ResponseMode,
+): { webSearchMode: WebSearchMode; reason: string } {
+  const normalized = query.toLowerCase();
+  const freshnessIntent =
+    /\b(hoje|agora|atual|atualizada|vigente|mais recente|últim[oa]|publicad[oa]|202[4-9])\b/.test(normalized);
+  const legalActIntent =
+    /\b(portaria|decreto|lei|resolução|resolucao|instrução|instrucao normativa|edital)\b/.test(normalized);
+
+  if (freshnessIntent) {
+    return { webSearchMode: "deep", reason: "freshness_intent" };
+  }
+  if (mode === "deep" && legalActIntent) {
+    return { webSearchMode: "deep", reason: "didactic_regulatory_query" };
+  }
+  return { webSearchMode: "auto", reason: "local_base_first" };
+}
+
+function getHttpErrorHint(status: number): string {
+  if (status === 400) return "Requisição inválida. Revise payload e parâmetros enviados.";
+  if (status === 401 || status === 403) return "Credenciais inválidas ou permissão insuficiente no endpoint.";
+  if (status === 404) return "Endpoint da função não encontrado (URL incorreta ou função indisponível).";
+  if (status === 429) return "Limite de uso atingido. Aguarde e tente novamente.";
+  if (status >= 500) return "Falha no servidor da função. Verifique logs do backend.";
+  return "Erro HTTP inesperado ao chamar o backend do chat.";
+}
+
 export function useChat(options: UseChatOptions = {}) {
   const [messages, setMessages] = useState<ChatMessage[]>(() => loadMessagesFromStorage());
   const [isLoading, setIsLoading] = useState(false);
@@ -164,7 +209,7 @@ export function useChat(options: UseChatOptions = {}) {
   const sendMessage = useCallback(async (
     content: string, 
     mode: ResponseMode = "fast", 
-    webSearchMode: WebSearchMode = "auto",
+    webSearchMode?: WebSearchMode,
     sendOptions: SendMessageOptions = {}
   ) => {
     const isContinuation = sendOptions.continuation === true;
@@ -174,12 +219,20 @@ export function useChat(options: UseChatOptions = {}) {
     if (isContinuation && isLoading) return;
 
     const userQueryContent = isContinuation ? lastUserMessageRef.current : content.trim();
+    const requestedWebSearchMode = webSearchMode ?? "auto";
+    const internalWebPolicy = isContinuation
+      ? { webSearchMode: lastWebSearchModeRef.current, reason: "continuation_previous_policy" }
+      : resolveInternalWebSearchMode(userQueryContent, mode);
+    const resolvedWebSearchMode: WebSearchMode =
+      requestedWebSearchMode === "deep" ? "deep" : internalWebPolicy.webSearchMode;
+    const webPolicyReason =
+      requestedWebSearchMode === "deep" ? "forced_external_deep" : internalWebPolicy.reason;
     
     // Store last user message for regenerate/continue
     if (!isContinuation) {
       lastUserMessageRef.current = userQueryContent;
       lastModeRef.current = mode;
-      lastWebSearchModeRef.current = webSearchMode;
+      lastWebSearchModeRef.current = resolvedWebSearchMode;
     }
 
     // Adicionar mensagem do usuário
@@ -213,6 +266,17 @@ export function useChat(options: UseChatOptions = {}) {
     let noticeInfo: ChatNotice | undefined;
     let backendRequestId: string | undefined;
     let queryId: string | undefined;
+    activeRequestIdRef.current = null;
+    let requestUrl: string | undefined;
+    const requestStartedAt = performance.now();
+    const requestMethod = "POST";
+
+    console.info("[chat:web-policy]", {
+      mode,
+      resolvedWebSearchMode,
+      reason: webPolicyReason,
+      continuation: isContinuation,
+    });
 
     setMessages(prev => [
       ...prev,
@@ -232,35 +296,73 @@ export function useChat(options: UseChatOptions = {}) {
         import.meta.env.VITE_SUPABASE_ANON_KEY || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
       if (!import.meta.env.VITE_SUPABASE_URL || !anonKey) {
-        throw new Error("Supabase não configurado (VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY).");
+        const configError = new Error(
+          "Supabase não configurado (VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY).",
+        ) as Error & { details?: ChatErrorDetails };
+        configError.details = {
+          code: "config",
+          method: requestMethod,
+          webSearchMode: resolvedWebSearchMode,
+          hint: "Defina VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY no ambiente atual.",
+        };
+        throw configError;
       }
 
-      const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/clara-chat`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Accept: "text/event-stream",
-            apikey: anonKey,
-            Authorization: `Bearer ${anonKey}`,
-            "x-session-fingerprint": getSessionFingerprint(),
-          },
-          body: JSON.stringify({
-            message: isContinuation ? "" : content,
-            history: historyForApi.slice(0, -1), // Excluir a mensagem atual
-            mode: mode,
-            webSearchMode: webSearchMode,
-            continuation: isContinuation, // Signal backend to continue previous response
-            stream: true,
-          }),
-          signal: abortControllerRef.current.signal
-        }
-      );
+      requestUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/clara-chat`;
+      const response = await fetch(requestUrl, {
+        method: requestMethod,
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "text/event-stream",
+          apikey: anonKey,
+          Authorization: `Bearer ${anonKey}`,
+          "x-session-fingerprint": getSessionFingerprint(),
+        },
+        body: JSON.stringify({
+          message: isContinuation ? "" : userQueryContent,
+          history: historyForApi.slice(0, -1), // Excluir a mensagem atual
+          mode: mode,
+          webSearchMode: resolvedWebSearchMode,
+          continuation: isContinuation, // Signal backend to continue previous response
+          stream: true,
+        }),
+        signal: abortControllerRef.current.signal
+      });
+
+      console.info("[chat:fetch]", {
+        url: requestUrl,
+        method: requestMethod,
+        status: response.status,
+        durationMs: getRequestDurationMs(requestStartedAt),
+      });
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || `Erro ${response.status}`);
+        const errorText = await response.text().catch(() => "");
+        const parsedError = (() => {
+          if (!errorText) return {};
+          try {
+            return JSON.parse(errorText) as Record<string, unknown>;
+          } catch {
+            return {};
+          }
+        })();
+        const serverMessage =
+          typeof parsedError.error === "string"
+            ? parsedError.error
+            : `Erro ${response.status} ao consultar o chat`;
+        const requestError = new Error(serverMessage) as Error & { details?: ChatErrorDetails };
+        requestError.details = {
+          code: "http",
+          requestUrl,
+          method: requestMethod,
+          status: response.status,
+          durationMs: getRequestDurationMs(requestStartedAt),
+          webSearchMode: resolvedWebSearchMode,
+          hint: getHttpErrorHint(response.status),
+          technicalMessage: serverMessage,
+          responseSnippet: errorText.slice(0, 300),
+        };
+        throw requestError;
       }
 
       const contentType = response.headers.get("content-type") || "";
@@ -278,7 +380,17 @@ export function useChat(options: UseChatOptions = {}) {
         assistantContent = answer || "Desculpe, não consegui gerar uma resposta.";
       } else {
         if (!response.body) {
-          throw new Error("Resposta sem corpo");
+          const emptyBodyError = new Error("Resposta sem corpo");
+          (emptyBodyError as Error & { details?: ChatErrorDetails }).details = {
+            code: "response",
+            requestUrl,
+            method: requestMethod,
+            status: response.status,
+            durationMs: getRequestDurationMs(requestStartedAt),
+            webSearchMode: resolvedWebSearchMode,
+            hint: "A função respondeu sem stream/body. Verifique logs da função clara-chat.",
+          };
+          throw emptyBodyError;
         }
 
         const reader = response.body.getReader();
@@ -481,8 +593,36 @@ export function useChat(options: UseChatOptions = {}) {
         return;
       }
 
-      const errorMessage = error instanceof Error ? error.message : "Erro desconhecido";
-      console.error("Erro no chat:", error);
+      const rawError = error instanceof Error ? error : new Error("Erro desconhecido");
+      const errorWithDetails = rawError as Error & { details?: ChatErrorDetails };
+      const looksLikeNetworkError =
+        rawError instanceof TypeError ||
+        /Failed to fetch|fetch failed|NetworkError|Load failed/i.test(rawError.message);
+
+      const errorDetails: ChatErrorDetails =
+        errorWithDetails.details ??
+        {
+          code: looksLikeNetworkError ? "network" : "unknown",
+          requestUrl,
+          method: requestMethod,
+          durationMs: getRequestDurationMs(requestStartedAt),
+          requestId: activeRequestIdRef.current ?? undefined,
+          webSearchMode: resolvedWebSearchMode,
+          hint: looksLikeNetworkError
+            ? "Falha de rede, CORS ou endpoint inacessível. Verifique URL/env/headers e disponibilidade da função."
+            : "Falha inesperada no processamento do chat.",
+          technicalMessage: rawError.message,
+        };
+
+      const userFacingMessage =
+        errorDetails.code === "network"
+          ? "Falha de conexão com o serviço da CLARA. Tente novamente em instantes."
+          : rawError.message;
+
+      console.error("[chat:error]", {
+        message: rawError.message,
+        details: errorDetails,
+      });
       
       // Atualizar mensagem com erro
       setMessages(prev => {
@@ -490,7 +630,7 @@ export function useChat(options: UseChatOptions = {}) {
           msg.id === assistantId 
             ? { 
                 ...msg, 
-                content: msg.content || `Desculpe, ocorreu um erro: ${errorMessage}. Por favor, tente novamente.`,
+                content: msg.content || `Desculpe, ocorreu um erro: ${userFacingMessage}. Por favor, tente novamente.`,
                 isStreaming: false,
                 status: "error" as MessageStatus,
               }
@@ -500,7 +640,7 @@ export function useChat(options: UseChatOptions = {}) {
         return final;
       });
       
-      options.onError?.(errorMessage);
+      options.onError?.(userFacingMessage, errorDetails);
     } finally {
       setIsLoading(false);
       setThinking({ isThinking: false, step: "" });
