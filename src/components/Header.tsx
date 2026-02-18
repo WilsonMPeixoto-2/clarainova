@@ -49,17 +49,16 @@ const Header = ({ onOpenChat }: HeaderProps) => {
             {/* Brand Mark (minimal monogram to avoid duplicate CLARA headline) */}
             <a 
               href="/" 
-              className="flex items-center gap-3 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 rounded-lg"
+              className="inline-flex items-center gap-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 rounded-full"
             >
               <span
-                className="inline-flex items-center justify-center w-9 h-9 rounded-lg border border-primary/35 bg-primary/10 text-primary text-sm font-semibold tracking-tight"
+                className="inline-flex items-center justify-center w-10 h-10 rounded-full border border-primary/35 bg-[linear-gradient(135deg,hsl(var(--gold-1)/0.15),hsl(var(--gold-2)/0.25))] text-primary text-lg font-bold tracking-tight"
                 aria-hidden="true"
               >
                 C
               </span>
-              <span className="hidden sm:flex flex-col leading-tight">
-                <span className="text-[11px] uppercase tracking-[0.12em] text-text-muted">Sistema</span>
-                <span className="text-sm font-semibold tracking-tight text-foreground">Inteligência Administrativa</span>
+              <span className="text-sm font-semibold tracking-[0.18em] uppercase text-text-muted hidden sm:block">
+                Sistema
               </span>
               <span className="sr-only">CLARA - Página inicial</span>
             </a>
@@ -69,7 +68,7 @@ const Header = ({ onOpenChat }: HeaderProps) => {
                 <Button
                   onClick={onOpenChat}
                   size="sm"
-                  className="btn-clara-primary type-label h-10 px-4 gap-2"
+                  className="btn-clara-secondary type-label h-10 px-4 gap-2 rounded-full"
                 >
                   <MessageCircle size={16} aria-hidden="true" />
                   Chat
