@@ -92,7 +92,12 @@ const FeaturesSection = ({ onOpenChat }: FeaturesSectionProps) => {
               delay={index * 0.08}
               className={index === 0 ? 'lg:col-span-2' : ''}
             >
-              <article className="knowledge-card group h-full" role="listitem">
+              <motion.article
+                className="knowledge-card group h-full"
+                role="listitem"
+                whileHover={{ y: -4, rotateX: 1.2, rotateY: index === 1 ? 0.8 : -0.8 }}
+                transition={{ type: 'spring', stiffness: 260, damping: 22 }}
+              >
                 <div className="knowledge-card-head">
                   <div className="knowledge-icon" aria-hidden="true">
                     <feature.icon className="w-6 h-6 text-primary" strokeWidth={1.6} />
@@ -120,7 +125,7 @@ const FeaturesSection = ({ onOpenChat }: FeaturesSectionProps) => {
                   Explorar no chat
                   <ArrowUpRight className="w-4 h-4" aria-hidden="true" />
                 </motion.button>
-              </article>
+              </motion.article>
             </ScrollReveal>
           ))}
         </div>
