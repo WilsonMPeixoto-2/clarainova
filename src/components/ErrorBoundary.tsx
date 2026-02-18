@@ -59,10 +59,6 @@ export class ErrorBoundary extends Component<Props, State> {
     }
   }
 
-  handleReload = (): void => {
-    window.location.reload();
-  };
-
   handleGoHome = (): void => {
     window.location.href = "/";
   };
@@ -136,18 +132,4 @@ export class ErrorBoundary extends Component<Props, State> {
 
     return this.props.children;
   }
-}
-
-// HOC para usar com componentes funcionais
-export function withErrorBoundary<P extends object>(
-  WrappedComponent: React.ComponentType<P>,
-  fallback?: ReactNode
-) {
-  return function WithErrorBoundaryWrapper(props: P) {
-    return (
-      <ErrorBoundary fallback={fallback}>
-        <WrappedComponent {...props} />
-      </ErrorBoundary>
-    );
-  };
 }
