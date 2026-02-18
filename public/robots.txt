@@ -13,5 +13,5 @@ Allow: /
 User-agent: *
 Allow: /
 
-# Sitemap location (relative to the current host)
-Sitemap: /sitemap.xml
+# Sitemap location
+Sitemap: https://clarainova.vercel.app/sitemap.xml

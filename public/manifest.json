@@ -51,7 +51,7 @@
       "name": "Nova Consulta",
       "short_name": "Consulta",
       "description": "Iniciar nova conversa com a CLARA",
-      "url": "/chat",
+      "url": "/",
       "icons": [{ "src": "/favicon.ico", "sizes": "64x64" }]
     }
   ]
