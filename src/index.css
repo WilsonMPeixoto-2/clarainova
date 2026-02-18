@@ -17,6 +17,10 @@
     --shadow: 218 56% 4%;
     --glow: 31 58% 62%;
     --noise-opacity: 0.016;
+    --vignette-deep: 216 28% 12%;
+    --highlight-gold: hsl(var(--gold-2) / 0.4);
+    --film-haze: hsl(var(--bg-base) / 0.22);
+    --cta-elevation: 0 12px 30px hsl(var(--shadow) / 0.42);
 
     /* CLARA Design System - mapped to cinematic tokens */
     --background: var(--bg-base);
@@ -181,6 +185,10 @@
     line-height: var(--type-body-line);
     font-weight: var(--type-body-weight);
     position: relative;
+    background-image:
+      radial-gradient(circle at 8% 8%, hsl(var(--bg-base) / 0.75), transparent 42%),
+      radial-gradient(circle at 92% 12%, hsl(var(--vignette-deep) / 0.8), transparent 48%),
+      radial-gradient(circle at 50% 110%, hsl(var(--vignette-deep) / 0.6), transparent 55%);
   }
 
   h1,
@@ -198,9 +206,21 @@
 
   .hero-shell {
     background:
-      radial-gradient(circle at 10% 10%, hsl(var(--bg-elev) / 0.75), transparent 50%),
-      radial-gradient(circle at 90% 20%, hsl(var(--shadow) / 0.25), transparent 55%),
-      linear-gradient(130deg, hsl(var(--bg-base) / 0.96), hsl(var(--bg-base) / 0.85));
+      radial-gradient(circle at 12% 10%, hsl(var(--glow) / 0.35), transparent 48%),
+      radial-gradient(circle at 85% 25%, hsl(var(--bg-elev) / 0.85), transparent 52%),
+      linear-gradient(90deg, hsl(var(--bg-base) / 0.9), hsl(var(--bg-base) / 0.8));
+  }
+
+  .hero-shell::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background:
+      radial-gradient(circle at 10% 10%, hsl(var(--vignette-deep) / 0.6), transparent 45%),
+      radial-gradient(circle at 90% 20%, hsl(var(--vignette-deep) / 0.55), transparent 48%);
+    mix-blend-mode: multiply;
+    opacity: 0.85;
   }
 
   /* Subtle noise texture for premium feel - almost imperceptible */
@@ -374,66 +394,111 @@
   .hero-overlay {
     background:
       radial-gradient(
-        120% 120% at -10% 18%,
-        hsl(var(--bg-base) / 0.78) 0%,
+        150% 150% at 14% 30%,
+        hsl(var(--bg-base) / 0.72) 0%,
         hsl(var(--bg-base) / 0) 58%
       ),
       radial-gradient(
-        125% 120% at 112% 88%,
-        hsl(var(--bg-base) / 0.8) 0%,
-        hsl(var(--bg-base) / 0) 62%
+        140% 120% at 95% 18%,
+        hsl(var(--glow) / 0.26) 0%,
+        hsl(var(--glow) / 0) 62%
       ),
       radial-gradient(
         80% 68% at 56% 34%,
-        hsl(var(--glow) / 0.11) 0%,
+        hsl(var(--glow) / 0.12) 0%,
         hsl(var(--glow) / 0) 72%
       ),
       linear-gradient(
-        90deg,
-        hsl(var(--bg-base) / 0.9) 0%,
-        hsl(var(--bg-base) / 0.78) 28%,
-        hsl(var(--bg-base) / 0.56) 52%,
-        hsl(var(--bg-base) / 0.3) 72%,
-        hsl(var(--bg-base) / 0.1) 88%,
+        98deg,
+        hsl(var(--bg-base) / 0.92) 0%,
+        hsl(var(--bg-base) / 0.76) 36%,
+        hsl(var(--bg-base) / 0.48) 60%,
+        hsl(var(--bg-base) / 0.16) 92%,
         hsl(var(--bg-base) / 0) 100%
       ),
       linear-gradient(
         180deg,
-        hsl(var(--bg-base) / 0.08) 0%,
-        hsl(var(--bg-base) / 0.03) 46%,
-        hsl(var(--bg-base) / 0.22) 100%
+        transparent 15%,
+        hsl(var(--bg-base) / 0.12) 58%,
+        hsl(var(--bg-base) / 0.02) 80%,
+        hsl(var(--bg-base) / 0.2) 100%
       );
   }
 
   .hero-overlay-mobile {
     background:
       radial-gradient(
-        118% 100% at 50% -12%,
-        hsl(var(--glow) / 0.1) 0%,
-        hsl(var(--glow) / 0) 68%
+        160% 140% at 50% -6%,
+        hsl(var(--glow) / 0.24) 0%,
+        hsl(var(--glow) / 0) 62%
       ),
       radial-gradient(
         120% 105% at -12% 20%,
-        hsl(var(--bg-base) / 0.68) 0%,
-        hsl(var(--bg-base) / 0) 58%
+        hsl(var(--bg-base) / 0.62) 0%,
+        hsl(var(--bg-base) / 0) 56%
       ),
       radial-gradient(
         120% 110% at 112% 84%,
-        hsl(var(--bg-base) / 0.72) 0%,
+        hsl(var(--bg-base) / 0.68) 0%,
         hsl(var(--bg-base) / 0) 60%
       ),
       linear-gradient(
         180deg,
-        hsl(var(--bg-base) / 0.8) 0%,
-        hsl(var(--bg-base) / 0.64) 45%,
-        hsl(var(--bg-base) / 0.48) 100%
+        transparent 10%,
+        hsl(var(--bg-base) / 0.34) 45%,
+        hsl(var(--bg-base) / 0.5) 100%
       ),
       linear-gradient(
         90deg,
-        hsl(var(--bg-base) / 0.18) 0%,
-        hsl(var(--bg-base) / 0.05) 55%,
-        hsl(var(--bg-base) / 0.14) 100%
+        transparent 0%,
+        hsl(var(--bg-base) / 0.08) 65%,
+        hsl(var(--bg-base) / 0.2) 100%
       );
+  }
+
+  .hero-energy {
+    mix-blend-mode: screen;
+    opacity: 0.65;
+  }
+
+  .hero-energy-stream {
+    position: absolute;
+    inset: 12% auto auto 14%;
+    width: 180px;
+    height: 180px;
+    border-radius: 50%;
+    background: radial-gradient(circle, hsl(var(--gold-1) / 0.32), transparent 68%);
+    filter: blur(24px);
+    animation: hero-energy-drift 18s linear infinite;
+  }
+
+  .hero-energy-stream--secondary {
+    inset: auto 18% 18% auto;
+    width: 260px;
+    height: 260px;
+    background: radial-gradient(circle, hsl(var(--gold-2) / 0.28), transparent 70%);
+    animation-duration: 26s;
+  }
+
+  @keyframes hero-energy-drift {
+    0%, 100% {
+      transform: translate3d(0, 0, 0) scale(1);
+    }
+    50% {
+      transform: translate3d(12px, -18px, 0) scale(1.08);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .hero-energy-stream {
+      animation: none;
+    }
+    .quick-chip,
+    .action-btn,
+    .btn-clara-primary,
+    .btn-clara-secondary {
+      transition: none;
+    }
   }
 
   .menu-backdrop {
@@ -452,19 +517,20 @@
 
   .hero-image {
     object-fit: cover;
-    object-position: 42% 45%;
-    filter: saturate(1.04) contrast(1.05) brightness(0.98);
+    object-position: 34% 44%;
+    filter: saturate(1.05) contrast(1.04) brightness(0.98);
+    transition: object-position 0.6s ease;
   }
 
   @media (max-width: 1023px) {
     .hero-image {
-      object-position: 38% 48%;
+      object-position: 32% 48%;
     }
   }
 
   @media (max-width: 767px) {
     .hero-image {
-      object-position: 34% 52%;
+      object-position: 28% 48%;
     }
   }
 
@@ -889,6 +955,62 @@
     box-shadow: 0 -1px 0 hsl(var(--stroke) / 0.2) inset;
   }
 
+  .drawer-resize-handle {
+    position: absolute;
+    inset: 0 auto 0 -16px;
+    width: 32px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    cursor: ew-resize;
+  }
+
+  .drawer-resize-handle::before {
+    content: '';
+    display: block;
+    width: 4px;
+    height: 40px;
+    border-radius: 999px;
+    background: hsl(var(--border) / 0.45);
+  }
+
+  .mobile-sheet-handle {
+    position: absolute;
+    top: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 64px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: ns-resize;
+  }
+
+  .mobile-sheet-handle::before {
+    content: '';
+    width: 48px;
+    height: 4px;
+    border-radius: 999px;
+    background: hsl(var(--border) / 0.55);
+  }
+
+  .clara-avatar {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    background: linear-gradient(135deg, hsl(var(--gold-1) / 0.9), hsl(var(--gold-2) / 0.85));
+    border: 1px solid hsl(var(--stroke) / 0.65);
+    box-shadow:
+      0 8px 20px hsl(var(--shadow) / 0.4),
+      inset 0 0 0 1px hsl(var(--foreground) / 0.1);
+    color: hsl(var(--bg-base));
+    font-size: 0.95rem;
+    font-weight: 700;
+    letter-spacing: 0.2em;
+  }
+
   .drawer-suggestion-chip {
     @apply text-left px-4 py-3 rounded-xl transition-all duration-fast disabled:opacity-50 focus-halo;
     font-family: var(--font-body);
@@ -1074,6 +1196,12 @@
     transition: all var(--duration-fast) ease-out;
     min-height: 44px;
     min-width: 44px;
+  }
+
+  .action-btn svg {
+    width: 1rem;
+    height: 1rem;
+    stroke-width: 1.5;
   }
 
   @media (min-width: 640px) {
