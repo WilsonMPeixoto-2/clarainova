@@ -1,6 +1,7 @@
 import { motion } from 'framer-motion';
-import { FileSearch, MessagesSquare, BookCheck, ArrowUpRight, Sparkles } from 'lucide-react';
+import { FileSearch, MessagesSquare, BookCheck, ArrowUpRight, Sparkles, Gavel, ShieldCheck, Route, FileCheck2 } from 'lucide-react';
 import ScrollReveal from '@/components/animations/ScrollReveal';
+import BentoCard from '@/components/BentoCard';
 
 interface FeaturesSectionProps {
   onOpenChat: (query?: string) => void;
@@ -54,6 +55,37 @@ const pipeline = [
   },
 ];
 
+const bentoCards = [
+  {
+    title: 'Leitura Normativa',
+    description: 'Consulte requisitos, prazos e critérios com síntese objetiva para tomada de decisão.',
+    icon: Gavel,
+    href: '/?chat=1&q=Quais%20normas%20devo%20considerar%20para%20um%20processo%20administrativo%3F',
+    variant: 'highlight' as const,
+  },
+  {
+    title: 'Fluxo de Tramitação',
+    description: 'Mapeie a ordem correta de encaminhamento no SEI e reduza retrabalho operacional.',
+    icon: Route,
+    href: '/?chat=1&q=Como%20encaminhar%20um%20processo%20administrativo%20no%20SEI%3F',
+    variant: 'default' as const,
+  },
+  {
+    title: 'Validação Documental',
+    description: 'Confira checklist de anexos, assinaturas e evidências antes da submissão final.',
+    icon: FileCheck2,
+    href: '/?chat=1&q=Quais%20documentos%20preciso%20anexar%20antes%20de%20submeter%20o%20processo%3F',
+    variant: 'default' as const,
+  },
+  {
+    title: 'Conformidade e Risco',
+    description: 'Antecipe inconsistências com orientações de conformidade e justificativa de cada etapa.',
+    icon: ShieldCheck,
+    href: '/?chat=1&q=Como%20validar%20conformidade%20antes%20de%20finalizar%20um%20processo%3F',
+    variant: 'default' as const,
+  },
+];
+
 const FeaturesSection = ({ onOpenChat }: FeaturesSectionProps) => {
   return (
     <section
@@ -78,6 +110,32 @@ const FeaturesSection = ({ onOpenChat }: FeaturesSectionProps) => {
             <p className="text-body text-lg max-w-3xl mx-auto mt-4">
               Estrutura visual, técnica e operacional pensada para produtividade real: clareza, velocidade e precisão.
             </p>
+          </div>
+        </ScrollReveal>
+
+        <ScrollReveal delay={0.04}>
+          <div className="max-w-6xl mx-auto mb-12 md:mb-16">
+            <div className="bento-divider mb-7 md:mb-8" aria-hidden="true" />
+            <div className="text-center md:text-left mb-5 md:mb-6">
+              <p className="text-caption uppercase tracking-[0.08em] text-text-muted">
+                Serviços Prioritários
+              </p>
+              <h3 className="text-h3 mt-2">
+                Blocos rápidos para consultas de rotina
+              </h3>
+            </div>
+            <div className="bento-services-grid">
+              {bentoCards.map((card) => (
+                <BentoCard
+                  key={card.title}
+                  title={card.title}
+                  description={card.description}
+                  icon={card.icon}
+                  href={card.href}
+                  variant={card.variant}
+                />
+              ))}
+            </div>
           </div>
         </ScrollReveal>
 

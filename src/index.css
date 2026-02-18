@@ -17,7 +17,7 @@
     --stroke: 216 28% 26%;
     --shadow: 218 56% 4%;
     --glow: 31 58% 62%;
-    --noise-opacity: 0.016;
+    --noise-opacity: 0.04;
     --vignette-deep: 216 28% 12%;
     --highlight-gold: hsl(var(--gold-2) / 0.4);
     --film-haze: hsl(var(--bg-base) / 0.22);
@@ -52,15 +52,10 @@
     --input: 216 30% 18%;
     --ring: var(--gold-1);
 
-    /* Typography pairings (A = active, B = alternative) */
-    --font-heading-option-a: 'Sora', 'Inter', system-ui, -apple-system, sans-serif;
-    --font-body-option-a: 'Inter', system-ui, -apple-system, sans-serif;
-    --font-heading-option-b: 'Cormorant Garamond', Georgia, 'Times New Roman', serif;
-    --font-body-option-b: 'Inter', system-ui, -apple-system, sans-serif;
-    --font-brand: 'Cinzel', 'Cormorant Garamond', Georgia, serif;
-
-    --font-heading: var(--font-heading-option-a);
-    --font-body: var(--font-body-option-a);
+    /* Typography pairings */
+    --font-heading: 'Space Grotesk', 'Inter', system-ui, -apple-system, sans-serif;
+    --font-body: 'Inter', system-ui, -apple-system, sans-serif;
+    --font-brand: 'Space Grotesk', 'Inter', system-ui, -apple-system, sans-serif;
 
     --type-h1-size: clamp(3.2rem, 7.8vw, 8rem);
     --type-h1-line: 0.92;
@@ -98,7 +93,7 @@
     /* Texto - 4 níveis semânticos (AA contrast compliant) */
     --text-primary: 210 38% 97%;
     --text-secondary: 210 23% 84%;
-    --text-muted: 210 18% 72%;
+    --text-muted: 210 20% 78%;
     --text-disabled: 210 15% 45%;
 
     /* Bordas - 3 níveis */
@@ -138,6 +133,19 @@
     --clara-text-primary: var(--text-primary);
     --clara-text-secondary: var(--text-secondary);
     --clara-glass: var(--bg-elev);
+
+    /* === LIQUID AUTHORITY: START === */
+    --bg-deep: 222 52% 5%;
+    --accent-gold: 36 74% 63%;
+    --accent-indigo: 231 52% 58%;
+    --accent-cyan: 189 56% 56%;
+    --hero-face-x: 36%;
+    --hero-face-y: 45%;
+    --hero-face-x-tablet: 32%;
+    --hero-face-y-tablet: 46%;
+    --hero-face-x-mobile: 26%;
+    --hero-face-y-mobile: 47%;
+    /* === LIQUID AUTHORITY: END === */
   }
 
   .dark {
@@ -151,7 +159,7 @@
     --stroke: 216 28% 26%;
     --shadow: 218 56% 4%;
     --glow: 31 58% 62%;
-    --noise-opacity: 0.016;
+    --noise-opacity: 0.04;
 
     --background: var(--bg-base);
     --foreground: var(--text-primary);
@@ -164,7 +172,7 @@
     --secondary: 216 35% 18%;
     --secondary-foreground: var(--text-primary);
     --muted: 216 30% 15%;
-    --muted-foreground: 210 20% 72%;
+    --muted-foreground: 210 20% 78%;
     --accent: var(--gold-2);
     --accent-foreground: var(--bg-base);
     --destructive: 0 62.8% 30.6%;
@@ -237,6 +245,64 @@
     opacity: var(--noise-opacity);
     background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
   }
+
+  /* === LIQUID AUTHORITY: START === */
+  html.lenis,
+  html.lenis body {
+    height: auto;
+  }
+
+  .lenis.lenis-smooth {
+    scroll-behavior: auto !important;
+  }
+
+  .lenis.lenis-smooth [data-lenis-prevent] {
+    overscroll-behavior: contain;
+  }
+
+  .lenis.lenis-stopped {
+    overflow: hidden;
+  }
+
+  .hero-shell::before {
+    content: '';
+    position: absolute;
+    inset: -12% -8%;
+    pointer-events: none;
+    z-index: 1;
+    opacity: 0.45;
+    background:
+      radial-gradient(64% 58% at 72% 34%, hsl(var(--accent-gold) / 0.2) 0%, transparent 72%),
+      radial-gradient(54% 48% at 24% 26%, hsl(var(--accent-indigo) / 0.12) 0%, transparent 76%),
+      radial-gradient(44% 42% at 68% 78%, hsl(var(--accent-cyan) / 0.09) 0%, transparent 76%);
+    transform: translate3d(0, 0, 0);
+    will-change: transform, opacity;
+    animation: liquid-aurora-drift 20s ease-in-out infinite alternate;
+  }
+
+  @keyframes liquid-aurora-drift {
+    0% {
+      transform: translate3d(0, 0, 0) scale(1);
+      opacity: 0.38;
+    }
+    50% {
+      transform: translate3d(-2%, 1.4%, 0) scale(1.035);
+      opacity: 0.52;
+    }
+    100% {
+      transform: translate3d(2.2%, -1.2%, 0) scale(1.025);
+      opacity: 0.44;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .hero-shell::before {
+      animation: none;
+      transform: none;
+      opacity: 0.36;
+    }
+  }
+  /* === LIQUID AUTHORITY: END === */
 }
 
 @layer components {
@@ -398,6 +464,14 @@
   /* ============================================
      HERO OVERLAYS
      ============================================ */
+  .hero-media-layer {
+    opacity: 1;
+  }
+
+  .hero-overlay-layer {
+    isolation: isolate;
+  }
+
   .hero-overlay {
     background:
       radial-gradient(
@@ -602,20 +676,20 @@
 
   .hero-image {
     object-fit: cover;
-    object-position: 38% 46%;
+    object-position: var(--hero-face-x) var(--hero-face-y);
     filter: saturate(1.12) contrast(1.06) brightness(1.03);
     transition: object-position 0.6s ease;
   }
 
   @media (max-width: 1023px) {
     .hero-image {
-      object-position: 34% 46%;
+      object-position: var(--hero-face-x-tablet) var(--hero-face-y-tablet);
     }
   }
 
   @media (max-width: 767px) {
     .hero-image {
-      object-position: 24% 47%;
+      object-position: var(--hero-face-x-mobile) var(--hero-face-y-mobile);
     }
   }
 
@@ -668,6 +742,66 @@
       linear-gradient(180deg, hsl(var(--bg-base) / 0), hsl(var(--bg-base) / 0.7) 45%, hsl(var(--bg-base) / 0.95));
     z-index: -1;
   }
+
+  /* === LIQUID AUTHORITY: START === */
+  .bento-services-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.85rem;
+  }
+
+  .bento-divider {
+    height: 1px;
+    width: 100%;
+    background: linear-gradient(90deg, transparent, hsl(var(--stroke) / 0.6), transparent);
+  }
+
+  @media (min-width: 768px) {
+    .bento-services-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 1rem;
+    }
+  }
+
+  @media (min-width: 1200px) {
+    .bento-services-grid {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 1.1rem;
+    }
+  }
+
+  @media (min-width: 900px) and (max-width: 1199px) {
+    .hero-content-wrap {
+      max-width: min(96vw, 1120px);
+      padding-inline: clamp(1.2rem, 2.2vw, 2rem);
+    }
+
+    .hero-layout-grid {
+      gap: clamp(1.35rem, 2vw, 2.1rem);
+    }
+
+    .hero-copy-column {
+      grid-column: 1 / span 7;
+    }
+
+    .hero-art-column {
+      grid-column: 8 / span 5;
+    }
+
+    .hero-title {
+      font-size: clamp(3rem, 6.2vw, 4.8rem);
+    }
+
+    .hero-subtitle {
+      font-size: clamp(1.9rem, 3vw, 2.55rem);
+      max-width: 18ch;
+    }
+
+    .hero-image {
+      object-position: var(--hero-face-x-tablet) var(--hero-face-y-tablet);
+    }
+  }
+  /* === LIQUID AUTHORITY: END === */
 
   /* ============================================
      TEXT EFFECTS

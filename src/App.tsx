@@ -7,6 +7,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { LoadingFallback } from "@/components/LoadingFallback";
+import { LenisProvider } from "@/components/LenisProvider";
 import { AuthProvider } from "@/contexts/AuthContext";
 
 // Wrapper para lazy imports com retry automático em caso de falha de cache
@@ -81,11 +82,13 @@ const App = () => (
         <TooltipProvider>
           <Toaster />
           <Sonner />
-          <BrowserRouter>
-            <Suspense fallback={<LoadingFallback message="Carregando página..." />}>
-              <AnimatedRoutes />
-            </Suspense>
-          </BrowserRouter>
+          <LenisProvider>
+            <BrowserRouter>
+              <Suspense fallback={<LoadingFallback message="Carregando página..." />}>
+                <AnimatedRoutes />
+              </Suspense>
+            </BrowserRouter>
+          </LenisProvider>
         </TooltipProvider>
       </AuthProvider>
     </QueryClientProvider>
