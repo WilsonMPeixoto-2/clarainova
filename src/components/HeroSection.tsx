@@ -1,10 +1,65 @@
+import { useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { MessageCircle, BookOpen, Sparkles } from 'lucide-react';
 import { useIsMobile } from '@/hooks/use-mobile';
-import claraHeroLarge from '@/assets/clara-hero-desktop-1920.jpg';
-import claraHeroMedium from '@/assets/clara-hero-desktop-1024.jpg';
-import claraHeroSmall from '@/assets/clara-hero-mobile-640.jpg';
 import claraHeroFallback from '@/assets/clara-hero-fallback.jpg';
+
+const HERO_IMAGE_BREAKPOINTS = [480, 768, 1024, 1440, 1920, 2560, 3840] as const;
+const HERO_IMAGE_SIZES = '(max-width: 768px) 100vw, (max-width: 1440px) 90vw, 1200px';
+
+const heroAvifFiles = [
+  new URL('../assets/clara-hero-480.avif', import.meta.url),
+  new URL('../assets/clara-hero-768.avif', import.meta.url),
+  new URL('../assets/clara-hero-1024.avif', import.meta.url),
+  new URL('../assets/clara-hero-1440.avif', import.meta.url),
+  new URL('../assets/clara-hero-1920.avif', import.meta.url),
+  new URL('../assets/clara-hero-2560.avif', import.meta.url),
+  new URL('../assets/clara-hero-3840.avif', import.meta.url),
+] as const;
+const heroWebpFiles = [
+  new URL('../assets/clara-hero-480.webp', import.meta.url),
+  new URL('../assets/clara-hero-768.webp', import.meta.url),
+  new URL('../assets/clara-hero-1024.webp', import.meta.url),
+  new URL('../assets/clara-hero-1440.webp', import.meta.url),
+  new URL('../assets/clara-hero-1920.webp', import.meta.url),
+  new URL('../assets/clara-hero-2560.webp', import.meta.url),
+  new URL('../assets/clara-hero-3840.webp', import.meta.url),
+] as const;
+const heroJpgFiles = [
+  new URL('../assets/clara-hero-480.jpg', import.meta.url),
+  new URL('../assets/clara-hero-768.jpg', import.meta.url),
+  new URL('../assets/clara-hero-1024.jpg', import.meta.url),
+  new URL('../assets/clara-hero-1440.jpg', import.meta.url),
+  new URL('../assets/clara-hero-1920.jpg', import.meta.url),
+  new URL('../assets/clara-hero-2560.jpg', import.meta.url),
+  new URL('../assets/clara-hero-3840.jpg', import.meta.url),
+] as const;
+
+const heroAvifSrcSet = heroAvifFiles
+  .map((file, index) => `${file.href} ${HERO_IMAGE_BREAKPOINTS[index]}w`)
+  .join(', ');
+const heroWebpSrcSet = heroWebpFiles
+  .map((file, index) => `${file.href} ${HERO_IMAGE_BREAKPOINTS[index]}w`)
+  .join(', ');
+const heroJpgSrcSet = heroJpgFiles
+  .map((file, index) => `${file.href} ${HERO_IMAGE_BREAKPOINTS[index]}w`)
+  .join(', ');
+const heroPreloadSrc = heroJpgFiles[heroJpgFiles.length - 1].href;
+
+const QUICK_QUESTIONS = [
+  "Como anexar documentos no SEI-Rio?",
+  "Quais são os prazos da prestação de contas?",
+  "Como solicitar diárias administrativas?",
+  "Como organizar bloco de assinatura no SEI?",
+  "Como encaminhar um processo administrativo?",
+  "Como atualizar dados no SDP?",
+  "Quais documentos são exigidos em licitações?",
+  "Como validar uma assinatura digital?",
+  "Como acompanhar a tramitação de protocolos?",
+  "Como cadastrar contratos e aditivos?",
+  "Como configurar notificações de prazos?",
+  "Onde encontro modelos oficiais no sistema?",
+];
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -30,18 +85,18 @@ interface HeroSectionProps {
 
 const HeroSection = ({ onOpenChat }: HeroSectionProps) => {
   const isMobile = useIsMobile();
-  const quickQuestions = [
-    "Como anexar documentos no SEI?",
-    "Prazos de prestação de contas",
-    "Modelos SEI-Rio disponíveis",
-    "Como solicitar diárias?",
-    "O que é bloco de assinatura?",
-    "Como encaminhar processos?",
-    "Como atualizar dados no SDP?",
-    "Regras para afastamento temporário",
-    "Configurações de assinatura digital",
-    "Checklist para licitações"
-  ];
+  useEffect(() => {
+    const link = document.createElement('link');
+    link.rel = 'preload';
+    link.as = 'image';
+    link.href = heroPreloadSrc;
+    link.imagesrcset = heroJpgSrcSet;
+    link.imagesizes = HERO_IMAGE_SIZES;
+    document.head.appendChild(link);
+    return () => {
+      document.head.removeChild(link);
+    };
+  }, []);
 
   return (
     <section className="hero-shell relative min-h-screen flex items-center overflow-hidden">
@@ -54,18 +109,19 @@ const HeroSection = ({ onOpenChat }: HeroSectionProps) => {
       >
         <picture>
           <source
-            type="image/jpeg"
-            media="(max-width: 640px)"
-            srcSet={claraHeroSmall}
+            type="image/avif"
+            srcSet={heroAvifSrcSet}
+            sizes={HERO_IMAGE_SIZES}
+          />
+          <source
+            type="image/webp"
+            srcSet={heroWebpSrcSet}
+            sizes={HERO_IMAGE_SIZES}
           />
           <source
             type="image/jpeg"
-            media="(max-width: 1024px)"
-            srcSet={claraHeroMedium}
-          />
-          <source
-            type="image/jpeg"
-            srcSet={claraHeroLarge}
+            srcSet={heroJpgSrcSet}
+            sizes={HERO_IMAGE_SIZES}
           />
           <img 
             src={claraHeroFallback}
@@ -83,6 +139,12 @@ const HeroSection = ({ onOpenChat }: HeroSectionProps) => {
       <div className="absolute inset-0 z-10 pointer-events-none" aria-hidden="true">
         <div className="absolute inset-0 hidden md:block hero-overlay" />
         <div className="absolute inset-0 md:hidden hero-overlay-mobile" />
+      </div>
+
+      {/* Energy Motion Layer */}
+      <div className="absolute inset-0 z-20 pointer-events-none hero-energy" aria-hidden="true">
+        <span className="hero-energy-stream" />
+        <span className="hero-energy-stream hero-energy-stream--secondary" />
       </div>
 
 
@@ -191,7 +253,7 @@ const HeroSection = ({ onOpenChat }: HeroSectionProps) => {
             <motion.div variants={itemVariants} className="pt-5">
               <p className="text-caption mb-2 text-text-secondary">Perguntas rápidas</p>
               <div className="quick-carousel" role="list" aria-label="Perguntas rápidas">
-                {quickQuestions.map((question, i) => (
+                {QUICK_QUESTIONS.map((question, i) => (
                   <button
                     key={question}
                     type="button"
