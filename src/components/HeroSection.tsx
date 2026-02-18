@@ -1,11 +1,65 @@
-import { useState } from 'react';
+import { useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Search, MessageCircle, BookOpen, Sparkles } from 'lucide-react';
+import { MessageCircle, BookOpen, Sparkles } from 'lucide-react';
 import { useIsMobile } from '@/hooks/use-mobile';
-import claraHeroLarge from '@/assets/clara-hero-desktop-1920.jpg';
-import claraHeroMedium from '@/assets/clara-hero-desktop-1024.jpg';
-import claraHeroSmall from '@/assets/clara-hero-mobile-640.jpg';
 import claraHeroFallback from '@/assets/clara-hero-fallback.jpg';
+
+const HERO_IMAGE_BREAKPOINTS = [480, 768, 1024, 1440, 1920, 2560, 3840] as const;
+const HERO_IMAGE_SIZES = '(max-width: 768px) 100vw, (max-width: 1440px) 90vw, 1200px';
+
+const heroAvifFiles = [
+  new URL('../assets/clara-hero-480.avif', import.meta.url),
+  new URL('../assets/clara-hero-768.avif', import.meta.url),
+  new URL('../assets/clara-hero-1024.avif', import.meta.url),
+  new URL('../assets/clara-hero-1440.avif', import.meta.url),
+  new URL('../assets/clara-hero-1920.avif', import.meta.url),
+  new URL('../assets/clara-hero-2560.avif', import.meta.url),
+  new URL('../assets/clara-hero-3840.avif', import.meta.url),
+] as const;
+const heroWebpFiles = [
+  new URL('../assets/clara-hero-480.webp', import.meta.url),
+  new URL('../assets/clara-hero-768.webp', import.meta.url),
+  new URL('../assets/clara-hero-1024.webp', import.meta.url),
+  new URL('../assets/clara-hero-1440.webp', import.meta.url),
+  new URL('../assets/clara-hero-1920.webp', import.meta.url),
+  new URL('../assets/clara-hero-2560.webp', import.meta.url),
+  new URL('../assets/clara-hero-3840.webp', import.meta.url),
+] as const;
+const heroJpgFiles = [
+  new URL('../assets/clara-hero-480.jpg', import.meta.url),
+  new URL('../assets/clara-hero-768.jpg', import.meta.url),
+  new URL('../assets/clara-hero-1024.jpg', import.meta.url),
+  new URL('../assets/clara-hero-1440.jpg', import.meta.url),
+  new URL('../assets/clara-hero-1920.jpg', import.meta.url),
+  new URL('../assets/clara-hero-2560.jpg', import.meta.url),
+  new URL('../assets/clara-hero-3840.jpg', import.meta.url),
+] as const;
+
+const heroAvifSrcSet = heroAvifFiles
+  .map((file, index) => `${file.href} ${HERO_IMAGE_BREAKPOINTS[index]}w`)
+  .join(', ');
+const heroWebpSrcSet = heroWebpFiles
+  .map((file, index) => `${file.href} ${HERO_IMAGE_BREAKPOINTS[index]}w`)
+  .join(', ');
+const heroJpgSrcSet = heroJpgFiles
+  .map((file, index) => `${file.href} ${HERO_IMAGE_BREAKPOINTS[index]}w`)
+  .join(', ');
+const heroPreloadSrc = heroJpgFiles[3].href;
+
+const QUICK_QUESTIONS = [
+  "Como anexar documentos no SEI-Rio?",
+  "Quais são os prazos da prestação de contas?",
+  "Como solicitar diárias administrativas?",
+  "Como organizar bloco de assinatura no SEI?",
+  "Como encaminhar um processo administrativo?",
+  "Como atualizar dados no SDP?",
+  "Quais documentos são exigidos em licitações?",
+  "Como validar uma assinatura digital?",
+  "Como acompanhar a tramitação de protocolos?",
+  "Como cadastrar contratos e aditivos?",
+  "Como configurar notificações de prazos?",
+  "Onde encontro modelos oficiais no sistema?",
+];
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -30,33 +84,44 @@ interface HeroSectionProps {
 }
 
 const HeroSection = ({ onOpenChat }: HeroSectionProps) => {
-  const [searchQuery, setSearchQuery] = useState('');
-  const [isSearchFocused, setIsSearchFocused] = useState(false);
   const isMobile = useIsMobile();
+  useEffect(() => {
+    const link = document.createElement('link');
+    link.rel = 'preload';
+    link.as = 'image';
+    link.href = heroPreloadSrc;
+    link.imagesrcset = heroJpgSrcSet;
+    link.imagesizes = HERO_IMAGE_SIZES;
+    document.head.appendChild(link);
+    return () => {
+      document.head.removeChild(link);
+    };
+  }, []);
 
   return (
-    <section className="relative min-h-screen flex items-center overflow-hidden">
+    <section className="hero-shell relative min-h-screen flex items-center overflow-hidden">
       {/* Background Image Layer */}
       <motion.div 
-        initial={isMobile ? { opacity: 0 } : { scale: 1.1, opacity: 0 }}
-        animate={isMobile ? { opacity: 1 } : { scale: 1, opacity: 1 }}
-        transition={{ duration: isMobile ? 0.6 : 1.2, ease: "easeOut" }}
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: isMobile ? 0.55 : 0.9, ease: "easeOut" }}
         className="absolute inset-0 z-0 pointer-events-none"
       >
         <picture>
           <source
-            type="image/jpeg"
-            media="(max-width: 640px)"
-            srcSet={claraHeroSmall}
+            type="image/avif"
+            srcSet={heroAvifSrcSet}
+            sizes={HERO_IMAGE_SIZES}
+          />
+          <source
+            type="image/webp"
+            srcSet={heroWebpSrcSet}
+            sizes={HERO_IMAGE_SIZES}
           />
           <source
             type="image/jpeg"
-            media="(max-width: 1024px)"
-            srcSet={claraHeroMedium}
-          />
-          <source
-            type="image/jpeg"
-            srcSet={claraHeroLarge}
+            srcSet={heroJpgSrcSet}
+            sizes={HERO_IMAGE_SIZES}
           />
           <img 
             src={claraHeroFallback}
@@ -69,23 +134,29 @@ const HeroSection = ({ onOpenChat }: HeroSectionProps) => {
           />
         </picture>
       </motion.div>
-      
-      {/* Desktop Gradient Overlay */}
-      <div className="absolute inset-0 z-10 pointer-events-none hidden md:block hero-overlay" />
-      
-      {/* Mobile Gradient Overlay */}
-      <div className="absolute inset-0 z-10 pointer-events-none md:hidden hero-overlay-mobile" />
+
+      {/* Overlay Layer (separate from media layer to avoid washing image details) */}
+      <div className="absolute inset-0 z-10 pointer-events-none" aria-hidden="true">
+        <div className="absolute inset-0 hidden md:block hero-overlay" />
+        <div className="absolute inset-0 md:hidden hero-overlay-mobile" />
+      </div>
+
+      {/* Energy Motion Layer */}
+      <div className="absolute inset-0 z-20 pointer-events-none hero-energy" aria-hidden="true">
+        <span className="hero-energy-stream" />
+        <span className="hero-energy-stream hero-energy-stream--secondary" />
+      </div>
 
 
       {/* Content Layer */}
-      <div className="container mx-auto px-6 relative z-20 pt-24 md:pt-32 pb-16 md:pb-24">
+      <div className="container mx-auto px-6 relative z-20 pt-24 md:pt-28 pb-16 md:pb-24">
         <div className="grid grid-cols-1 md:grid-cols-12 gap-8 items-center">
           {/* Left Column - Content (60%) */}
           <motion.div 
             variants={containerVariants}
             initial="hidden"
             animate="visible"
-            className="md:col-span-7 lg:col-span-7 space-y-6 md:space-y-8"
+            className="md:col-span-7 lg:col-span-7 space-y-6 md:space-y-9"
           >
             {/* Badge Chip */}
             <motion.div variants={itemVariants}>
@@ -109,7 +180,7 @@ const HeroSection = ({ onOpenChat }: HeroSectionProps) => {
 
             {/* H1 - CLARA with tighter tracking for brand signature */}
             <motion.h1 variants={itemVariants}>
-              <span className="text-5xl sm:text-6xl md:text-8xl lg:text-9xl font-bold tracking-tighter text-primary amber-glow inline-block">
+              <span className="hero-title amber-glow inline-block">
                 CLARA
               </span>
             </motion.h1>
@@ -117,7 +188,7 @@ const HeroSection = ({ onOpenChat }: HeroSectionProps) => {
             {/* Subtitle - with elegant leading */}
             <motion.p 
               variants={itemVariants}
-              className="text-xl sm:text-2xl md:text-3xl font-medium text-foreground tracking-tight text-glow max-w-xl leading-snug"
+              className="hero-subtitle text-glow"
             >
               <span className="text-primary">C</span>onsultora de{' '}
               <span className="text-primary">L</span>egislação e{' '}
@@ -129,7 +200,7 @@ const HeroSection = ({ onOpenChat }: HeroSectionProps) => {
             {/* Description */}
             <motion.p 
               variants={itemVariants}
-              className="text-body max-w-lg"
+              className="text-body max-w-[42ch]"
             >
               Sua assistente especializada em sistemas eletrônicos de informações e procedimentos administrativos. Orientações passo a passo com indicação de fontes documentais.
             </motion.p>
@@ -137,12 +208,12 @@ const HeroSection = ({ onOpenChat }: HeroSectionProps) => {
             {/* CTAs */}
             <motion.div 
               variants={itemVariants}
-              className="flex flex-col sm:flex-row gap-4 pt-2"
+              className="flex flex-col sm:flex-row gap-4 pt-3"
             >
               <motion.button 
                 onClick={() => onOpenChat()}
-                className="btn-clara-primary flex items-center justify-center gap-2"
-                whileHover={{ scale: 1.03, boxShadow: "0 10px 30px -10px hsl(var(--primary) / 0.4)" }}
+                className="btn-clara-primary type-label flex items-center justify-center gap-2"
+                whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
                 transition={{ type: "spring", stiffness: 400 }}
               >
@@ -154,8 +225,8 @@ const HeroSection = ({ onOpenChat }: HeroSectionProps) => {
                   const featuresSection = document.getElementById('features');
                   featuresSection?.scrollIntoView({ behavior: 'smooth' });
                 }}
-                className="btn-clara-secondary flex items-center justify-center gap-2"
-                whileHover={{ scale: 1.03 }}
+                className="btn-clara-secondary type-label flex items-center justify-center gap-2"
+                whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
                 transition={{ type: "spring", stiffness: 400 }}
               >
@@ -167,7 +238,7 @@ const HeroSection = ({ onOpenChat }: HeroSectionProps) => {
             {/* Privacy Policy Link */}
             <motion.p 
               variants={itemVariants}
-              className="text-caption"
+              className="text-caption max-w-[44ch]"
             >
               Ao usar nossos serviços, você concorda com nossa{' '}
               <a 
@@ -178,69 +249,20 @@ const HeroSection = ({ onOpenChat }: HeroSectionProps) => {
               </a>
             </motion.p>
 
-            {/* Search Bar */}
-            <motion.div variants={itemVariants} className="pt-4 space-y-3">
-              <form 
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  if (searchQuery.trim()) {
-                    onOpenChat(searchQuery.trim());
-                    setSearchQuery('');
-                  }
-                }}
-                className="relative max-w-xl"
-                role="search"
-              >
-                <label htmlFor="hero-search" className="sr-only">
-                  Pesquisar dúvidas
-                </label>
-                <motion.div
-                  animate={{ 
-                    boxShadow: isSearchFocused 
-                      ? "0 0 0 2px hsl(var(--primary) / 0.3), 0 10px 30px -10px hsl(var(--primary) / 0.2)"
-                      : "0 4px 20px -5px hsl(var(--primary) / 0.1)"
-                  }}
-                  transition={{ duration: 0.2 }}
-                  className="relative rounded-2xl overflow-hidden"
-                >
-                  <Search 
-                    className="absolute left-4 top-1/2 -translate-y-1/2 text-text-muted z-10" 
-                    size={20}
-                    aria-hidden="true"
-                  />
-                  <input
-                    id="hero-search"
-                    type="search"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    onFocus={() => setIsSearchFocused(true)}
-                    onBlur={() => setIsSearchFocused(false)}
-                    placeholder="Descreva sua dúvida…"
-                    className="search-input-clara pl-12"
-                    autoComplete="off"
-                  />
-                </motion.div>
-              </form>
-
-              {/* Suggestion Chips */}
-              <div className="flex flex-wrap gap-2 max-w-xl" role="list" aria-label="Sugestões de perguntas">
-                {[
-                  "Como solicitar diárias?",
-                  "Prazos de prestação de contas",
-                  "Modelos SEI-Rio"
-                ].map((suggestion, i) => (
-                  <motion.button
-                    key={suggestion}
+            {/* Quick Actions Carousel */}
+            <motion.div variants={itemVariants} className="pt-5">
+              <p className="text-caption mb-2 text-text-secondary">Perguntas rápidas</p>
+              <div className="quick-carousel" role="list" aria-label="Perguntas rápidas">
+                {QUICK_QUESTIONS.map((question, i) => (
+                  <button
+                    key={question}
                     type="button"
-                    onClick={() => onOpenChat(suggestion)}
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.6 + i * 0.1 }}
-                    className="suggestion-chip"
-                    role="listitem"
+                    className="quick-chip"
+                    onClick={() => onOpenChat(question)}
+                    style={{ animationDelay: `${0.05 * i}s` }}
                   >
-                    {suggestion}
-                  </motion.button>
+                    {question}
+                  </button>
                 ))}
               </div>
             </motion.div>

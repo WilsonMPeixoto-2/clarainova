@@ -1,6 +1,6 @@
 import { useEffect, useRef, useCallback, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Trash2, MessageSquare, Keyboard, AlertCircle, RefreshCw, Sparkles, Target, BookOpen } from "lucide-react";
+import { Trash2, Keyboard, AlertCircle, RefreshCw, Sparkles, Target, BookOpen, Maximize2, Minimize2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Sheet,
@@ -8,10 +8,10 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
-import { useChat, ChatMessage as ChatMessageType, ResponseMode } from "@/hooks/useChat";
+import { useChat, ChatErrorDetails } from "@/hooks/useChat";
 import { useChatSessions } from "@/hooks/useChatSessions";
 import { useAuth } from "@/contexts/AuthContext";
-import { ChatMessage, MessageSkeleton } from "@/components/chat/ChatMessage";
+import { ChatMessage } from "@/components/chat/ChatMessage";
 import { ChatInput } from "@/components/chat/ChatInput";
 import { ChatHistory } from "@/components/chat/ChatHistory";
 import { ThinkingIndicator } from "@/components/chat/ThinkingIndicator";
@@ -53,6 +53,26 @@ const suggestionVariants = {
   }),
   hover: { scale: 1.01, transition: { duration: 0.15 } },
   tap: { scale: 0.98 }
+};
+
+const DRAWER_WIDTH_KEY = "clara-chat-drawer-width";
+const MIN_DRAWER_WIDTH = 440;
+const DESKTOP_DEFAULT_WIDTH = 640;
+const MOBILE_SNAP_POINTS = [40, 70, 100];
+
+const clamp = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max);
+
+const clampDesktopWidth = (value: number) => {
+  if (typeof window === "undefined") return value;
+  const max = Math.max(520, window.innerWidth - 80);
+  return clamp(value, MIN_DRAWER_WIDTH, max);
+};
+
+const nearestSnapPoint = (value: number) => {
+  return MOBILE_SNAP_POINTS.reduce((closest, point) =>
+    Math.abs(point - value) < Math.abs(closest - value) ? point : closest,
+    MOBILE_SNAP_POINTS[0]
+  );
 };
 
 // B1: Empty State Component
@@ -118,7 +138,7 @@ function EmptyState({ onSuggestionClick, isLoading }: { onSuggestionClick: (quer
             whileTap="tap"
             onClick={() => onSuggestionClick(suggestion)}
             disabled={isLoading}
-            className="text-left px-4 py-3 rounded-xl border border-border-subtle bg-card/40 text-sm text-foreground/85 hover:bg-card hover:border-primary/25 transition-all duration-fast disabled:opacity-50 focus-halo"
+            className="drawer-suggestion-chip"
           >
             {suggestion}
           </motion.button>
@@ -128,45 +148,33 @@ function EmptyState({ onSuggestionClick, isLoading }: { onSuggestionClick: (quer
   );
 }
 
-// B1: Error State Component
-function ErrorState({ message, onRetry }: { message: string; onRetry: () => void }) {
-  return (
-    <motion.div 
-      initial={{ opacity: 0, y: 16 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="state-container"
-    >
-      <div className="w-14 h-14 rounded-xl bg-destructive/10 border border-destructive/20 flex items-center justify-center mb-4">
-        <AlertCircle className="w-7 h-7 text-destructive" aria-hidden="true" />
-      </div>
-      <h3 className="state-title">Algo deu errado</h3>
-      <p className="state-description mb-4">{message}</p>
-      <Button 
-        variant="outline" 
-        onClick={onRetry}
-        className="gap-2 focus-halo"
-      >
-        <RefreshCw className="w-4 h-4" />
-        Tentar novamente
-      </Button>
-    </motion.div>
-  );
-}
-
 export function ChatPanel({ open, onOpenChange, initialQuery }: ChatPanelProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLElement>(null);
   const isUserAtBottom = useRef(true);
-  const inputRef = useRef<HTMLTextAreaElement>(null);
   const lastInitialQuery = useRef<string>("");
   const { toast } = useToast();
   const isMobile = useIsMobile();
   const { user } = useAuth();
   const [lastError, setLastError] = useState<string | null>(null);
+  const [lastErrorDetails, setLastErrorDetails] = useState<ChatErrorDetails | null>(null);
+  const [showErrorDetails, setShowErrorDetails] = useState(false);
+  const [drawerWidth, setDrawerWidth] = useState(() => {
+    if (typeof window === "undefined") return DESKTOP_DEFAULT_WIDTH;
+    const stored = Number(window.localStorage.getItem(DRAWER_WIDTH_KEY));
+    return clampDesktopWidth(Number.isFinite(stored) ? stored : DESKTOP_DEFAULT_WIDTH);
+  });
+  const [expandedDesktop, setExpandedDesktop] = useState(false);
+  const [restoreDesktopWidth, setRestoreDesktopWidth] = useState(DESKTOP_DEFAULT_WIDTH);
+  const [mobileSnapPoint, setMobileSnapPoint] = useState<number>(MOBILE_SNAP_POINTS[1]);
+  const desktopResizeState = useRef<{ startX: number; startWidth: number } | null>(null);
+  const mobileResizeState = useRef<{ startY: number; startSnap: number } | null>(null);
 
   const { messages, isLoading, thinking, sendMessage, clearHistory, cancelStream, setMessages } = useChat({
-    onError: (error) => {
+    onError: (error, details) => {
       setLastError(error);
+      setLastErrorDetails(details ?? null);
+      setShowErrorDetails(false);
       toast({
         variant: "destructive",
         title: "Erro",
@@ -188,6 +196,84 @@ export function ChatPanel({ open, onOpenChange, initialQuery }: ChatPanelProps) 
 
   // Track if we need to save to database
   const lastSavedLength = useRef(0);
+
+  useEffect(() => {
+    if (isMobile) return;
+    setDrawerWidth((current) => clampDesktopWidth(current));
+    window.localStorage.setItem(DRAWER_WIDTH_KEY, String(clampDesktopWidth(drawerWidth)));
+  }, [drawerWidth, isMobile]);
+
+  useEffect(() => {
+    if (isMobile) {
+      setExpandedDesktop(false);
+      return;
+    }
+
+    const onResize = () => {
+      setDrawerWidth((current) => clampDesktopWidth(current));
+    };
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, [isMobile]);
+
+  const handleDesktopResizeStart = useCallback(
+    (event: React.PointerEvent<HTMLDivElement>) => {
+      if (isMobile) return;
+      event.preventDefault();
+      setExpandedDesktop(false);
+      desktopResizeState.current = { startX: event.clientX, startWidth: drawerWidth };
+      event.currentTarget.setPointerCapture(event.pointerId);
+    },
+    [drawerWidth, isMobile],
+  );
+
+  const handleDesktopResizeMove = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
+    if (!desktopResizeState.current) return;
+    const delta = desktopResizeState.current.startX - event.clientX;
+    const nextWidth = clampDesktopWidth(desktopResizeState.current.startWidth + delta);
+    setDrawerWidth(nextWidth);
+  }, []);
+
+  const handleDesktopResizeEnd = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
+    if (!desktopResizeState.current) return;
+    desktopResizeState.current = null;
+    event.currentTarget.releasePointerCapture(event.pointerId);
+  }, []);
+
+  const toggleDesktopExpand = useCallback(() => {
+    if (isMobile) return;
+    if (expandedDesktop) {
+      const restored = clampDesktopWidth(restoreDesktopWidth);
+      setDrawerWidth(restored);
+      setExpandedDesktop(false);
+      return;
+    }
+
+    setRestoreDesktopWidth(drawerWidth);
+    setDrawerWidth(clampDesktopWidth(window.innerWidth - 24));
+    setExpandedDesktop(true);
+  }, [drawerWidth, expandedDesktop, isMobile, restoreDesktopWidth]);
+
+  const handleMobileResizeStart = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
+    if (!isMobile) return;
+    event.preventDefault();
+    mobileResizeState.current = { startY: event.clientY, startSnap: mobileSnapPoint };
+    event.currentTarget.setPointerCapture(event.pointerId);
+  }, [isMobile, mobileSnapPoint]);
+
+  const handleMobileResizeMove = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
+    if (!mobileResizeState.current) return;
+    const deltaY = mobileResizeState.current.startY - event.clientY;
+    const deltaPercent = (deltaY / window.innerHeight) * 100;
+    setMobileSnapPoint(clamp(mobileResizeState.current.startSnap + deltaPercent, MOBILE_SNAP_POINTS[0], MOBILE_SNAP_POINTS[MOBILE_SNAP_POINTS.length - 1]));
+  }, []);
+
+  const handleMobileResizeEnd = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
+    if (!mobileResizeState.current) return;
+    mobileResizeState.current = null;
+    setMobileSnapPoint((current) => nearestSnapPoint(current));
+    event.currentTarget.releasePointerCapture(event.pointerId);
+  }, []);
 
   // Auto-save messages to database for authenticated users
   useEffect(() => {
@@ -215,7 +301,7 @@ export function ChatPanel({ open, onOpenChange, initialQuery }: ChatPanelProps) 
     onClearHistory: () => {
       if (messages.length > 0) handleClearHistory();
     },
-    onFocusInput: () => inputRef.current?.focus(),
+    onFocusInput: () => (document.getElementById("chat-input") as HTMLTextAreaElement | null)?.focus(),
   });
 
   // Detectar posição do scroll
@@ -240,6 +326,8 @@ export function ChatPanel({ open, onOpenChange, initialQuery }: ChatPanelProps) 
     if (open && initialQuery && initialQuery !== lastInitialQuery.current) {
       lastInitialQuery.current = initialQuery;
       setLastError(null);
+      setLastErrorDetails(null);
+      setShowErrorDetails(false);
       sendMessage(initialQuery, "fast");
     }
   }, [open, initialQuery, sendMessage]);
@@ -249,7 +337,11 @@ export function ChatPanel({ open, onOpenChange, initialQuery }: ChatPanelProps) 
   }, [open]);
 
   useEffect(() => {
-    if (open) setTimeout(() => inputRef.current?.focus(), 100);
+    if (open) {
+      setTimeout(() => {
+        (document.getElementById("chat-input") as HTMLTextAreaElement | null)?.focus();
+      }, 100);
+    }
   }, [open]);
 
   const handleClearHistory = useCallback(() => {
@@ -257,6 +349,8 @@ export function ChatPanel({ open, onOpenChange, initialQuery }: ChatPanelProps) 
       clearHistory();
       lastSavedLength.current = 0;
       setLastError(null);
+      setLastErrorDetails(null);
+      setShowErrorDetails(false);
       toast({
         title: "Histórico limpo",
         description: "A conversa foi apagada."
@@ -268,6 +362,8 @@ export function ChatPanel({ open, onOpenChange, initialQuery }: ChatPanelProps) 
     clearHistory();
     lastSavedLength.current = 0;
     setLastError(null);
+    setLastErrorDetails(null);
+    setShowErrorDetails(false);
     toast({ title: "Nova conversa iniciada" });
   }
 
@@ -277,6 +373,8 @@ export function ChatPanel({ open, onOpenChange, initialQuery }: ChatPanelProps) 
       setMessages(loadedMessages);
       lastSavedLength.current = loadedMessages.length;
       setLastError(null);
+      setLastErrorDetails(null);
+      setShowErrorDetails(false);
     }
   }, [loadSession, setMessages]);
 
@@ -290,6 +388,8 @@ export function ChatPanel({ open, onOpenChange, initialQuery }: ChatPanelProps) 
 
   const handleSuggestionClick = useCallback((query: string) => {
     setLastError(null);
+    setLastErrorDetails(null);
+    setShowErrorDetails(false);
     sendMessage(query, "fast");
   }, [sendMessage]);
 
@@ -298,6 +398,8 @@ export function ChatPanel({ open, onOpenChange, initialQuery }: ChatPanelProps) 
       const lastUserMessage = [...messages].reverse().find(m => m.role === "user");
       if (lastUserMessage) {
         setLastError(null);
+        setLastErrorDetails(null);
+        setShowErrorDetails(false);
         sendMessage(lastUserMessage.content, "fast");
       }
     }
@@ -307,17 +409,62 @@ export function ChatPanel({ open, onOpenChange, initialQuery }: ChatPanelProps) 
     <TooltipProvider>
       <Sheet open={open} onOpenChange={onOpenChange}>
         <SheetContent 
-          side="right" 
-          className={`flex flex-col p-0 gap-0 ${
-            isMobile ? 'w-full max-w-full' : 'w-[550px] lg:w-[600px] sm:max-w-[600px]'
+          side={isMobile ? "bottom" : "right"}
+          className={`drawer-shell flex flex-col p-0 gap-0 ${
+            isMobile
+              ? "w-full max-w-full h-[70vh] rounded-t-2xl border-t border-l-0"
+              : "h-full border-l"
           }`}
+          style={
+            isMobile
+              ? { height: `${mobileSnapPoint}vh` }
+              : { width: `${drawerWidth}px`, maxWidth: `${drawerWidth}px` }
+          }
         >
+          {!isMobile && (
+            <div
+              className="drawer-resize-handle"
+              role="separator"
+              aria-orientation="vertical"
+              aria-label="Ajustar largura do chat"
+              tabIndex={0}
+              onPointerDown={handleDesktopResizeStart}
+              onPointerMove={handleDesktopResizeMove}
+              onPointerUp={handleDesktopResizeEnd}
+              onPointerCancel={handleDesktopResizeEnd}
+              onKeyDown={(event) => {
+                if (event.key === "ArrowLeft") {
+                  event.preventDefault();
+                  setDrawerWidth((current) => clampDesktopWidth(current + 24));
+                }
+                if (event.key === "ArrowRight") {
+                  event.preventDefault();
+                  setDrawerWidth((current) => clampDesktopWidth(current - 24));
+                }
+              }}
+            />
+          )}
+
+          {isMobile && (
+            <div
+              className="mobile-sheet-handle"
+              role="separator"
+              aria-orientation="horizontal"
+              aria-label="Ajustar altura do chat"
+              tabIndex={0}
+              onPointerDown={handleMobileResizeStart}
+              onPointerMove={handleMobileResizeMove}
+              onPointerUp={handleMobileResizeEnd}
+              onPointerCancel={handleMobileResizeEnd}
+            />
+          )}
+
           {/* Header */}
-          <SheetHeader className="flex-shrink-0 px-4 py-3 border-b border-border-subtle bg-background">
+          <SheetHeader className="drawer-header-surface flex-shrink-0 px-4 py-3 border-b">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-primary/15 flex items-center justify-center">
-                  <MessageSquare className="w-5 h-5 text-primary" aria-hidden="true" />
+                <div className="clara-avatar w-10 h-10" aria-hidden="true">
+                  C
                 </div>
                 <div>
                   <SheetTitle className="text-lg font-semibold text-foreground">CLARA</SheetTitle>
@@ -335,6 +482,27 @@ export function ChatPanel({ open, onOpenChange, initialQuery }: ChatPanelProps) 
                     onDeleteSession={handleDeleteSession}
                     onNewChat={handleNewChat}
                   />
+                )}
+
+                {!isMobile && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={toggleDesktopExpand}
+                        className="btn-icon h-8 w-8"
+                        aria-label={expandedDesktop ? "Restaurar largura" : "Expandir chat"}
+                      >
+                        {expandedDesktop ? (
+                          <Minimize2 className="w-4 h-4" aria-hidden="true" />
+                        ) : (
+                          <Maximize2 className="w-4 h-4" aria-hidden="true" />
+                        )}
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>{expandedDesktop ? "Restaurar" : "Expandir"}</TooltipContent>
+                  </Tooltip>
                 )}
 
                 <Tooltip>
@@ -416,22 +584,44 @@ export function ChatPanel({ open, onOpenChange, initialQuery }: ChatPanelProps) 
                     <motion.div
                       initial={{ opacity: 0, y: 8 }}
                       animate={{ opacity: 1, y: 0 }}
-                      className="flex items-start gap-3 p-3 rounded-xl bg-destructive/5 border border-destructive/20"
+                      className="p-3 rounded-xl bg-destructive/5 border border-destructive/20"
                     >
-                      <AlertCircle className="w-5 h-5 text-destructive flex-shrink-0 mt-0.5" />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm text-foreground font-medium">Não foi possível processar</p>
-                        <p className="text-chat-microcopy mt-0.5">{lastError}</p>
+                      <div className="flex items-start gap-3">
+                        <AlertCircle className="w-5 h-5 text-destructive flex-shrink-0 mt-0.5" />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm text-foreground font-medium">Não foi possível processar</p>
+                          <p className="text-chat-microcopy mt-0.5">{lastError}</p>
+                          {lastErrorDetails?.hint && (
+                            <p className="text-chat-microcopy mt-1 text-text-muted">{lastErrorDetails.hint}</p>
+                          )}
+                        </div>
                       </div>
-                      <Button 
-                        variant="ghost" 
-                        size="sm" 
-                        onClick={handleRetry}
-                        className="text-xs gap-1.5 h-7 focus-halo"
-                      >
-                        <RefreshCw className="w-3 h-3" />
-                        Tentar
-                      </Button>
+                      <div className="mt-3 flex flex-wrap items-center gap-2">
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          onClick={handleRetry}
+                          className="text-xs gap-1.5 h-7 focus-halo"
+                        >
+                          <RefreshCw className="w-3 h-3" />
+                          Tentar novamente
+                        </Button>
+                        {lastErrorDetails && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setShowErrorDetails((current) => !current)}
+                            className="text-xs h-7 focus-halo"
+                          >
+                            {showErrorDetails ? "Ocultar detalhes" : "Detalhes técnicos"}
+                          </Button>
+                        )}
+                      </div>
+                      {lastErrorDetails && showErrorDetails && (
+                        <pre className="mt-2 text-[11px] leading-relaxed p-2 rounded-lg bg-background/50 border border-border-subtle overflow-x-auto">
+{JSON.stringify(lastErrorDetails, null, 2)}
+                        </pre>
+                      )}
                     </motion.div>
                   )}
                   
@@ -442,7 +632,7 @@ export function ChatPanel({ open, onOpenChange, initialQuery }: ChatPanelProps) 
           </main>
 
           {/* Input Area */}
-          <footer className="flex-shrink-0 border-t border-border-subtle bg-background/80 backdrop-blur-xl px-4 py-3 chat-input-footer">
+          <footer className="drawer-footer-surface flex-shrink-0 border-t px-4 py-3 chat-input-footer">
             <ChatInput
               onSend={sendMessage}
               isLoading={isLoading}

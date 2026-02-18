@@ -8,11 +8,10 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { ResponseModeSelector, ResponseMode } from "./ResponseModeSelector";
-import { WebSearchModeSelector, type WebSearchMode } from "./WebSearchModeSelector";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 
 interface ChatInputProps {
-  onSend: (message: string, mode: ResponseMode, webSearchMode?: WebSearchMode) => void;
+  onSend: (message: string, mode: ResponseMode) => void;
   isLoading: boolean;
   onCancel?: () => void;
   initialValue?: string;
@@ -22,7 +21,6 @@ export function ChatInput({ onSend, isLoading, onCancel, initialValue = "" }: Ch
   const [value, setValue] = useState(initialValue);
   const [isFocused, setIsFocused] = useState(false);
   const [mode, setMode] = useLocalStorage<ResponseMode>("clara-response-mode", "fast");
-  const [webSearchMode, setWebSearchMode] = useLocalStorage<WebSearchMode>("clara-web-search-mode", "auto");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // Auto-resize textarea
@@ -48,7 +46,7 @@ export function ChatInput({ onSend, isLoading, onCancel, initialValue = "" }: Ch
 
   const handleSubmit = () => {
     if (value.trim() && !isLoading) {
-      onSend(value.trim(), mode, webSearchMode);
+      onSend(value.trim(), mode);
       setValue("");
       if (textareaRef.current) {
         textareaRef.current.style.height = "auto";
@@ -160,11 +158,6 @@ export function ChatInput({ onSend, isLoading, onCancel, initialValue = "" }: Ch
           <ResponseModeSelector
             mode={mode}
             onChange={setMode}
-            disabled={isLoading}
-          />
-          <WebSearchModeSelector
-            mode={webSearchMode}
-            onChange={setWebSearchMode}
             disabled={isLoading}
           />
         </div>
