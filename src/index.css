@@ -458,26 +458,68 @@
 
   .hero-energy {
     mix-blend-mode: screen;
-    opacity: 0.65;
+    opacity: 0.78;
+  }
+
+  .hero-energy::before,
+  .hero-energy::after {
+    content: '';
+    position: absolute;
+    pointer-events: none;
+    background-repeat: no-repeat;
+    animation: hero-energy-sweep 18s ease-in-out infinite;
+  }
+
+  .hero-energy::before {
+    inset: 4% -24% 22% -30%;
+    background:
+      linear-gradient(
+        112deg,
+        transparent 0%,
+        hsl(var(--gold-1) / 0.08) 38%,
+        hsl(var(--gold-2) / 0.22) 50%,
+        hsl(var(--gold-1) / 0.08) 62%,
+        transparent 100%
+      );
+    filter: blur(10px);
+    transform: translate3d(-6%, 0, 0) rotate(-7deg);
+  }
+
+  .hero-energy::after {
+    inset: 26% -24% -8% -30%;
+    background:
+      linear-gradient(
+        104deg,
+        transparent 0%,
+        hsl(var(--gold-2) / 0.06) 40%,
+        hsl(var(--gold-1) / 0.16) 52%,
+        hsl(var(--gold-2) / 0.06) 64%,
+        transparent 100%
+      );
+    filter: blur(14px);
+    opacity: 0.8;
+    animation-duration: 24s;
+    animation-direction: reverse;
+    transform: translate3d(5%, 0, 0) rotate(-10deg);
   }
 
   .hero-energy-stream {
     position: absolute;
     inset: 12% auto auto 14%;
-    width: 180px;
-    height: 180px;
+    width: 220px;
+    height: 220px;
     border-radius: 50%;
-    background: radial-gradient(circle, hsl(var(--gold-1) / 0.32), transparent 68%);
-    filter: blur(24px);
+    background: radial-gradient(circle, hsl(var(--gold-1) / 0.36), transparent 70%);
+    filter: blur(26px);
     animation: hero-energy-drift 18s linear infinite;
   }
 
   .hero-energy-stream--secondary {
     inset: auto 18% 18% auto;
-    width: 260px;
-    height: 260px;
-    background: radial-gradient(circle, hsl(var(--gold-2) / 0.28), transparent 70%);
-    animation-duration: 26s;
+    width: 300px;
+    height: 300px;
+    background: radial-gradient(circle, hsl(var(--gold-2) / 0.32), transparent 72%);
+    animation-duration: 24s;
   }
 
   @keyframes hero-energy-drift {
@@ -485,11 +527,35 @@
       transform: translate3d(0, 0, 0) scale(1);
     }
     50% {
-      transform: translate3d(12px, -18px, 0) scale(1.08);
+      transform: translate3d(18px, -24px, 0) scale(1.1);
+    }
+  }
+
+  @keyframes hero-energy-sweep {
+    0%, 100% {
+      transform: translate3d(-7%, 0, 0) rotate(-8deg);
+      opacity: 0.7;
+    }
+    50% {
+      transform: translate3d(6%, -2%, 0) rotate(-4deg);
+      opacity: 1;
+    }
+  }
+
+  @media (max-width: 767px) {
+    .hero-energy {
+      opacity: 0.72;
+    }
+
+    .hero-energy::before,
+    .hero-energy::after {
+      filter: blur(8px);
     }
   }
 
   @media (prefers-reduced-motion: reduce) {
+    .hero-energy::before,
+    .hero-energy::after,
     .hero-energy-stream {
       animation: none;
     }
@@ -886,9 +952,14 @@
     -webkit-overflow-scrolling: touch;
   }
 
-  .quick-chip {
+  .quick-chip-item {
     flex: 0 0 auto;
     scroll-snap-align: start;
+  }
+
+  .quick-chip {
+    display: inline-flex;
+    align-items: center;
     border-radius: 999px;
     border: 1px solid hsl(var(--stroke) / 0.6);
     background: linear-gradient(

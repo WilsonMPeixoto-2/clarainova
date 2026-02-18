@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { motion } from 'framer-motion';
+import { motion, useReducedMotion } from 'framer-motion';
 import { MessageCircle, BookOpen, Sparkles } from 'lucide-react';
 import { useIsMobile } from '@/hooks/use-mobile';
 import claraHeroFallback from '@/assets/clara-hero-fallback.jpg';
@@ -44,7 +44,7 @@ const heroWebpSrcSet = heroWebpFiles
 const heroJpgSrcSet = heroJpgFiles
   .map((file, index) => `${file.href} ${HERO_IMAGE_BREAKPOINTS[index]}w`)
   .join(', ');
-const heroPreloadSrc = heroJpgFiles[3].href;
+const heroPreloadSrc = heroAvifFiles[3].href;
 
 const QUICK_QUESTIONS = [
   "Como anexar documentos no SEI-Rio?",
@@ -61,36 +61,42 @@ const QUICK_QUESTIONS = [
   "Onde encontro modelos oficiais no sistema?",
 ];
 
-const containerVariants = {
-  hidden: { opacity: 0 },
-  visible: {
-    opacity: 1,
-    transition: { staggerChildren: 0.15, delayChildren: 0.2 }
-  }
-};
-
-const itemVariants = {
-  hidden: { opacity: 0, y: 30 },
-  visible: { 
-    opacity: 1, 
-    y: 0,
-    transition: { duration: 0.6 }
-  }
-};
-
-
 interface HeroSectionProps {
   onOpenChat: (query?: string) => void;
 }
 
 const HeroSection = ({ onOpenChat }: HeroSectionProps) => {
   const isMobile = useIsMobile();
+  const prefersReducedMotion = useReducedMotion();
+
+  const containerVariants = prefersReducedMotion
+    ? { hidden: { opacity: 1 }, visible: { opacity: 1 } }
+    : {
+        hidden: { opacity: 0 },
+        visible: {
+          opacity: 1,
+          transition: { staggerChildren: isMobile ? 0.05 : 0.08, delayChildren: 0 },
+        },
+      };
+
+  const itemVariants = prefersReducedMotion
+    ? { hidden: { opacity: 1, y: 0 }, visible: { opacity: 1, y: 0 } }
+    : {
+        hidden: { opacity: 0, y: 12 },
+        visible: {
+          opacity: 1,
+          y: 0,
+          transition: { duration: isMobile ? 0.3 : 0.4, ease: 'easeOut' as const },
+        },
+      };
+
   useEffect(() => {
     const link = document.createElement('link');
     link.rel = 'preload';
     link.as = 'image';
     link.href = heroPreloadSrc;
-    link.imagesrcset = heroJpgSrcSet;
+    link.type = 'image/avif';
+    link.imagesrcset = heroAvifSrcSet;
     link.imagesizes = HERO_IMAGE_SIZES;
     document.head.appendChild(link);
     return () => {
@@ -102,9 +108,9 @@ const HeroSection = ({ onOpenChat }: HeroSectionProps) => {
     <section className="hero-shell relative min-h-screen flex items-center overflow-hidden">
       {/* Background Image Layer */}
       <motion.div 
-        initial={{ opacity: 0 }}
+        initial={prefersReducedMotion ? false : { opacity: 0.35 }}
         animate={{ opacity: 1 }}
-        transition={{ duration: isMobile ? 0.55 : 0.9, ease: "easeOut" }}
+        transition={{ duration: isMobile ? 0.4 : 0.65, ease: "easeOut" }}
         className="absolute inset-0 z-0 pointer-events-none"
       >
         <picture>
@@ -162,8 +168,8 @@ const HeroSection = ({ onOpenChat }: HeroSectionProps) => {
             <motion.div variants={itemVariants}>
               <span className="badge-chip">
                 <motion.span 
-                  animate={{ scale: [1, 1.2, 1] }}
-                  transition={{ duration: 2, repeat: Infinity }}
+                  animate={prefersReducedMotion ? undefined : { scale: [1, 1.2, 1] }}
+                  transition={prefersReducedMotion ? undefined : { duration: 2, repeat: Infinity }}
                   className="w-2 h-2 rounded-full bg-primary"
                 />
                 <Sparkles className="w-3 h-3 text-primary" aria-hidden="true" />
@@ -254,15 +260,16 @@ const HeroSection = ({ onOpenChat }: HeroSectionProps) => {
               <p className="text-caption mb-2 text-text-secondary">Perguntas rápidas</p>
               <div className="quick-carousel" role="list" aria-label="Perguntas rápidas">
                 {QUICK_QUESTIONS.map((question, i) => (
-                  <button
-                    key={question}
-                    type="button"
-                    className="quick-chip"
-                    onClick={() => onOpenChat(question)}
-                    style={{ animationDelay: `${0.05 * i}s` }}
-                  >
-                    {question}
-                  </button>
+                  <div key={question} role="listitem" className="quick-chip-item">
+                    <button
+                      type="button"
+                      className="quick-chip"
+                      onClick={() => onOpenChat(question)}
+                      style={{ animationDelay: `${0.05 * i}s` }}
+                    >
+                      {question}
+                    </button>
+                  </div>
                 ))}
               </div>
             </motion.div>
