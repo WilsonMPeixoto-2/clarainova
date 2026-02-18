@@ -221,10 +221,10 @@
     inset: 0;
     pointer-events: none;
     background:
-      radial-gradient(circle at 12% 20%, hsl(var(--vignette-deep) / 0.75), transparent 48%),
-      radial-gradient(circle at 92% 18%, hsl(var(--vignette-deep) / 0.48), transparent 52%);
+      radial-gradient(circle at 12% 20%, hsl(var(--vignette-deep) / 0.56), transparent 54%),
+      radial-gradient(circle at 92% 18%, hsl(var(--vignette-deep) / 0.38), transparent 56%);
     mix-blend-mode: multiply;
-    opacity: 0.85;
+    opacity: 0.68;
   }
 
   /* Subtle noise texture for premium feel - almost imperceptible */
@@ -402,8 +402,8 @@
     background:
       radial-gradient(
         130% 120% at 18% 35%,
-        hsl(var(--bg-base) / 0.8) 0%,
-        hsl(var(--bg-base) / 0.06) 52%,
+        hsl(var(--bg-base) / 0.62) 0%,
+        hsl(var(--bg-base) / 0.03) 56%,
         transparent 70%
       ),
       radial-gradient(
@@ -418,10 +418,10 @@
       ),
       linear-gradient(
         100deg,
-        hsl(var(--bg-base) / 0.98) 0%,
-        hsl(var(--bg-base) / 0.9) 30%,
-        hsl(var(--bg-base) / 0.52) 56%,
-        hsl(var(--bg-base) / 0.22) 78%,
+        hsl(var(--bg-base) / 0.86) 0%,
+        hsl(var(--bg-base) / 0.72) 30%,
+        hsl(var(--bg-base) / 0.34) 56%,
+        hsl(var(--bg-base) / 0.08) 78%,
         hsl(var(--bg-base) / 0) 100%
       ),
       linear-gradient(
@@ -441,7 +441,7 @@
       ),
       radial-gradient(
         120% 105% at -12% 20%,
-        hsl(var(--bg-base) / 0.62) 0%,
+        hsl(var(--bg-base) / 0.48) 0%,
         hsl(var(--bg-base) / 0) 56%
       ),
       radial-gradient(
@@ -452,8 +452,8 @@
       linear-gradient(
         180deg,
         transparent 10%,
-        hsl(var(--bg-base) / 0.3) 45%,
-        hsl(var(--bg-base) / 0.52) 100%
+        hsl(var(--bg-base) / 0.24) 45%,
+        hsl(var(--bg-base) / 0.46) 100%
       ),
       linear-gradient(
         90deg,
@@ -602,20 +602,20 @@
 
   .hero-image {
     object-fit: cover;
-    object-position: 76% 46%;
-    filter: saturate(1.08) contrast(1.08) brightness(0.96);
+    object-position: 38% 46%;
+    filter: saturate(1.12) contrast(1.06) brightness(1.03);
     transition: object-position 0.6s ease;
   }
 
   @media (max-width: 1023px) {
     .hero-image {
-      object-position: 64% 46%;
+      object-position: 34% 46%;
     }
   }
 
   @media (max-width: 767px) {
     .hero-image {
-      object-position: 28% 48%;
+      object-position: 24% 47%;
     }
   }
 
