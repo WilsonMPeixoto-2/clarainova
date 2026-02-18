@@ -59,12 +59,12 @@ const Header = ({ onOpenChat }: HeaderProps) => {
         }`}
         role="banner"
       >
-        <div className="container mx-auto max-w-[1500px] px-6 md:px-8 xl:px-10">
-          <div className="flex items-center h-16 gap-3 md:h-20 md:grid md:grid-cols-[minmax(220px,1fr)_auto_minmax(220px,1fr)] md:gap-6">
+        <div className="container mx-auto max-w-[1380px] px-6 md:px-8 xl:px-10">
+          <div className="flex items-center h-16 gap-3 md:h-20 md:grid md:grid-cols-[minmax(260px,1fr)_auto_minmax(260px,1fr)] md:gap-8">
             {/* Brand Mark (minimal monogram to avoid duplicate CLARA headline) */}
             <a 
               href="/" 
-              className="inline-flex items-center gap-2 shrink-0 min-w-[120px] sm:min-w-[150px] md:min-w-0 md:justify-self-start focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 rounded-full"
+              className="inline-flex items-center gap-2 shrink-0 min-w-[120px] sm:min-w-[150px] md:min-w-[240px] md:justify-self-start focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 rounded-full"
             >
               <span
                 className="inline-flex items-center justify-center w-10 h-10 rounded-full border border-primary/35 bg-[linear-gradient(135deg,hsl(var(--gold-1)/0.15),hsl(var(--gold-2)/0.25))] text-primary text-lg font-bold tracking-tight"
@@ -83,7 +83,7 @@ const Header = ({ onOpenChat }: HeaderProps) => {
               <span className="sr-only">CLARA - Página inicial</span>
             </a>
 
-            <nav className="hidden md:flex items-center justify-center md:justify-self-center gap-4 lg:gap-6" aria-label="Links utilitários">
+            <nav className="hidden md:flex items-center justify-center md:justify-self-center gap-5 lg:gap-7" aria-label="Links utilitários">
               {utilityLinks.map((link) => {
                 const isActive = isActiveLink(link.href);
                 return (
@@ -102,12 +102,12 @@ const Header = ({ onOpenChat }: HeaderProps) => {
               })}
             </nav>
 
-            <div className="ml-auto md:ml-0 flex items-center gap-2 shrink-0 md:justify-self-end">
+            <div className="ml-auto md:ml-0 flex items-center gap-2 md:gap-3 shrink-0 md:justify-self-end">
               {onOpenChat && (
                 <Button
                   onClick={onOpenChat}
                   size="sm"
-                  className="btn-clara-secondary type-label h-10 px-4 gap-2 rounded-full"
+                  className="btn-clara-secondary type-label h-10 min-w-[102px] px-4 gap-2 rounded-full"
                 >
                   <MessageCircle size={16} aria-hidden="true" />
                   Chat
@@ -115,7 +115,7 @@ const Header = ({ onOpenChat }: HeaderProps) => {
               )}
               <button
                 onClick={() => setMenuOpen(!menuOpen)}
-                className="inline-flex items-center justify-center gap-2 h-10 px-3 sm:min-w-[102px] rounded-lg border border-border-subtle bg-surface-1/80 text-text-secondary hover:text-foreground hover:border-primary/35 hover:shadow-[0_0_12px_hsl(var(--glow)/0.14)] transition-all duration-fast focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+                className="inline-flex items-center justify-center gap-2 h-10 px-3 sm:min-w-[108px] rounded-lg border border-border-subtle bg-surface-1/80 text-text-secondary hover:text-foreground hover:border-primary/35 hover:shadow-[0_0_12px_hsl(var(--glow)/0.14)] transition-all duration-fast focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
                 aria-label={menuOpen ? "Fechar menu" : "Abrir menu"}
                 aria-expanded={menuOpen}
                 aria-controls="site-menu"
