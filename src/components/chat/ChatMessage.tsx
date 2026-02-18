@@ -1,6 +1,6 @@
-import { memo, useMemo, useCallback } from "react";
+import { memo, useMemo } from "react";
 import { motion } from "framer-motion";
-import { Bot, User, FileText, ExternalLink, ChevronDown, ChevronUp, CheckCircle2 } from "lucide-react";
+import { User, FileText, ExternalLink, ChevronDown, ChevronUp, CheckCircle2 } from "lucide-react";
 import type { ChatMessage as ChatMessageType, WebSourceData, MessageStatus } from "@/hooks/useChat";
 import { MessageActions } from "./MessageActions";
 import { DownloadPdfButton } from "./DownloadPdfButton";
@@ -396,13 +396,13 @@ export const ChatMessage = memo(function ChatMessage({
         className={`flex-shrink-0 w-9 h-9 rounded-full flex items-center justify-center ${
           isUser 
             ? "bg-secondary text-foreground" 
-            : "bg-primary/15 text-primary"
+            : "clara-avatar"
         }`}
         initial={{ scale: 0 }}
         animate={{ scale: 1 }}
         transition={{ delay: 0.1, type: "spring", stiffness: 300 }}
       >
-        {isUser ? <User className="w-5 h-5" aria-hidden="true" /> : <Bot className="w-5 h-5" aria-hidden="true" />}
+        {isUser ? <User className="w-5 h-5" aria-hidden="true" /> : <span aria-hidden="true">C</span>}
       </motion.div>
 
       {/* Content */}
