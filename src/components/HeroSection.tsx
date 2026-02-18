@@ -1,6 +1,6 @@
-import { useEffect } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
-import { MessageCircle, BookOpen, Sparkles } from 'lucide-react';
+import { MessageCircle, BookOpen, Sparkles, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useIsMobile } from '@/hooks/use-mobile';
 import claraHeroFallback from '@/assets/clara-hero-fallback.jpg';
 
@@ -61,6 +61,8 @@ const QUICK_QUESTIONS = [
   "Onde encontro modelos oficiais no sistema?",
 ];
 
+const QUICK_SCROLL_DISTANCE = 320;
+
 interface HeroSectionProps {
   onOpenChat: (query?: string) => void;
 }
@@ -68,6 +70,9 @@ interface HeroSectionProps {
 const HeroSection = ({ onOpenChat }: HeroSectionProps) => {
   const isMobile = useIsMobile();
   const prefersReducedMotion = useReducedMotion();
+  const quickCarouselRef = useRef<HTMLDivElement>(null);
+  const [canScrollPrev, setCanScrollPrev] = useState(false);
+  const [canScrollNext, setCanScrollNext] = useState(false);
 
   const containerVariants = prefersReducedMotion
     ? { hidden: { opacity: 1 }, visible: { opacity: 1 } }
@@ -90,6 +95,23 @@ const HeroSection = ({ onOpenChat }: HeroSectionProps) => {
         },
       };
 
+  const updateQuickScrollState = useCallback(() => {
+    const el = quickCarouselRef.current;
+    if (!el) return;
+    const epsilon = 2;
+    setCanScrollPrev(el.scrollLeft > epsilon);
+    setCanScrollNext(el.scrollLeft + el.clientWidth < el.scrollWidth - epsilon);
+  }, []);
+
+  const scrollQuickCarousel = useCallback((direction: 'prev' | 'next') => {
+    const el = quickCarouselRef.current;
+    if (!el) return;
+    el.scrollBy({
+      left: direction === 'next' ? QUICK_SCROLL_DISTANCE : -QUICK_SCROLL_DISTANCE,
+      behavior: 'smooth',
+    });
+  }, []);
+
   useEffect(() => {
     const link = document.createElement('link');
     link.rel = 'preload';
@@ -104,13 +126,44 @@ const HeroSection = ({ onOpenChat }: HeroSectionProps) => {
     };
   }, []);
 
+  useEffect(() => {
+    const el = quickCarouselRef.current;
+    if (!el) return;
+    updateQuickScrollState();
+    const onScroll = () => updateQuickScrollState();
+    el.addEventListener('scroll', onScroll, { passive: true });
+    window.addEventListener('resize', onScroll);
+    return () => {
+      el.removeEventListener('scroll', onScroll);
+      window.removeEventListener('resize', onScroll);
+    };
+  }, [updateQuickScrollState]);
+
   return (
     <section className="hero-shell relative min-h-screen flex items-center overflow-hidden">
       {/* Background Image Layer */}
       <motion.div 
-        initial={prefersReducedMotion ? false : { opacity: 0.35 }}
-        animate={{ opacity: 1 }}
-        transition={{ duration: isMobile ? 0.4 : 0.65, ease: "easeOut" }}
+        initial={prefersReducedMotion ? { opacity: 1 } : { opacity: 0.35, scale: 1.03 }}
+        animate={
+          prefersReducedMotion
+            ? { opacity: 1 }
+            : {
+                opacity: 1,
+                scale: [1.03, 1.01, 1.05],
+                x: [0, -18, 8, 0],
+                y: [0, -6, 4, 0],
+              }
+        }
+        transition={
+          prefersReducedMotion
+            ? { duration: 0.45, ease: 'easeOut' }
+            : {
+                opacity: { duration: isMobile ? 0.5 : 0.75, ease: 'easeOut' },
+                scale: { duration: 58, ease: 'linear', repeat: Infinity, repeatType: 'mirror' },
+                x: { duration: 62, ease: 'easeInOut', repeat: Infinity, repeatType: 'mirror' },
+                y: { duration: 54, ease: 'easeInOut', repeat: Infinity, repeatType: 'mirror' },
+              }
+        }
         className="absolute inset-0 z-0 pointer-events-none"
       >
         <picture>
@@ -156,127 +209,171 @@ const HeroSection = ({ onOpenChat }: HeroSectionProps) => {
 
       {/* Content Layer */}
       <div className="container mx-auto px-6 relative z-20 pt-24 md:pt-28 pb-16 md:pb-24">
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-8 items-center">
-          {/* Left Column - Content (60%) */}
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-8 items-end md:items-center">
+          {/* Left Column - Editorial Stack */}
           <motion.div 
             variants={containerVariants}
             initial="hidden"
             animate="visible"
-            className="md:col-span-7 lg:col-span-7 space-y-6 md:space-y-9"
+            className="md:col-span-6 lg:col-span-5"
           >
-            {/* Badge Chip */}
-            <motion.div variants={itemVariants}>
-              <span className="badge-chip">
-                <motion.span 
-                  animate={prefersReducedMotion ? undefined : { scale: [1, 1.2, 1] }}
-                  transition={prefersReducedMotion ? undefined : { duration: 2, repeat: Infinity }}
-                  className="w-2 h-2 rounded-full bg-primary"
-                />
-                <Sparkles className="w-3 h-3 text-primary" aria-hidden="true" />
-                Inteligência Administrativa
-              </span>
-            </motion.div>
+            <div className="hero-copy-panel space-y-6 md:space-y-9">
+              {/* Badge Chip */}
+              <motion.div variants={itemVariants}>
+                <span className="badge-chip">
+                  <motion.span 
+                    animate={prefersReducedMotion ? undefined : { scale: [1, 1.2, 1] }}
+                    transition={prefersReducedMotion ? undefined : { duration: 2, repeat: Infinity }}
+                    className="w-2 h-2 rounded-full bg-primary"
+                  />
+                  <Sparkles className="w-3 h-3 text-primary" aria-hidden="true" />
+                  Inteligência Administrativa
+                </span>
+              </motion.div>
 
-            <motion.div variants={itemVariants}>
-              <div className="maintenance-chip" role="status" aria-live="polite">
-                <span className="maintenance-dot animate-pulse-subtle" aria-hidden="true" />
-                CLARA em manutenção e atualização. Volta em breve.
-              </div>
-            </motion.div>
+              <motion.div variants={itemVariants}>
+                <div className="maintenance-chip" role="status" aria-live="polite">
+                  <span className="maintenance-dot animate-pulse-subtle" aria-hidden="true" />
+                  CLARA em manutenção e atualização. Volta em breve.
+                </div>
+              </motion.div>
 
-            {/* H1 - CLARA with tighter tracking for brand signature */}
-            <motion.h1 variants={itemVariants}>
-              <span className="hero-title amber-glow inline-block">
-                CLARA
-              </span>
-            </motion.h1>
+              {/* H1 - CLARA with tighter tracking for brand signature */}
+              <motion.h1 variants={itemVariants}>
+                <span className="hero-title amber-glow inline-block">
+                  CLARA
+                </span>
+              </motion.h1>
 
-            {/* Subtitle - with elegant leading */}
-            <motion.p 
-              variants={itemVariants}
-              className="hero-subtitle text-glow"
-            >
-              <span className="text-primary">C</span>onsultora de{' '}
-              <span className="text-primary">L</span>egislação e{' '}
-              <span className="text-primary">A</span>poio a{' '}
-              <span className="text-primary">R</span>otinas{' '}
-              <span className="text-primary">A</span>dministrativas
-            </motion.p>
-
-            {/* Description */}
-            <motion.p 
-              variants={itemVariants}
-              className="text-body max-w-[42ch]"
-            >
-              Sua assistente especializada em sistemas eletrônicos de informações e procedimentos administrativos. Orientações passo a passo com indicação de fontes documentais.
-            </motion.p>
-
-            {/* CTAs */}
-            <motion.div 
-              variants={itemVariants}
-              className="flex flex-col sm:flex-row gap-4 pt-3"
-            >
-              <motion.button 
-                onClick={() => onOpenChat()}
-                className="btn-clara-primary type-label flex items-center justify-center gap-2"
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                transition={{ type: "spring", stiffness: 400 }}
+              {/* Subtitle - with elegant leading */}
+              <motion.p 
+                variants={itemVariants}
+                className="hero-subtitle text-glow"
               >
-                <MessageCircle size={20} aria-hidden="true" />
-                Iniciar conversa
-              </motion.button>
-              <motion.button 
-                onClick={() => {
-                  const featuresSection = document.getElementById('features');
-                  featuresSection?.scrollIntoView({ behavior: 'smooth' });
-                }}
-                className="btn-clara-secondary type-label flex items-center justify-center gap-2"
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                transition={{ type: "spring", stiffness: 400 }}
-              >
-                <BookOpen size={20} aria-hidden="true" />
-                Ver tópicos
-              </motion.button>
-            </motion.div>
+                <span className="text-primary">C</span>onsultora de{' '}
+                <span className="text-primary">L</span>egislação e{' '}
+                <span className="text-primary">A</span>poio a{' '}
+                <span className="text-primary">R</span>otinas{' '}
+                <span className="text-primary">A</span>dministrativas
+              </motion.p>
 
-            {/* Privacy Policy Link */}
-            <motion.p 
-              variants={itemVariants}
-              className="text-caption max-w-[44ch]"
-            >
-              Ao usar nossos serviços, você concorda com nossa{' '}
-              <a 
-                href="/privacidade.html" 
-                className="text-primary hover:underline font-medium transition-colors duration-150"
+              {/* Description */}
+              <motion.p 
+                variants={itemVariants}
+                className="text-body max-w-[42ch]"
               >
-                Política de Privacidade
-              </a>
-            </motion.p>
+                Sua assistente especializada em sistemas eletrônicos de informações e procedimentos administrativos. Orientações passo a passo com indicação de fontes documentais.
+              </motion.p>
 
-            {/* Quick Actions Carousel */}
-            <motion.div variants={itemVariants} className="pt-5">
-              <p className="text-caption mb-2 text-text-secondary">Perguntas rápidas</p>
-              <div className="quick-carousel" role="list" aria-label="Perguntas rápidas">
-                {QUICK_QUESTIONS.map((question, i) => (
-                  <div key={question} role="listitem" className="quick-chip-item">
+              {/* CTAs */}
+              <motion.div 
+                variants={itemVariants}
+                className="flex flex-col sm:flex-row gap-4 pt-3"
+              >
+                <motion.button 
+                  onClick={() => onOpenChat()}
+                  className="btn-clara-primary type-label flex items-center justify-center gap-2"
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  transition={{ type: "spring", stiffness: 400 }}
+                >
+                  <MessageCircle size={20} aria-hidden="true" />
+                  Iniciar conversa
+                </motion.button>
+                <motion.button 
+                  onClick={() => {
+                    const featuresSection = document.getElementById('conhecimento') ?? document.getElementById('features');
+                    featuresSection?.scrollIntoView({ behavior: 'smooth' });
+                  }}
+                  className="btn-clara-secondary type-label flex items-center justify-center gap-2"
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  transition={{ type: "spring", stiffness: 400 }}
+                >
+                  <BookOpen size={20} aria-hidden="true" />
+                  Ver tópicos
+                </motion.button>
+              </motion.div>
+
+              {/* Privacy Policy Link */}
+              <motion.p 
+                variants={itemVariants}
+                className="text-caption max-w-[44ch]"
+              >
+                Ao usar nossos serviços, você concorda com nossa{' '}
+                <a 
+                  href="/privacidade.html" 
+                  className="text-primary hover:underline font-medium transition-colors duration-150"
+                >
+                  Política de Privacidade
+                </a>
+              </motion.p>
+
+              {/* Quick Actions Carousel */}
+              <motion.div variants={itemVariants} className="pt-5">
+                <p className="text-caption mb-2 text-text-secondary">Perguntas rápidas</p>
+                <div className="quick-carousel-shell">
+                  {!isMobile && (
                     <button
                       type="button"
-                      className="quick-chip"
-                      onClick={() => onOpenChat(question)}
-                      style={{ animationDelay: `${0.05 * i}s` }}
+                      className="quick-carousel-arrow quick-carousel-arrow--prev"
+                      onClick={() => scrollQuickCarousel('prev')}
+                      disabled={!canScrollPrev}
+                      aria-label="Ver perguntas anteriores"
                     >
-                      {question}
+                      <ChevronLeft className="w-4 h-4" aria-hidden="true" />
                     </button>
+                  )}
+
+                  <div
+                    ref={quickCarouselRef}
+                    className="quick-carousel"
+                    role="list"
+                    aria-label="Perguntas rápidas"
+                    tabIndex={0}
+                    onKeyDown={(event) => {
+                      if (event.key === 'ArrowRight') {
+                        event.preventDefault();
+                        scrollQuickCarousel('next');
+                      }
+                      if (event.key === 'ArrowLeft') {
+                        event.preventDefault();
+                        scrollQuickCarousel('prev');
+                      }
+                    }}
+                  >
+                    {QUICK_QUESTIONS.map((question, i) => (
+                      <div key={question} role="listitem" className="quick-chip-item">
+                        <button
+                          type="button"
+                          className="quick-chip"
+                          onClick={() => onOpenChat(question)}
+                          style={{ animationDelay: `${0.05 * i}s` }}
+                        >
+                          {question}
+                        </button>
+                      </div>
+                    ))}
                   </div>
-                ))}
-              </div>
-            </motion.div>
+
+                  {!isMobile && (
+                    <button
+                      type="button"
+                      className="quick-carousel-arrow quick-carousel-arrow--next"
+                      onClick={() => scrollQuickCarousel('next')}
+                      disabled={!canScrollNext}
+                      aria-label="Ver próximas perguntas"
+                    >
+                      <ChevronRight className="w-4 h-4" aria-hidden="true" />
+                    </button>
+                  )}
+                </div>
+              </motion.div>
+            </div>
           </motion.div>
 
-          {/* Right Column - Empty space for background image */}
-          <div className="hidden md:block md:col-span-5 lg:col-span-5" />
+          {/* Right Column - intentionally left for art direction balance */}
+          <div className="hidden md:block md:col-span-6 lg:col-span-7" aria-hidden="true" />
         </div>
       </div>
 

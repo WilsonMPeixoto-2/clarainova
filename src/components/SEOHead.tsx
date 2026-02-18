@@ -24,6 +24,7 @@ export function SEOHead({
     const rafId = requestAnimationFrame(() => {
       // Get the base URL for absolute paths
       const baseUrl = window.location.origin;
+      const absoluteUrl = `${baseUrl}${window.location.pathname}`;
       const absoluteImageUrl = image.startsWith("http") ? image : `${baseUrl}${image}`;
       
       // Update document title
@@ -65,7 +66,7 @@ export function SEOHead({
       updateMeta("og:image:width", "1200", true);
       updateMeta("og:image:height", "630", true);
       updateMeta("og:image:alt", "CLARA - Consultora de Legislação e Apoio a Rotinas Administrativas", true);
-      updateMeta("og:url", baseUrl, true);
+      updateMeta("og:url", absoluteUrl, true);
       updateMeta("og:site_name", "CLARA", true);
       updateMeta("og:locale", "pt_BR", true);
       
@@ -75,10 +76,11 @@ export function SEOHead({
       updateMeta("twitter:description", description);
       updateMeta("twitter:image", absoluteImageUrl);
       updateMeta("twitter:image:alt", "CLARA - Inteligência Administrativa");
+      updateMeta("twitter:url", absoluteUrl);
 
       // Add privacy policy link for Google verification
       updateLink("privacy-policy", "/privacidade.html");
-      updateLink("canonical", baseUrl);
+      updateLink("canonical", absoluteUrl);
 
       // Add Google site verification if provided
       if (googleVerification) {

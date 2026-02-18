@@ -14,8 +14,8 @@ const Header = ({ onOpenChat }: HeaderProps) => {
   const location = useLocation();
 
   const primaryLinks = [
-    { label: 'Base de Conhecimento', href: '#conhecimento', note: 'Guias e fluxos principais' },
-    { label: 'Dúvidas Frequentes', href: '#faq', note: 'Perguntas e respostas rápidas' },
+    { label: 'Base de Conhecimento', href: '/#conhecimento', note: 'Guias e fluxos principais' },
+    { label: 'Dúvidas Frequentes', href: '/#faq', note: 'Perguntas e respostas rápidas' },
   ];
 
   const secondaryLinks = [
@@ -24,9 +24,24 @@ const Header = ({ onOpenChat }: HeaderProps) => {
     { label: 'Contato', href: 'mailto:wilsonmp2@gmail.com', note: 'wilsonmp2@gmail.com' },
   ];
 
+  const utilityLinks = [
+    { label: 'Privacidade', href: '/privacidade.html' },
+    { label: 'Termos', href: '/termos.html' },
+    { label: 'Contato', href: 'mailto:wilsonmp2@gmail.com' },
+  ];
+
   const isActiveLink = (href: string) => {
-    if (href.startsWith('#')) {
-      return location.hash === href;
+    if (href.includes('#')) {
+      const [path, hash] = href.split('#');
+      const hashWithPrefix = hash ? `#${hash}` : '';
+      if (path && location.pathname !== path) return false;
+      return hashWithPrefix ? location.hash === hashWithPrefix : false;
+    }
+    if (href.includes('privacidade')) {
+      return location.pathname.startsWith('/privacidade');
+    }
+    if (href.includes('termos')) {
+      return location.pathname.startsWith('/termos');
     }
     if (href.startsWith('/')) {
       return location.pathname === href;
@@ -57,11 +72,35 @@ const Header = ({ onOpenChat }: HeaderProps) => {
               >
                 C
               </span>
-              <span className="text-sm font-semibold tracking-[0.18em] uppercase text-text-muted hidden sm:block">
-                Sistema
+              <span className="hidden sm:block">
+                <span className="block text-[0.66rem] font-semibold tracking-[0.18em] uppercase text-text-muted">
+                  CLARA
+                </span>
+                <span className="hidden lg:block text-[0.66rem] font-medium tracking-[0.035em] text-text-secondary/85 mt-0.5">
+                  Inteligência Administrativa & Inovação no Serviço Público
+                </span>
               </span>
               <span className="sr-only">CLARA - Página inicial</span>
             </a>
+
+            <nav className="hidden lg:flex items-center gap-5" aria-label="Links utilitários">
+              {utilityLinks.map((link) => {
+                const isActive = isActiveLink(link.href);
+                return (
+                  <a
+                    key={link.label}
+                    href={link.href}
+                    className={`text-xs font-semibold uppercase tracking-[0.1em] transition-colors ${
+                      isActive
+                        ? 'text-primary'
+                        : 'text-text-muted hover:text-text-secondary'
+                    }`}
+                  >
+                    {link.label}
+                  </a>
+                );
+              })}
+            </nav>
 
             <div className="flex items-center gap-2">
               {onOpenChat && (

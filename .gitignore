@@ -22,6 +22,8 @@ dist-ssr
 pull_requests/
 supabase/.temp/
 .vercel/
+artifacts/
+test-results/
 
 # Editor directories and files
 .vscode/*
