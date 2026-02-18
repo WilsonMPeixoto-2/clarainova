@@ -228,7 +228,7 @@ const HeroSection = ({ onOpenChat }: HeroSectionProps) => {
               </motion.button>
               <motion.button 
                 onClick={() => {
-                  const featuresSection = document.getElementById('features');
+                  const featuresSection = document.getElementById('conhecimento') ?? document.getElementById('features');
                   featuresSection?.scrollIntoView({ behavior: 'smooth' });
                 }}
                 className="btn-clara-secondary type-label flex items-center justify-center gap-2"

@@ -6,6 +6,7 @@ import { SEOHead, SchemaOrg } from '@/components/SEOHead';
 
 // Lazy load below-the-fold and heavy components to reduce unused JS
 const FeaturesSection = lazy(() => import('@/components/FeaturesSection'));
+const FAQSection = lazy(() => import('@/components/FAQSection'));
 const ChatPanel = lazy(() => import('@/components/chat/ChatPanel').then(m => ({ default: m.ChatPanel })));
 
 const Index = () => {
@@ -38,7 +39,8 @@ const Index = () => {
       <main id="main-content">
         <HeroSection onOpenChat={handleOpenChat} />
         <Suspense fallback={<div className="min-h-[400px]" />}>
-          <FeaturesSection />
+          <FeaturesSection onOpenChat={handleOpenChat} />
+          <FAQSection onOpenChat={handleOpenChat} />
         </Suspense>
       </main>
       <Footer />
