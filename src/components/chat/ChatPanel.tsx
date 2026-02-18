@@ -152,7 +152,6 @@ export function ChatPanel({ open, onOpenChange, initialQuery }: ChatPanelProps) 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLElement>(null);
   const isUserAtBottom = useRef(true);
-  const inputRef = useRef<HTMLTextAreaElement>(null);
   const lastInitialQuery = useRef<string>("");
   const { toast } = useToast();
   const isMobile = useIsMobile();
@@ -302,7 +301,7 @@ export function ChatPanel({ open, onOpenChange, initialQuery }: ChatPanelProps) 
     onClearHistory: () => {
       if (messages.length > 0) handleClearHistory();
     },
-    onFocusInput: () => inputRef.current?.focus(),
+    onFocusInput: () => (document.getElementById("chat-input") as HTMLTextAreaElement | null)?.focus(),
   });
 
   // Detectar posição do scroll
@@ -338,7 +337,11 @@ export function ChatPanel({ open, onOpenChange, initialQuery }: ChatPanelProps) 
   }, [open]);
 
   useEffect(() => {
-    if (open) setTimeout(() => inputRef.current?.focus(), 100);
+    if (open) {
+      setTimeout(() => {
+        (document.getElementById("chat-input") as HTMLTextAreaElement | null)?.focus();
+      }, 100);
+    }
   }, [open]);
 
   const handleClearHistory = useCallback(() => {

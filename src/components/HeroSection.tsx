@@ -44,7 +44,7 @@ const heroWebpSrcSet = heroWebpFiles
 const heroJpgSrcSet = heroJpgFiles
   .map((file, index) => `${file.href} ${HERO_IMAGE_BREAKPOINTS[index]}w`)
   .join(', ');
-const heroPreloadSrc = heroJpgFiles[heroJpgFiles.length - 1].href;
+const heroPreloadSrc = heroJpgFiles[3].href;
 
 const QUICK_QUESTIONS = [
   "Como anexar documentos no SEI-Rio?",
