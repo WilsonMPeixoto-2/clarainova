@@ -1,4 +1,5 @@
-import { useState, lazy, Suspense } from 'react';
+import { useEffect, useRef, useState, lazy, Suspense } from 'react';
+import { useLocation, useSearchParams } from 'react-router-dom';
 import Header from '@/components/Header';
 import HeroSection from '@/components/HeroSection';
 import Footer from '@/components/Footer';
@@ -10,6 +11,9 @@ const FAQSection = lazy(() => import('@/components/FAQSection'));
 const ChatPanel = lazy(() => import('@/components/chat/ChatPanel').then(m => ({ default: m.ChatPanel })));
 
 const Index = () => {
+  const location = useLocation();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const chatRouteHandledRef = useRef(false);
   const [chatOpen, setChatOpen] = useState(false);
   const [initialQuery, setInitialQuery] = useState('');
 
@@ -17,6 +21,27 @@ const Index = () => {
     setInitialQuery(query || '');
     setChatOpen(true);
   };
+
+  useEffect(() => {
+    if (searchParams.get('chat') !== '1') return;
+    const prefilled = searchParams.get('q') ?? '';
+    handleOpenChat(prefilled || undefined);
+    const next = new URLSearchParams(searchParams);
+    next.delete('chat');
+    next.delete('q');
+    setSearchParams(next, { replace: true });
+  }, [searchParams, setSearchParams]);
+
+  useEffect(() => {
+    if (location.pathname !== '/chat') {
+      chatRouteHandledRef.current = false;
+      return;
+    }
+    if (chatRouteHandledRef.current) return;
+    chatRouteHandledRef.current = true;
+    const prefilled = searchParams.get('q') ?? '';
+    handleOpenChat(prefilled || undefined);
+  }, [location.pathname, searchParams]);
 
   return (
     <div className="min-h-screen bg-background">
@@ -36,7 +61,7 @@ const Index = () => {
       </a>
       
       <Header onOpenChat={() => handleOpenChat()} />
-      <main id="main-content">
+      <main id="main-content" className="site-main-canvas">
         <HeroSection onOpenChat={handleOpenChat} />
         <Suspense fallback={<div className="min-h-[400px]" />}>
           <FeaturesSection onOpenChat={handleOpenChat} />
