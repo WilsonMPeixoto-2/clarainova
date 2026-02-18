@@ -59,12 +59,12 @@ const Header = ({ onOpenChat }: HeaderProps) => {
         }`}
         role="banner"
       >
-        <div className="container mx-auto max-w-[1440px] px-6 md:px-8 xl:px-10">
-          <div className="flex items-center h-16 md:h-20 gap-3 md:gap-6">
+        <div className="container mx-auto max-w-[1500px] px-6 md:px-8 xl:px-10">
+          <div className="flex items-center h-16 gap-3 md:h-20 md:grid md:grid-cols-[minmax(220px,1fr)_auto_minmax(220px,1fr)] md:gap-6">
             {/* Brand Mark (minimal monogram to avoid duplicate CLARA headline) */}
             <a 
               href="/" 
-              className="inline-flex items-center gap-2 shrink-0 min-w-[120px] sm:min-w-[150px] md:min-w-[220px] focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 rounded-full"
+              className="inline-flex items-center gap-2 shrink-0 min-w-[120px] sm:min-w-[150px] md:min-w-0 md:justify-self-start focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 rounded-full"
             >
               <span
                 className="inline-flex items-center justify-center w-10 h-10 rounded-full border border-primary/35 bg-[linear-gradient(135deg,hsl(var(--gold-1)/0.15),hsl(var(--gold-2)/0.25))] text-primary text-lg font-bold tracking-tight"
@@ -83,7 +83,7 @@ const Header = ({ onOpenChat }: HeaderProps) => {
               <span className="sr-only">CLARA - Página inicial</span>
             </a>
 
-            <nav className="hidden md:flex flex-1 items-center justify-center gap-4 lg:gap-6" aria-label="Links utilitários">
+            <nav className="hidden md:flex items-center justify-center md:justify-self-center gap-4 lg:gap-6" aria-label="Links utilitários">
               {utilityLinks.map((link) => {
                 const isActive = isActiveLink(link.href);
                 return (
@@ -102,7 +102,7 @@ const Header = ({ onOpenChat }: HeaderProps) => {
               })}
             </nav>
 
-            <div className="ml-auto flex items-center gap-2 shrink-0">
+            <div className="ml-auto md:ml-0 flex items-center gap-2 shrink-0 md:justify-self-end">
               {onOpenChat && (
                 <Button
                   onClick={onOpenChat}
