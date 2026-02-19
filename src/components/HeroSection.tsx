@@ -70,12 +70,11 @@ interface HeroSectionProps {
 
 interface HeroLayoutDebugState {
   breakpoint: string;
-  posX: string;
-  posY: string;
+  claraPos: string;
   scale: string;
-  overlay: string;
-  textCols: string;
-  artCols: string;
+  overlayOpacity: string;
+  cardWidth: string;
+  cardMarginLeft: string;
 }
 
 const HeroSection = ({ onOpenChat }: HeroSectionProps) => {
@@ -90,12 +89,11 @@ const HeroSection = ({ onOpenChat }: HeroSectionProps) => {
   const [debugLayout, setDebugLayout] = useState(false);
   const [debugLayoutState, setDebugLayoutState] = useState<HeroLayoutDebugState>({
     breakpoint: '',
-    posX: '',
-    posY: '',
+    claraPos: '',
     scale: '',
-    overlay: '',
-    textCols: '',
-    artCols: '',
+    overlayOpacity: '',
+    cardWidth: '',
+    cardMarginLeft: '',
   });
 
   const shouldAnimate = isJsEnabled && !prefersReducedMotion;
@@ -241,12 +239,11 @@ const HeroSection = ({ onOpenChat }: HeroSectionProps) => {
       const styles = window.getComputedStyle(section);
       setDebugLayoutState({
         breakpoint: getBreakpointLabel(window.innerWidth),
-        posX: styles.getPropertyValue('--clara-pos-x').trim() || '-',
-        posY: styles.getPropertyValue('--clara-pos-y').trim() || '-',
+        claraPos: styles.getPropertyValue('--clara-pos').trim() || '-',
         scale: styles.getPropertyValue('--clara-scale').trim() || '-',
-        overlay: styles.getPropertyValue('--clara-overlay').trim() || '-',
-        textCols: styles.getPropertyValue('--hero-text-cols').trim() || '-',
-        artCols: styles.getPropertyValue('--hero-art-cols').trim() || '-',
+        overlayOpacity: styles.getPropertyValue('--hero-overlay-opacity').trim() || '-',
+        cardWidth: styles.getPropertyValue('--hero-card-w').trim() || '-',
+        cardMarginLeft: styles.getPropertyValue('--hero-card-ml').trim() || '-',
       });
     };
 
@@ -268,20 +265,20 @@ const HeroSection = ({ onOpenChat }: HeroSectionProps) => {
   return (
     <section
       ref={heroSectionRef}
-      className={`hero-shell hero-composition-lock relative min-h-screen flex items-center overflow-hidden ${
+      className={`clara-hero relative overflow-hidden ${
         debugLayout ? 'hero-layout-debug' : ''
       }`}
     >
-      {/* Background Image Layer */}
+      {/* Background Layer */}
       <motion.div
-        initial={shouldAnimate ? { opacity: 0.86, scale: 1.02 } : false}
-        animate={{ opacity: 1, scale: 1 }}
+        initial={shouldAnimate ? { opacity: 0.86 } : false}
+        animate={{ opacity: 1 }}
         transition={shouldAnimate ? { duration: 0.82, ease: [0.16, 1, 0.3, 1] } : { duration: 0 }}
         style={shouldAnimate ? { y: mediaParallaxY } : undefined}
-        className="absolute inset-0 z-0 pointer-events-none hero-media-layer"
+        className="hero-bg-parallax absolute inset-0 z-0 pointer-events-none"
       >
-        <div className="hero-art-stage">
-          <picture className="hero-character-picture">
+        <div className="hero-bg-scale absolute inset-0">
+          <picture className="absolute inset-0 block">
             <source
               type="image/avif"
               srcSet={heroAvifSrcSet}
@@ -303,30 +300,28 @@ const HeroSection = ({ onOpenChat }: HeroSectionProps) => {
               fetchPriority="high"
               loading="eager"
               decoding="async"
-              className="hero-image hero-character-image"
+              className="hero-clara-img"
               aria-hidden="true"
             />
           </picture>
-          <div className="hero-character-vignette" />
         </div>
       </motion.div>
 
-      {/* Overlay Layer (separate from media layer to avoid washing image details) */}
+      {/* Overlay Layer */}
       <motion.div
-        className="absolute inset-0 z-10 pointer-events-none hero-overlay-layer"
+        className="absolute inset-0 z-10 pointer-events-none"
         initial={shouldAnimate ? { opacity: 0.86 } : false}
         animate={{ opacity: 1 }}
         transition={shouldAnimate ? { duration: 0.9, ease: [0.16, 1, 0.3, 1] } : { duration: 0 }}
         style={shouldAnimate ? { y: auroraParallaxY } : undefined}
         aria-hidden="true"
       >
-        <div className="absolute inset-0 hidden md:block hero-overlay" />
-        <div className="absolute inset-0 md:hidden hero-overlay-mobile" />
+        <div className="absolute inset-0 hero-overlay-directional" />
       </motion.div>
 
       {/* Energy Motion Layer */}
       <motion.div
-        className="absolute inset-0 z-20 pointer-events-none hero-energy"
+        className="absolute inset-0 z-[15] pointer-events-none hero-energy"
         initial={shouldAnimate ? { opacity: 0 } : false}
         animate={{ opacity: 1 }}
         transition={shouldAnimate ? { duration: 0.95, ease: [0.16, 1, 0.3, 1], delay: 0.08 } : { duration: 0 }}
@@ -345,18 +340,16 @@ const HeroSection = ({ onOpenChat }: HeroSectionProps) => {
 
       {/* Content Layer */}
       <motion.div
-        className="hero-content-wrap relative z-30 pt-[clamp(5.5rem,9vh,7.25rem)] pb-[clamp(3.5rem,7vh,6rem)]"
+        className="relative z-20 mx-auto w-full max-w-[1400px] px-6 lg:px-10 py-16 md:py-24"
         style={shouldAnimate ? { y: textParallaxY } : undefined}
       >
-        <div className="hero-layout-grid">
-          {/* Left Column - Editorial Stack */}
-          <motion.div
-            variants={containerVariants}
-            initial={shouldAnimate ? 'hidden' : 'visible'}
-            animate="visible"
-            className="hero-copy-column"
-          >
-            <div className="hero-copy-panel space-y-6 md:space-y-9 w-full">
+        <motion.div
+          variants={containerVariants}
+          initial={shouldAnimate ? 'hidden' : 'visible'}
+          animate="visible"
+          className="hero-copy-column"
+        >
+          <div className="hero-glass-card space-y-6 md:space-y-9 w-full">
               {/* Badge Chip */}
               <motion.div variants={itemVariants}>
                 <span className="badge-chip">
@@ -519,24 +512,19 @@ const HeroSection = ({ onOpenChat }: HeroSectionProps) => {
                   )}
                 </div>
               </motion.div>
-            </div>
-          </motion.div>
-
-          <div className="hero-art-column" aria-hidden="true">
-            <div className="hero-safe-frame" />
           </div>
-        </div>
+        </motion.div>
       </motion.div>
 
       {debugLayout ? (
         <aside className="hero-debug-panel" aria-live="polite">
           <strong>Hero Layout Debug</strong>
           <span>breakpoint: {debugLayoutState.breakpoint || '-'}</span>
-          <span>pos-x: {debugLayoutState.posX}</span>
-          <span>pos-y: {debugLayoutState.posY}</span>
+          <span>pos: {debugLayoutState.claraPos}</span>
           <span>scale: {debugLayoutState.scale}</span>
-          <span>overlay: {debugLayoutState.overlay}</span>
-          <span>grid: texto {debugLayoutState.textCols} / arte {debugLayoutState.artCols}</span>
+          <span>overlay: {debugLayoutState.overlayOpacity}</span>
+          <span>card-w: {debugLayoutState.cardWidth}</span>
+          <span>card-ml: {debugLayoutState.cardMarginLeft}</span>
         </aside>
       ) : null}
 

@@ -12,19 +12,18 @@ export const useScrollPosition = (threshold: number = 50): ScrollPosition => {
   });
 
   useEffect(() => {
-    let ticking = false;
+    let rafId: number | null = null;
 
     const handleScroll = () => {
-      if (!ticking) {
-        window.requestAnimationFrame(() => {
+      if (rafId === null) {
+        rafId = window.requestAnimationFrame(() => {
           const currentScrollY = window.scrollY;
           setScrollPosition({
             scrollY: currentScrollY,
             isScrolled: currentScrollY > threshold,
           });
-          ticking = false;
+          rafId = null;
         });
-        ticking = true;
       }
     };
 
@@ -32,7 +31,12 @@ export const useScrollPosition = (threshold: number = 50): ScrollPosition => {
     handleScroll();
 
     window.addEventListener('scroll', handleScroll, { passive: true });
-    return () => window.removeEventListener('scroll', handleScroll);
+    return () => {
+      window.removeEventListener('scroll', handleScroll);
+      if (rafId !== null) {
+        window.cancelAnimationFrame(rafId);
+      }
+    };
   }, [threshold]);
 
   return scrollPosition;
