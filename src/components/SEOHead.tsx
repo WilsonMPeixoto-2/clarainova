@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { Helmet } from "react-helmet-async";
 
 interface SEOHeadProps {
   title?: string;
@@ -19,90 +19,42 @@ export function SEOHead({
   noIndex = false,
   googleVerification,
 }: SEOHeadProps) {
-  useEffect(() => {
-    // Defer DOM manipulation to avoid forced reflow during initial render
-    const rafId = requestAnimationFrame(() => {
-      // Get the base URL for absolute paths
-      const baseUrl = window.location.origin;
-      const absoluteUrl = `${baseUrl}${window.location.pathname}`;
-      const absoluteImageUrl = image.startsWith("http") ? image : `${baseUrl}${image}`;
-      
-      // Update document title
-      document.title = title.includes("CLARA") ? title : `${title} | CLARA`;
+  const origin = typeof window !== "undefined" ? window.location.origin : "https://clarainova.vercel.app";
+  const pathname = typeof window !== "undefined" ? window.location.pathname : "/";
+  const absoluteUrl = `${origin}${pathname}`;
+  const absoluteImageUrl = image.startsWith("http") ? image : `${origin}${image}`;
+  const normalizedTitle = title.includes("CLARA") ? title : `${title} | CLARA`;
 
-      // Update meta tags
-      const updateMeta = (name: string, content: string, isProperty = false) => {
-        const attr = isProperty ? "property" : "name";
-        let meta = document.querySelector(`meta[${attr}="${name}"]`);
-        if (!meta) {
-          meta = document.createElement("meta");
-          meta.setAttribute(attr, name);
-          document.head.appendChild(meta);
-        }
-        meta.setAttribute("content", content);
-      };
-
-      // Add or update link element
-      const updateLink = (rel: string, href: string) => {
-        let link = document.querySelector(`link[rel="${rel}"]`);
-        if (!link) {
-          link = document.createElement("link");
-          link.setAttribute("rel", rel);
-          document.head.appendChild(link);
-        }
-        link.setAttribute("href", href);
-      };
-
-      // Basic SEO
-      updateMeta("description", description);
-      updateMeta("keywords", keywords.join(", "));
-      updateMeta("author", "CLARA");
-      
-      // Open Graph (Facebook, LinkedIn, WhatsApp)
-      updateMeta("og:title", title, true);
-      updateMeta("og:description", description, true);
-      updateMeta("og:type", type, true);
-      updateMeta("og:image", absoluteImageUrl, true);
-      updateMeta("og:image:width", "1200", true);
-      updateMeta("og:image:height", "630", true);
-      updateMeta("og:image:alt", "CLARA - Consultora de Legislação e Apoio a Rotinas Administrativas", true);
-      updateMeta("og:url", absoluteUrl, true);
-      updateMeta("og:site_name", "CLARA", true);
-      updateMeta("og:locale", "pt_BR", true);
-      
-      // Twitter Card
-      updateMeta("twitter:card", "summary_large_image");
-      updateMeta("twitter:title", title);
-      updateMeta("twitter:description", description);
-      updateMeta("twitter:image", absoluteImageUrl);
-      updateMeta("twitter:image:alt", "CLARA - Inteligência Administrativa");
-      updateMeta("twitter:url", absoluteUrl);
-
-      // Add privacy policy link for Google verification
-      updateLink("privacy-policy", "/privacidade.html");
-      updateLink("canonical", absoluteUrl);
-
-      // Add Google site verification if provided
-      if (googleVerification) {
-        updateMeta("google-site-verification", googleVerification);
-      }
-
-      if (noIndex) {
-        updateMeta("robots", "noindex, nofollow");
-      }
-    });
-
-    // Cleanup
-    return () => {
-      cancelAnimationFrame(rafId);
-      if (noIndex) {
-        const robotsMeta = document.querySelector('meta[name="robots"]');
-        if (robotsMeta) robotsMeta.remove();
-      }
-    };
-  }, [title, description, keywords, type, image, noIndex, googleVerification]);
-
-  return null;
+  return (
+    <Helmet prioritizeSeoTags>
+      <title>{normalizedTitle}</title>
+      <meta name="description" content={description} />
+      <meta name="keywords" content={keywords.join(", ")} />
+      <meta name="author" content="CLARA" />
+      <meta name="robots" content={noIndex ? "noindex, nofollow" : "index, follow"} />
+      <meta property="og:title" content={normalizedTitle} />
+      <meta property="og:description" content={description} />
+      <meta property="og:type" content={type} />
+      <meta property="og:image" content={absoluteImageUrl} />
+      <meta property="og:image:width" content="1200" />
+      <meta property="og:image:height" content="630" />
+      <meta property="og:image:alt" content="CLARA - Consultora de Legislação e Apoio a Rotinas Administrativas" />
+      <meta property="og:url" content={absoluteUrl} />
+      <meta property="og:site_name" content="CLARA" />
+      <meta property="og:locale" content="pt_BR" />
+      <meta name="twitter:card" content="summary_large_image" />
+      <meta name="twitter:title" content={normalizedTitle} />
+      <meta name="twitter:description" content={description} />
+      <meta name="twitter:image" content={absoluteImageUrl} />
+      <meta name="twitter:image:alt" content="CLARA - Inteligência Administrativa" />
+      <meta name="twitter:url" content={absoluteUrl} />
+      {googleVerification ? (
+        <meta name="google-site-verification" content={googleVerification} />
+      ) : null}
+      <link rel="canonical" href={absoluteUrl} />
+      <link rel="privacy-policy" href="/privacidade.html" />
+    </Helmet>
+  );
 }
 
 // JSON-LD Schema component
@@ -113,49 +65,40 @@ export function SchemaOrg({
   type?: "Organization" | "WebApplication" | "FAQPage";
   data?: Record<string, unknown>;
 }) {
-  useEffect(() => {
-    const defaultSchemas = {
-      Organization: {
-        "@context": "https://schema.org",
-        "@type": "Organization",
-        name: "CLARA",
-        description: "Consultora de Legislação e Apoio a Rotinas Administrativas",
-        url: window.location.origin,
+  const origin = typeof window !== "undefined" ? window.location.origin : "https://clarainova.vercel.app";
+  const defaultSchemas = {
+    Organization: {
+      "@context": "https://schema.org",
+      "@type": "Organization",
+      name: "CLARA",
+      description: "Consultora de Legislação e Apoio a Rotinas Administrativas",
+      url: origin,
+    },
+    WebApplication: {
+      "@context": "https://schema.org",
+      "@type": "WebApplication",
+      name: "CLARA",
+      applicationCategory: "BusinessApplication",
+      operatingSystem: "Web",
+      description: "Assistente virtual especializada em SEI, SDP e procedimentos administrativos",
+      offers: {
+        "@type": "Offer",
+        price: "0",
+        priceCurrency: "BRL",
       },
-      WebApplication: {
-        "@context": "https://schema.org",
-        "@type": "WebApplication",
-        name: "CLARA",
-        applicationCategory: "BusinessApplication",
-        operatingSystem: "Web",
-        description: "Assistente virtual especializada em SEI, SDP e procedimentos administrativos",
-        offers: {
-          "@type": "Offer",
-          price: "0",
-          priceCurrency: "BRL",
-        },
-      },
-      FAQPage: {
-        "@context": "https://schema.org",
-        "@type": "FAQPage",
-        mainEntity: [],
-      },
-    };
+    },
+    FAQPage: {
+      "@context": "https://schema.org",
+      "@type": "FAQPage",
+      mainEntity: [],
+    },
+  };
 
-    const schema = data || defaultSchemas[type];
-    
-    let script = document.querySelector('script[type="application/ld+json"]');
-    if (!script) {
-      script = document.createElement("script");
-      script.setAttribute("type", "application/ld+json");
-      document.head.appendChild(script);
-    }
-    script.textContent = JSON.stringify(schema);
+  const schema = data || defaultSchemas[type];
 
-    return () => {
-      script?.remove();
-    };
-  }, [type, data]);
-
-  return null;
+  return (
+    <Helmet>
+      <script type="application/ld+json">{JSON.stringify(schema)}</script>
+    </Helmet>
+  );
 }

@@ -1,10 +1,13 @@
 import { lazy, Suspense, ComponentType, useEffect } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
+import { HelmetProvider } from "react-helmet-async";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
+import { Analytics } from "@vercel/analytics/react";
+import { SpeedInsights } from "@vercel/speed-insights/react";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { LoadingFallback } from "@/components/LoadingFallback";
 import { LenisProvider } from "@/components/LenisProvider";
@@ -85,21 +88,25 @@ const App = () => {
 
   return (
     <ErrorBoundary>
-      <QueryClientProvider client={queryClient}>
-        <AuthProvider>
-          <TooltipProvider>
-            <Toaster />
-            <Sonner />
-            <LenisProvider>
-              <BrowserRouter>
-                <Suspense fallback={<LoadingFallback message="Carregando página..." />}>
-                  <AnimatedRoutes />
-                </Suspense>
-              </BrowserRouter>
-            </LenisProvider>
-          </TooltipProvider>
-        </AuthProvider>
-      </QueryClientProvider>
+      <HelmetProvider>
+        <QueryClientProvider client={queryClient}>
+          <AuthProvider>
+            <TooltipProvider>
+              <Toaster />
+              <Sonner />
+              <LenisProvider>
+                <BrowserRouter>
+                  <Suspense fallback={<LoadingFallback message="Carregando página..." />}>
+                    <AnimatedRoutes />
+                  </Suspense>
+                </BrowserRouter>
+              </LenisProvider>
+              <Analytics />
+              <SpeedInsights />
+            </TooltipProvider>
+          </AuthProvider>
+        </QueryClientProvider>
+      </HelmetProvider>
     </ErrorBoundary>
   );
 };

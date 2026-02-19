@@ -731,7 +731,7 @@
     width: clamp(540px, 54vw, 1440px);
     height: clamp(86px, 8.2vw, 170px);
     filter: blur(11px);
-    opacity: 0.62;
+    opacity: 0.56;
     animation-delay: -1.1s;
   }
 
@@ -745,7 +745,7 @@
     width: clamp(500px, 49vw, 1320px);
     height: clamp(80px, 7.4vw, 152px);
     filter: blur(13px);
-    opacity: 0.5;
+    opacity: 0.42;
     animation-duration: 10.4s, 7.2s;
     animation-delay: -4s;
   }
@@ -777,8 +777,8 @@
       );
     background-size: 220% 100%, 180% 100%;
     animation:
-      hero-cinematic-beam 6.8s cubic-bezier(0.42, 0.06, 0.24, 1) infinite,
-      hero-cinematic-shimmer 4.6s linear infinite;
+      hero-cinematic-beam 8.2s cubic-bezier(0.42, 0.06, 0.24, 1) infinite,
+      hero-cinematic-shimmer 5.4s linear infinite;
   }
 
   .hero-energy-beam--primary {
@@ -787,7 +787,7 @@
     width: clamp(420px, 46vw, 1160px);
     height: clamp(86px, 8.2vw, 164px);
     filter: blur(12px);
-    opacity: 0.66;
+    opacity: 0.54;
     animation-delay: -1.4s;
   }
 
@@ -801,8 +801,8 @@
     width: clamp(360px, 38vw, 980px);
     height: clamp(78px, 6.9vw, 142px);
     filter: blur(14px);
-    opacity: 0.54;
-    animation-duration: 8.8s, 5.2s;
+    opacity: 0.44;
+    animation-duration: 9.4s, 5.8s;
     animation-delay: -3.1s;
   }
 
@@ -816,8 +816,8 @@
     width: clamp(300px, 30vw, 820px);
     height: clamp(70px, 6vw, 128px);
     filter: blur(16px);
-    opacity: 0.46;
-    animation-duration: 10.4s, 6.4s;
+    opacity: 0.36;
+    animation-duration: 11.2s, 6.8s;
     animation-delay: -5.4s;
   }
 
@@ -1348,29 +1348,38 @@
       opacity: 0.16;
     }
 
-    .hero-energy-ribbon {
-      animation-duration: 20s, 14s;
+    .hero-energy,
+    .hero-energy-ribbon,
+    .hero-energy-beam,
+    .hero-energy::before,
+    .hero-energy::after,
+    .hero-energy-stream,
+    .hero-character-image {
+      animation: none !important;
+      transition: none !important;
+      transform: none !important;
+    }
+
+    .hero-energy {
+      mix-blend-mode: normal;
       opacity: 0.22;
     }
 
+    .hero-energy-ribbon {
+      opacity: 0.16;
+    }
+
     .hero-energy-beam {
-      animation-duration: 22s, 12s;
-      opacity: 0.2;
+      opacity: 0.14;
     }
 
     .hero-energy::before,
     .hero-energy::after {
-      animation-duration: 34s;
-      opacity: 0.32;
+      opacity: 0.2;
     }
 
     .hero-energy-stream {
-      animation-duration: 30s, 14s;
-      opacity: 0.28;
-    }
-
-    .hero-energy-stream--secondary {
-      animation-duration: 40s, 16s;
+      opacity: 0.18;
     }
 
     .quick-chip,

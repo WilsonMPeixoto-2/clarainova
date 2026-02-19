@@ -69,7 +69,8 @@
 - `ScrollReveal`: render estático sem animação.
 - Hero orchestration: desativada via `shouldAnimate = js-enabled && !prefersReducedMotion`.
 - CSS:
-  - aurora/energy glow: `animation: none` ou durações muito lentas;
+  - aurora/energy glow: `animation: none` no hero em `prefers-reduced-motion`;
+  - ribbons/beams/streams e pseudo-camadas de energia: `animation: none !important`, `transform: none !important`;
   - transições de CTA/microinteração neutralizadas.
 
 ## Checklist de Validação
