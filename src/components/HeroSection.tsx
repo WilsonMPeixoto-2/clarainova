@@ -5,7 +5,8 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import claraHeroFallback from '@/assets/clara-hero-fallback.jpg';
 
 const HERO_IMAGE_BREAKPOINTS = [480, 768, 1024, 1440, 1920, 2560, 3840] as const;
-const HERO_IMAGE_SIZES = '(max-width: 768px) 100vw, (max-width: 1440px) 90vw, 1200px';
+const HERO_IMAGE_SIZES =
+  '(max-width: 899px) 100vw, (max-width: 1199px) 62vw, (max-width: 1919px) 54vw, (max-width: 2399px) 52vw, 50vw';
 
 const heroAvifFiles = [
   new URL('../assets/clara-hero-480.avif', import.meta.url),
@@ -140,7 +141,7 @@ const HeroSection = ({ onOpenChat }: HeroSectionProps) => {
   }, [updateQuickScrollState]);
 
   return (
-    <section className="hero-shell relative min-h-screen flex items-center overflow-hidden">
+    <section className="hero-shell hero-composition-lock relative min-h-screen flex items-center overflow-hidden">
       {/* Background Image Layer */}
       <motion.div 
         initial={prefersReducedMotion ? { opacity: 1 } : { opacity: 0.35, scale: 1.03 }}
@@ -188,10 +189,11 @@ const HeroSection = ({ onOpenChat }: HeroSectionProps) => {
             fetchPriority="high"
             loading="eager"
             decoding="async"
-            className="w-full h-full object-cover hero-image"
+            className="hero-image hero-character-image"
             aria-hidden="true"
           />
         </picture>
+        <div className="hero-character-vignette" />
       </motion.div>
 
       {/* Overlay Layer (separate from media layer to avoid washing image details) */}
@@ -208,14 +210,14 @@ const HeroSection = ({ onOpenChat }: HeroSectionProps) => {
 
 
       {/* Content Layer */}
-      <div className="hero-content-wrap container mx-auto max-w-[1380px] px-6 md:px-8 xl:px-10 relative z-20 pt-24 md:pt-28 pb-16 md:pb-24">
-        <div className="hero-layout-grid grid grid-cols-1 md:grid-cols-12 gap-8 lg:gap-12 xl:gap-14 items-end md:items-center">
+      <div className="hero-content-wrap container mx-auto relative z-30 pt-24 md:pt-28 pb-16 md:pb-24">
+        <div className="hero-layout-grid">
           {/* Left Column - Editorial Stack */}
           <motion.div 
             variants={containerVariants}
             initial="hidden"
             animate="visible"
-            className="hero-copy-column md:col-span-6 md:col-start-2 lg:col-span-6 lg:col-start-2 xl:col-span-6"
+            className="hero-copy-column"
           >
             <div className="hero-copy-panel space-y-6 md:space-y-9 w-full">
               {/* Badge Chip */}
@@ -371,9 +373,6 @@ const HeroSection = ({ onOpenChat }: HeroSectionProps) => {
               </motion.div>
             </div>
           </motion.div>
-
-          {/* Right Column - intentionally left for art direction balance */}
-          <div className="hero-art-column hidden md:block md:col-span-5 md:col-start-8 lg:col-span-5 lg:col-start-8 xl:col-span-5" aria-hidden="true" />
         </div>
       </div>
 

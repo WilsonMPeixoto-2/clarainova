@@ -9,6 +9,8 @@
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
     "preview": "vite preview",
+    "visual:hero-lock": "node scripts/capture-hero-lock.mjs",
+    "visual:hero-lock:prod": "node scripts/capture-hero-lock.mjs https://clarainova.vercel.app docs/visual-regression/hero-lock after-production",
     "test": "vitest run",
     "test:watch": "vitest"
   },

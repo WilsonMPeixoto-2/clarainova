@@ -59,12 +59,12 @@ const Header = ({ onOpenChat }: HeaderProps) => {
         }`}
         role="banner"
       >
-        <div className="container mx-auto max-w-[1380px] px-6 md:px-8 xl:px-10">
-          <div className="flex items-center h-16 gap-3 md:h-20 md:grid md:grid-cols-[minmax(260px,1fr)_auto_minmax(260px,1fr)] md:gap-8">
+        <div className="container mx-auto max-w-[1600px] px-6 md:px-8 xl:px-10">
+          <div className="flex items-center h-16 gap-3 md:h-20 md:grid md:grid-cols-[minmax(300px,1fr)_auto_minmax(300px,1fr)] md:gap-10">
             {/* Brand Mark (minimal monogram to avoid duplicate CLARA headline) */}
             <a 
               href="/" 
-              className="inline-flex items-center gap-2 shrink-0 min-w-[120px] sm:min-w-[150px] md:min-w-[240px] md:justify-self-start focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 rounded-full"
+              className="inline-flex items-center gap-2 shrink-0 min-w-[120px] sm:min-w-[150px] md:min-w-[280px] md:justify-self-start focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 rounded-full"
             >
               <span
                 className="inline-flex items-center justify-center w-10 h-10 rounded-full border border-primary/35 bg-[linear-gradient(135deg,hsl(var(--gold-1)/0.15),hsl(var(--gold-2)/0.25))] text-primary text-lg font-bold tracking-tight"
