@@ -139,9 +139,9 @@
     --accent-gold: 36 74% 63%;
     --accent-indigo: 231 52% 58%;
     --accent-cyan: 189 56% 56%;
-    --clara-pos-x: 75%;
-    --clara-pos-y: 32%;
-    --clara-scale: 1.04;
+    --clara-pos-x: 18%;
+    --clara-pos-y: 46%;
+    --clara-scale: 1;
     --clara-overlay: 0.8;
     --hero-text-cols: 5;
     --hero-art-cols: 7;
@@ -229,10 +229,10 @@
 
   @media (min-width: 1440px) {
     .hero-shell {
-      --clara-pos-x: 76%;
-      --clara-pos-y: 32%;
-      --clara-scale: 1.05;
-      --clara-overlay: 0.76;
+      --clara-pos-x: 10%;
+      --clara-pos-y: 44%;
+      --clara-scale: 1.03;
+      --clara-overlay: 0.74;
       --hero-text-cols: 5;
       --hero-art-cols: 7;
       --hero-text-max: clamp(540px, 34vw, 640px);
@@ -242,10 +242,10 @@
 
   @media (min-width: 1280px) and (max-width: 1439px) {
     .hero-shell {
-      --clara-pos-x: 73%;
-      --clara-pos-y: 34%;
-      --clara-scale: 1.02;
-      --clara-overlay: 0.8;
+      --clara-pos-x: 13%;
+      --clara-pos-y: 45%;
+      --clara-scale: 1.01;
+      --clara-overlay: 0.78;
       --hero-text-cols: 5;
       --hero-art-cols: 7;
       --hero-text-max: clamp(520px, 35vw, 620px);
@@ -255,10 +255,10 @@
 
   @media (min-width: 1024px) and (max-width: 1279px) {
     .hero-shell {
-      --clara-pos-x: 71%;
-      --clara-pos-y: 36%;
-      --clara-scale: 1;
-      --clara-overlay: 0.84;
+      --clara-pos-x: 17%;
+      --clara-pos-y: 46%;
+      --clara-scale: 0.99;
+      --clara-overlay: 0.82;
       --hero-text-cols: 5;
       --hero-art-cols: 7;
       --hero-text-max: clamp(500px, 40vw, 600px);
@@ -270,10 +270,10 @@
 
   @media (min-width: 900px) and (max-width: 1199px) {
     .hero-shell {
-      --clara-pos-x: 68%;
-      --clara-pos-y: 38%;
-      --clara-scale: 0.98;
-      --clara-overlay: 0.88;
+      --clara-pos-x: 17%;
+      --clara-pos-y: 47%;
+      --clara-scale: 0.97;
+      --clara-overlay: 0.86;
       --hero-text-cols: 6;
       --hero-art-cols: 6;
       --hero-text-max: clamp(460px, 48vw, 560px);
@@ -286,7 +286,7 @@
   @media (max-width: 899px) {
     .hero-shell {
       --clara-pos-x: 60%;
-      --clara-pos-y: 46%;
+      --clara-pos-y: 48%;
       --clara-scale: 1;
       --clara-overlay: 0.92;
       --hero-text-cols: 12;
