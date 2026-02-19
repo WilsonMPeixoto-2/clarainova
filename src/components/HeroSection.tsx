@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { motion, useReducedMotion } from 'framer-motion';
+import { useCallback, useEffect, useRef, useState, type MouseEvent } from 'react';
+import { motion, useReducedMotion, useScroll, useTransform } from 'framer-motion';
 import { MessageCircle, BookOpen, Sparkles, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useIsMobile } from '@/hooks/use-mobile';
 import claraHeroFallback from '@/assets/clara-hero-fallback.jpg';
@@ -83,8 +83,10 @@ const HeroSection = ({ onOpenChat }: HeroSectionProps) => {
   const prefersReducedMotion = useReducedMotion();
   const heroSectionRef = useRef<HTMLElement>(null);
   const quickCarouselRef = useRef<HTMLDivElement>(null);
+  const magneticRafRef = useRef<number | null>(null);
   const [canScrollPrev, setCanScrollPrev] = useState(false);
   const [canScrollNext, setCanScrollNext] = useState(false);
+  const [isJsEnabled, setIsJsEnabled] = useState(false);
   const [debugLayout, setDebugLayout] = useState(false);
   const [debugLayoutState, setDebugLayoutState] = useState<HeroLayoutDebugState>({
     breakpoint: '',
@@ -96,26 +98,33 @@ const HeroSection = ({ onOpenChat }: HeroSectionProps) => {
     artCols: '',
   });
 
-  const containerVariants = prefersReducedMotion
-    ? { hidden: { opacity: 1 }, visible: { opacity: 1 } }
-    : {
-        hidden: { opacity: 0 },
-        visible: {
-          opacity: 1,
-          transition: { staggerChildren: isMobile ? 0.05 : 0.08, delayChildren: 0 },
-        },
-      };
+  const shouldAnimate = isJsEnabled && !prefersReducedMotion;
 
-  const itemVariants = prefersReducedMotion
-    ? { hidden: { opacity: 1, y: 0 }, visible: { opacity: 1, y: 0 } }
-    : {
-        hidden: { opacity: 0, y: 12 },
-        visible: {
-          opacity: 1,
-          y: 0,
-          transition: { duration: isMobile ? 0.3 : 0.4, ease: 'easeOut' as const },
-        },
-      };
+  const containerVariants = {
+    hidden: { opacity: 0, y: 16 },
+    visible: {
+      opacity: 1,
+      y: 0,
+      transition: {
+        staggerChildren: isMobile ? 0.1 : 0.12,
+        delayChildren: 0.06,
+        duration: 0.7,
+        ease: [0.16, 1, 0.3, 1] as const,
+      },
+    },
+  };
+
+  const itemVariants = {
+    hidden: { opacity: 0, y: 16 },
+    visible: {
+      opacity: 1,
+      y: 0,
+      transition: {
+        duration: isMobile ? 0.55 : 0.75,
+        ease: [0.16, 1, 0.3, 1] as const,
+      },
+    },
+  };
 
   const updateQuickScrollState = useCallback(() => {
     const el = quickCarouselRef.current;
@@ -132,6 +141,35 @@ const HeroSection = ({ onOpenChat }: HeroSectionProps) => {
       left: direction === 'next' ? QUICK_SCROLL_DISTANCE : -QUICK_SCROLL_DISTANCE,
       behavior: 'smooth',
     });
+  }, []);
+
+  const handleMagneticMove = useCallback(
+    (event: MouseEvent<HTMLButtonElement>) => {
+      if (!shouldAnimate || isMobile || !window.matchMedia('(pointer:fine)').matches) {
+        return;
+      }
+
+      const target = event.currentTarget;
+      const rect = target.getBoundingClientRect();
+      const offsetX = ((event.clientX - (rect.left + rect.width / 2)) / rect.width) * 12;
+      const offsetY = ((event.clientY - (rect.top + rect.height / 2)) / rect.height) * 12;
+
+      if (magneticRafRef.current) {
+        cancelAnimationFrame(magneticRafRef.current);
+      }
+
+      magneticRafRef.current = requestAnimationFrame(() => {
+        target.style.setProperty('--magnetic-x', `${offsetX.toFixed(2)}px`);
+        target.style.setProperty('--magnetic-y', `${offsetY.toFixed(2)}px`);
+      });
+    },
+    [isMobile, shouldAnimate],
+  );
+
+  const handleMagneticLeave = useCallback((event: MouseEvent<HTMLButtonElement>) => {
+    const target = event.currentTarget;
+    target.style.setProperty('--magnetic-x', '0px');
+    target.style.setProperty('--magnetic-y', '0px');
   }, []);
 
   useEffect(() => {
@@ -162,6 +200,14 @@ const HeroSection = ({ onOpenChat }: HeroSectionProps) => {
   }, [updateQuickScrollState]);
 
   useEffect(() => {
+    return () => {
+      if (magneticRafRef.current) {
+        cancelAnimationFrame(magneticRafRef.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
     const syncDebugLayout = () => {
       const params = new URLSearchParams(window.location.search);
       setDebugLayout(params.get('debugLayout') === '1');
@@ -172,6 +218,10 @@ const HeroSection = ({ onOpenChat }: HeroSectionProps) => {
     return () => {
       window.removeEventListener('popstate', syncDebugLayout);
     };
+  }, []);
+
+  useEffect(() => {
+    setIsJsEnabled(document.body.classList.contains('js-enabled'));
   }, []);
 
   useEffect(() => {
@@ -207,29 +257,13 @@ const HeroSection = ({ onOpenChat }: HeroSectionProps) => {
     };
   }, [debugLayout]);
 
-  const energyLayerAnimation = prefersReducedMotion
-    ? {
-        x: [0, 4, 0],
-        y: [0, -1, 0],
-        opacity: [0.74, 0.82, 0.74],
-      }
-    : isMobile
-      ? {
-          x: [-8, 10, -4, 0],
-          y: [0, -3, 2, 0],
-          opacity: [0.78, 0.92, 0.8, 0.78],
-        }
-      : {
-          x: [-20, 24, -12, 0],
-          y: [0, -8, 5, 0],
-          opacity: [0.82, 1, 0.86, 0.82],
-        };
-
-  const energyLayerTransition = prefersReducedMotion
-    ? { duration: 22, ease: 'easeInOut', repeat: Infinity }
-    : isMobile
-      ? { duration: 11.5, ease: 'easeInOut', repeat: Infinity }
-      : { duration: 13.5, ease: 'easeInOut', repeat: Infinity };
+  const { scrollYProgress } = useScroll({
+    target: heroSectionRef,
+    offset: ['start start', 'end start'],
+  });
+  const mediaParallaxY = useTransform(scrollYProgress, [0, 1], [0, 22]);
+  const auroraParallaxY = useTransform(scrollYProgress, [0, 1], [0, 28]);
+  const textParallaxY = useTransform(scrollYProgress, [0, 1], [0, 7]);
 
   return (
     <section
@@ -239,28 +273,11 @@ const HeroSection = ({ onOpenChat }: HeroSectionProps) => {
       }`}
     >
       {/* Background Image Layer */}
-      <motion.div 
-        initial={prefersReducedMotion ? { opacity: 1 } : { opacity: 0.35, scale: 1.03 }}
-        animate={
-          prefersReducedMotion
-            ? { opacity: 1 }
-            : {
-                opacity: 1,
-                scale: [1.03, 1.01, 1.05],
-                x: [0, -18, 8, 0],
-                y: [0, -6, 4, 0],
-              }
-        }
-        transition={
-          prefersReducedMotion
-            ? { duration: 0.45, ease: 'easeOut' }
-            : {
-                opacity: { duration: isMobile ? 0.5 : 0.75, ease: 'easeOut' },
-                scale: { duration: 58, ease: 'linear', repeat: Infinity, repeatType: 'mirror' },
-                x: { duration: 62, ease: 'easeInOut', repeat: Infinity, repeatType: 'mirror' },
-                y: { duration: 54, ease: 'easeInOut', repeat: Infinity, repeatType: 'mirror' },
-              }
-        }
+      <motion.div
+        initial={shouldAnimate ? { opacity: 0.86, scale: 1.02 } : false}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={shouldAnimate ? { duration: 0.82, ease: [0.16, 1, 0.3, 1] } : { duration: 0 }}
+        style={shouldAnimate ? { y: mediaParallaxY } : undefined}
         className="absolute inset-0 z-0 pointer-events-none hero-media-layer"
       >
         <div className="hero-art-stage">
@@ -295,17 +312,25 @@ const HeroSection = ({ onOpenChat }: HeroSectionProps) => {
       </motion.div>
 
       {/* Overlay Layer (separate from media layer to avoid washing image details) */}
-      <div className="absolute inset-0 z-10 pointer-events-none hero-overlay-layer" aria-hidden="true">
+      <motion.div
+        className="absolute inset-0 z-10 pointer-events-none hero-overlay-layer"
+        initial={shouldAnimate ? { opacity: 0.86 } : false}
+        animate={{ opacity: 1 }}
+        transition={shouldAnimate ? { duration: 0.9, ease: [0.16, 1, 0.3, 1] } : { duration: 0 }}
+        style={shouldAnimate ? { y: auroraParallaxY } : undefined}
+        aria-hidden="true"
+      >
         <div className="absolute inset-0 hidden md:block hero-overlay" />
         <div className="absolute inset-0 md:hidden hero-overlay-mobile" />
-      </div>
+      </motion.div>
 
       {/* Energy Motion Layer */}
       <motion.div
         className="absolute inset-0 z-20 pointer-events-none hero-energy"
-        initial={{ opacity: 0.64 }}
-        animate={energyLayerAnimation}
-        transition={energyLayerTransition}
+        initial={shouldAnimate ? { opacity: 0 } : false}
+        animate={{ opacity: 1 }}
+        transition={shouldAnimate ? { duration: 0.95, ease: [0.16, 1, 0.3, 1], delay: 0.08 } : { duration: 0 }}
+        style={shouldAnimate ? { y: auroraParallaxY } : undefined}
         aria-hidden="true"
       >
         <span className="hero-energy-ribbon hero-energy-ribbon--north" />
@@ -319,12 +344,15 @@ const HeroSection = ({ onOpenChat }: HeroSectionProps) => {
 
 
       {/* Content Layer */}
-      <div className="hero-content-wrap relative z-30 pt-[clamp(5.5rem,9vh,7.25rem)] pb-[clamp(3.5rem,7vh,6rem)]">
+      <motion.div
+        className="hero-content-wrap relative z-30 pt-[clamp(5.5rem,9vh,7.25rem)] pb-[clamp(3.5rem,7vh,6rem)]"
+        style={shouldAnimate ? { y: textParallaxY } : undefined}
+      >
         <div className="hero-layout-grid">
           {/* Left Column - Editorial Stack */}
-          <motion.div 
+          <motion.div
             variants={containerVariants}
-            initial="hidden"
+            initial={shouldAnimate ? 'hidden' : 'visible'}
             animate="visible"
             className="hero-copy-column"
           >
@@ -332,9 +360,9 @@ const HeroSection = ({ onOpenChat }: HeroSectionProps) => {
               {/* Badge Chip */}
               <motion.div variants={itemVariants}>
                 <span className="badge-chip">
-                  <motion.span 
-                    animate={prefersReducedMotion ? undefined : { scale: [1, 1.2, 1] }}
-                    transition={prefersReducedMotion ? undefined : { duration: 2, repeat: Infinity }}
+                  <motion.span
+                    animate={shouldAnimate ? { scale: [1, 1.2, 1] } : undefined}
+                    transition={shouldAnimate ? { duration: 2, repeat: Infinity } : undefined}
                     className="w-2 h-2 rounded-full bg-primary"
                   />
                   <Sparkles className="w-3 h-3 text-primary" aria-hidden="true" />
@@ -350,10 +378,23 @@ const HeroSection = ({ onOpenChat }: HeroSectionProps) => {
               </motion.div>
 
               {/* H1 - CLARA with tighter tracking for brand signature */}
-              <motion.h1 variants={itemVariants}>
-                <span className="hero-title amber-glow inline-block">
+              <motion.h1 variants={itemVariants} className="hero-title-mask">
+                <motion.span
+                  className="hero-title amber-glow inline-block hero-title-reveal"
+                  initial={
+                    shouldAnimate
+                      ? { opacity: 0, filter: 'blur(2px)', clipPath: 'inset(0 100% 0 0)' }
+                      : false
+                  }
+                  animate={{ opacity: 1, filter: 'blur(0px)', clipPath: 'inset(0 0% 0 0)' }}
+                  transition={
+                    shouldAnimate
+                      ? { duration: 0.68, delay: 0.16, ease: [0.16, 1, 0.3, 1] }
+                      : { duration: 0 }
+                  }
+                >
                   CLARA
-                </span>
+                </motion.span>
               </motion.h1>
 
               {/* Subtitle - with elegant leading */}
@@ -381,29 +422,27 @@ const HeroSection = ({ onOpenChat }: HeroSectionProps) => {
                 variants={itemVariants}
                 className="flex flex-col sm:flex-row gap-4 pt-3"
               >
-                <motion.button 
+                <button
                   onClick={() => onOpenChat()}
-                  className="btn-clara-primary type-label flex items-center justify-center gap-2"
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  transition={{ type: "spring", stiffness: 400 }}
+                  className="btn-clara-primary hero-cta-button type-label flex items-center justify-center gap-2"
+                  onMouseMove={handleMagneticMove}
+                  onMouseLeave={handleMagneticLeave}
                 >
                   <MessageCircle size={20} aria-hidden="true" />
                   Iniciar conversa
-                </motion.button>
-                <motion.button 
+                </button>
+                <button
                   onClick={() => {
                     const featuresSection = document.getElementById('conhecimento') ?? document.getElementById('features');
                     featuresSection?.scrollIntoView({ behavior: 'smooth' });
                   }}
-                  className="btn-clara-secondary type-label flex items-center justify-center gap-2"
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  transition={{ type: "spring", stiffness: 400 }}
+                  className="btn-clara-secondary hero-cta-button type-label flex items-center justify-center gap-2"
+                  onMouseMove={handleMagneticMove}
+                  onMouseLeave={handleMagneticLeave}
                 >
                   <BookOpen size={20} aria-hidden="true" />
                   Ver tópicos
-                </motion.button>
+                </button>
               </motion.div>
 
               {/* Privacy Policy Link */}
@@ -487,7 +526,7 @@ const HeroSection = ({ onOpenChat }: HeroSectionProps) => {
             <div className="hero-safe-frame" />
           </div>
         </div>
-      </div>
+      </motion.div>
 
       {debugLayout ? (
         <aside className="hero-debug-panel" aria-live="polite">

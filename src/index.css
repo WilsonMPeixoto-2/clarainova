@@ -17,7 +17,7 @@
     --stroke: 216 28% 26%;
     --shadow: 218 56% 4%;
     --glow: 31 58% 62%;
-    --noise-opacity: 0.04;
+    --noise-opacity: 0.034;
     --vignette-deep: 216 28% 12%;
     --highlight-gold: hsl(var(--gold-2) / 0.4);
     --film-haze: hsl(var(--bg-base) / 0.22);
@@ -163,7 +163,7 @@
     --stroke: 216 28% 26%;
     --shadow: 218 56% 4%;
     --glow: 31 58% 62%;
-    --noise-opacity: 0.04;
+    --noise-opacity: 0.034;
 
     --background: var(--bg-base);
     --foreground: var(--text-primary);
@@ -296,6 +296,14 @@
       --hero-pad-left: clamp(16px, 4.2vw, 24px);
       --hero-pad-right: clamp(16px, 4.2vw, 24px);
     }
+
+    .hero-shell::before {
+      opacity: 0.34;
+    }
+
+    .hero-shell::after {
+      opacity: 0.44;
+    }
   }
 
   .hero-shell::after {
@@ -308,6 +316,7 @@
       radial-gradient(circle at 92% 18%, hsl(var(--vignette-deep) / 0.38), transparent 56%);
     mix-blend-mode: multiply;
     opacity: 0.52;
+    animation: hero-aurora-veil 26s ease-in-out infinite;
   }
 
   /* Subtle noise texture for premium feel - almost imperceptible */
@@ -339,6 +348,7 @@
     overflow: hidden;
   }
 
+  /* Aurora breathing layer: slow movement to keep background alive */
   .hero-shell::before {
     content: '';
     position: absolute;
@@ -351,11 +361,11 @@
       radial-gradient(54% 48% at 24% 26%, hsl(var(--accent-indigo) / 0.12) 0%, transparent 76%),
       radial-gradient(44% 42% at 68% 78%, hsl(var(--accent-cyan) / 0.09) 0%, transparent 76%);
     transform: translate3d(0, 0, 0);
-    will-change: transform, opacity;
-    animation: liquid-aurora-drift 20s ease-in-out infinite alternate;
+    will-change: transform;
+    animation: hero-aurora-breathe 22s ease-in-out infinite;
   }
 
-  @keyframes liquid-aurora-drift {
+  @keyframes hero-aurora-breathe {
     0% {
       transform: translate3d(0, 0, 0) scale(1);
       opacity: 0.38;
@@ -370,8 +380,24 @@
     }
   }
 
+  @keyframes hero-aurora-veil {
+    0% {
+      transform: translate3d(0, 0, 0) scale(1);
+      opacity: 0.48;
+    }
+    50% {
+      transform: translate3d(1.6%, -1.2%, 0) scale(1.02);
+      opacity: 0.58;
+    }
+    100% {
+      transform: translate3d(-1.4%, 1.1%, 0) scale(0.99);
+      opacity: 0.5;
+    }
+  }
+
   @media (prefers-reduced-motion: reduce) {
-    .hero-shell::before {
+    .hero-shell::before,
+    .hero-shell::after {
       animation: none;
       transform: none;
       opacity: 0.36;
@@ -559,6 +585,21 @@
     isolation: isolate;
   }
 
+  /* Cinematic glow layer: subtle animated energy over the art column */
+  .hero-art-stage::before {
+    content: '';
+    position: absolute;
+    inset: -6% -8% -8% -10%;
+    pointer-events: none;
+    z-index: 2;
+    opacity: 0.24;
+    mix-blend-mode: screen;
+    background:
+      radial-gradient(72% 68% at 84% 34%, hsl(var(--gold-2) / 0.34), transparent 72%),
+      radial-gradient(56% 52% at 70% 74%, hsl(var(--gold-1) / 0.18), transparent 76%);
+    animation: hero-energy-glow 30s ease-in-out infinite;
+  }
+
   .hero-art-stage::after {
     content: '';
     position: absolute;
@@ -572,6 +613,21 @@
       hsl(var(--bg-base) / calc(0.18 * var(--clara-overlay))) 70%,
       hsl(var(--bg-base) / 0) 100%
     );
+  }
+
+  @keyframes hero-energy-glow {
+    0% {
+      transform: translate3d(0, 0, 0) scale(1);
+      opacity: 0.18;
+    }
+    50% {
+      transform: translate3d(1.8%, -1.6%, 0) scale(1.03);
+      opacity: 0.3;
+    }
+    100% {
+      transform: translate3d(-1.2%, 1.2%, 0) scale(0.99);
+      opacity: 0.2;
+    }
   }
 
   .hero-character-picture {
@@ -1150,6 +1206,11 @@
       min-height: 100%;
     }
 
+    .hero-art-stage::before {
+      opacity: 0.16;
+      animation-duration: 34s;
+    }
+
     .hero-art-stage::after {
       background: linear-gradient(
         180deg,
@@ -1281,6 +1342,12 @@
   }
 
   @media (prefers-reduced-motion: reduce) {
+    .hero-art-stage::before {
+      animation: none;
+      transform: none;
+      opacity: 0.16;
+    }
+
     .hero-energy-ribbon {
       animation-duration: 20s, 14s;
       opacity: 0.22;
@@ -1309,8 +1376,10 @@
     .quick-chip,
     .action-btn,
     .btn-clara-primary,
-    .btn-clara-secondary {
+    .btn-clara-secondary,
+    .hero-cta-button {
       transition: none;
+      transform: none;
     }
   }
   /* === LIQUID AUTHORITY: END === */
@@ -1318,6 +1387,15 @@
   /* ============================================
      TEXT EFFECTS
      ============================================ */
+  .hero-title-mask {
+    overflow: clip;
+  }
+
+  .hero-title-reveal {
+    min-width: 4.8ch;
+    will-change: clip-path, opacity, filter;
+  }
+
   .amber-glow {
     text-shadow: 0 0 40px hsl(var(--accent-amber-glow) / 0.3);
   }
@@ -1474,6 +1552,21 @@
     opacity: 0.5;
     cursor: not-allowed;
     border-color: hsl(var(--foreground) / 0.15);
+  }
+
+  .hero-cta-button {
+    --magnetic-x: 0px;
+    --magnetic-y: 0px;
+    transform: translate3d(var(--magnetic-x), var(--magnetic-y), 0);
+    transition:
+      transform 240ms cubic-bezier(0.16, 1, 0.3, 1),
+      box-shadow 240ms ease-out,
+      border-color 240ms ease-out;
+    will-change: transform;
+  }
+
+  .hero-cta-button:hover:not(:disabled) {
+    transform: translate3d(var(--magnetic-x), calc(var(--magnetic-y) - 2px), 0);
   }
 
   /* Icon button - A3: Subtle hover */

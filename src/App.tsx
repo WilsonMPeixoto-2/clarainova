@@ -1,4 +1,4 @@
-import { lazy, Suspense, ComponentType } from "react";
+import { lazy, Suspense, ComponentType, useEffect } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
@@ -75,24 +75,33 @@ function AnimatedRoutes() {
   );
 }
 
-const App = () => (
-  <ErrorBoundary>
-    <QueryClientProvider client={queryClient}>
-      <AuthProvider>
-        <TooltipProvider>
-          <Toaster />
-          <Sonner />
-          <LenisProvider>
-            <BrowserRouter>
-              <Suspense fallback={<LoadingFallback message="Carregando página..." />}>
-                <AnimatedRoutes />
-              </Suspense>
-            </BrowserRouter>
-          </LenisProvider>
-        </TooltipProvider>
-      </AuthProvider>
-    </QueryClientProvider>
-  </ErrorBoundary>
-);
+const App = () => {
+  useEffect(() => {
+    document.body.classList.add("js-enabled");
+    return () => {
+      document.body.classList.remove("js-enabled");
+    };
+  }, []);
+
+  return (
+    <ErrorBoundary>
+      <QueryClientProvider client={queryClient}>
+        <AuthProvider>
+          <TooltipProvider>
+            <Toaster />
+            <Sonner />
+            <LenisProvider>
+              <BrowserRouter>
+                <Suspense fallback={<LoadingFallback message="Carregando página..." />}>
+                  <AnimatedRoutes />
+                </Suspense>
+              </BrowserRouter>
+            </LenisProvider>
+          </TooltipProvider>
+        </AuthProvider>
+      </QueryClientProvider>
+    </ErrorBoundary>
+  );
+};
 
 export default App;
