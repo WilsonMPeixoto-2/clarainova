@@ -140,6 +140,30 @@ const HeroSection = ({ onOpenChat }: HeroSectionProps) => {
     };
   }, [updateQuickScrollState]);
 
+  const energyLayerAnimation = prefersReducedMotion
+    ? {
+        x: [0, 4, 0],
+        y: [0, -1, 0],
+        opacity: [0.74, 0.82, 0.74],
+      }
+    : isMobile
+      ? {
+          x: [-8, 10, -4, 0],
+          y: [0, -3, 2, 0],
+          opacity: [0.78, 0.92, 0.8, 0.78],
+        }
+      : {
+          x: [-20, 24, -12, 0],
+          y: [0, -8, 5, 0],
+          opacity: [0.82, 1, 0.86, 0.82],
+        };
+
+  const energyLayerTransition = prefersReducedMotion
+    ? { duration: 22, ease: 'easeInOut', repeat: Infinity }
+    : isMobile
+      ? { duration: 11.5, ease: 'easeInOut', repeat: Infinity }
+      : { duration: 13.5, ease: 'easeInOut', repeat: Infinity };
+
   return (
     <section className="hero-shell hero-composition-lock relative min-h-screen flex items-center overflow-hidden">
       {/* Background Image Layer */}
@@ -203,13 +227,21 @@ const HeroSection = ({ onOpenChat }: HeroSectionProps) => {
       </div>
 
       {/* Energy Motion Layer */}
-      <div className="absolute inset-0 z-20 pointer-events-none hero-energy" aria-hidden="true">
+      <motion.div
+        className="absolute inset-0 z-20 pointer-events-none hero-energy"
+        initial={{ opacity: 0.64 }}
+        animate={energyLayerAnimation}
+        transition={energyLayerTransition}
+        aria-hidden="true"
+      >
+        <span className="hero-energy-ribbon hero-energy-ribbon--north" />
+        <span className="hero-energy-ribbon hero-energy-ribbon--south" />
         <span className="hero-energy-beam hero-energy-beam--primary" />
         <span className="hero-energy-beam hero-energy-beam--secondary" />
         <span className="hero-energy-beam hero-energy-beam--tertiary" />
         <span className="hero-energy-stream" />
         <span className="hero-energy-stream hero-energy-stream--secondary" />
-      </div>
+      </motion.div>
 
 
       {/* Content Layer */}

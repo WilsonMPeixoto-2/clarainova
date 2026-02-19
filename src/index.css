@@ -539,21 +539,91 @@
     mask-image: linear-gradient(90deg, transparent 0%, transparent 20%, #000 44%, #000 100%);
   }
 
-  .hero-energy-beam {
+  .hero-energy-ribbon {
+    --ribbon-tilt: -8deg;
+    --ribbon-y-start: 4%;
+    --ribbon-y-mid: -1%;
+    --ribbon-y-end: -4%;
     position: absolute;
     pointer-events: none;
     border-radius: 999px;
     transform-origin: center;
-    will-change: transform, opacity, filter;
-    background: linear-gradient(
-      100deg,
-      transparent 0%,
-      hsl(var(--gold-1) / 0.08) 16%,
-      hsl(var(--gold-2) / 0.68) 48%,
-      hsl(var(--gold-1) / 0.3) 66%,
-      transparent 100%
-    );
-    animation: hero-cinematic-beam 9.2s ease-in-out infinite;
+    will-change: transform, opacity, background-position;
+    background:
+      linear-gradient(
+        100deg,
+        transparent 0%,
+        hsl(var(--gold-1) / 0.1) 18%,
+        hsl(var(--gold-2) / 0.64) 47%,
+        hsl(var(--gold-1) / 0.28) 64%,
+        transparent 100%
+      ),
+      linear-gradient(
+        92deg,
+        transparent 0%,
+        hsl(var(--gold-2) / 0.22) 42%,
+        transparent 100%
+      );
+    background-size: 220% 100%, 180% 100%;
+    animation:
+      hero-energy-ribbon-sweep 8.6s cubic-bezier(0.42, 0.06, 0.24, 1) infinite,
+      hero-energy-ribbon-shimmer 6.2s linear infinite;
+  }
+
+  .hero-energy-ribbon--north {
+    top: 19%;
+    left: 24%;
+    width: clamp(540px, 54vw, 1440px);
+    height: clamp(86px, 8.2vw, 170px);
+    filter: blur(11px);
+    opacity: 0.62;
+    animation-delay: -1.1s;
+  }
+
+  .hero-energy-ribbon--south {
+    --ribbon-tilt: -11deg;
+    --ribbon-y-start: 6%;
+    --ribbon-y-mid: 0%;
+    --ribbon-y-end: -5%;
+    top: 55%;
+    left: 18%;
+    width: clamp(500px, 49vw, 1320px);
+    height: clamp(80px, 7.4vw, 152px);
+    filter: blur(13px);
+    opacity: 0.5;
+    animation-duration: 10.4s, 7.2s;
+    animation-delay: -4s;
+  }
+
+  .hero-energy-beam {
+    --beam-tilt: -8deg;
+    --beam-y-start: 2%;
+    --beam-y-mid: -1%;
+    --beam-y-end: -4%;
+    position: absolute;
+    pointer-events: none;
+    border-radius: 999px;
+    transform-origin: center;
+    will-change: transform, opacity, filter, background-position;
+    background:
+      linear-gradient(
+        104deg,
+        transparent 0%,
+        hsl(var(--gold-1) / 0.14) 18%,
+        hsl(var(--gold-2) / 0.74) 48%,
+        hsl(var(--gold-1) / 0.28) 68%,
+        transparent 100%
+      ),
+      linear-gradient(
+        96deg,
+        transparent 0%,
+        hsl(var(--gold-2) / 0.24) 48%,
+        transparent 100%
+      );
+    background-size: 220% 100%, 180% 100%;
+    animation:
+      hero-cinematic-beam 6.8s cubic-bezier(0.42, 0.06, 0.24, 1) infinite,
+      hero-cinematic-shimmer 4.6s linear infinite;
   }
 
   .hero-energy-beam--primary {
@@ -562,31 +632,38 @@
     width: clamp(420px, 46vw, 1160px);
     height: clamp(86px, 8.2vw, 164px);
     filter: blur(12px);
-    opacity: 0.62;
+    opacity: 0.66;
+    animation-delay: -1.4s;
   }
 
   .hero-energy-beam--secondary {
+    --beam-tilt: -10deg;
+    --beam-y-start: 4%;
+    --beam-y-mid: -1%;
+    --beam-y-end: -5%;
     top: 40%;
     left: 28%;
     width: clamp(360px, 38vw, 980px);
     height: clamp(78px, 6.9vw, 142px);
     filter: blur(14px);
-    opacity: 0.5;
-    animation-duration: 12.4s;
-    animation-delay: -2.6s;
-    transform: rotate(-7deg);
+    opacity: 0.54;
+    animation-duration: 8.8s, 5.2s;
+    animation-delay: -3.1s;
   }
 
   .hero-energy-beam--tertiary {
+    --beam-tilt: -12deg;
+    --beam-y-start: 6%;
+    --beam-y-mid: 1%;
+    --beam-y-end: -6%;
     top: 67%;
     left: 40%;
     width: clamp(300px, 30vw, 820px);
     height: clamp(70px, 6vw, 128px);
     filter: blur(16px);
-    opacity: 0.42;
-    animation-duration: 14.8s;
-    animation-delay: -5.2s;
-    transform: rotate(-11deg);
+    opacity: 0.46;
+    animation-duration: 10.4s, 6.4s;
+    animation-delay: -5.4s;
   }
 
   .hero-energy::before,
@@ -602,7 +679,8 @@
     inset: 0% -16% 8% 25%;
     background: linear-gradient(112deg, transparent 0%, hsl(var(--gold-1) / 0.2) 33%, hsl(var(--gold-2) / 0.5) 48%, hsl(var(--gold-1) / 0.26) 64%, transparent 100%);
     filter: blur(9px);
-    transform: translate3d(-6%, 0, 0) rotate(-11deg);
+    transform: translate3d(-8%, 1%, 0) rotate(-11deg);
+    animation-duration: 14s;
   }
 
   .hero-energy::after {
@@ -610,9 +688,9 @@
     background: linear-gradient(101deg, transparent 0%, hsl(var(--gold-2) / 0.22) 40%, hsl(var(--gold-1) / 0.4) 52%, hsl(var(--gold-2) / 0.18) 66%, transparent 100%);
     filter: blur(12px);
     opacity: 0.92;
-    animation-duration: 24s;
+    animation-duration: 18s;
     animation-direction: reverse;
-    transform: translate3d(8%, 0, 0) rotate(-12deg);
+    transform: translate3d(10%, -2%, 0) rotate(-12deg);
   }
 
   .hero-energy-stream {
@@ -623,7 +701,7 @@
     border-radius: 50%;
     background: radial-gradient(circle, hsl(var(--gold-1) / 0.44), transparent 72%);
     filter: blur(30px);
-    animation: hero-energy-drift 21s linear infinite, hero-energy-pulse 9s ease-in-out infinite;
+    animation: hero-energy-drift 13.6s linear infinite, hero-energy-pulse 5.8s ease-in-out infinite;
   }
 
   .hero-energy-stream--secondary {
@@ -631,7 +709,7 @@
     width: clamp(340px, 26vw, 560px);
     height: clamp(340px, 26vw, 560px);
     background: radial-gradient(circle, hsl(var(--gold-2) / 0.4), transparent 72%);
-    animation-duration: 28s;
+    animation-duration: 17.2s, 6.4s;
   }
 
   @keyframes hero-energy-drift {
@@ -667,20 +745,57 @@
 
   @keyframes hero-cinematic-beam {
     0% {
-      transform: translate3d(-18%, 2%, 0) rotate(-11deg) scaleX(0.84);
-      opacity: 0.28;
+      transform: translate3d(-42%, var(--beam-y-start), 0) rotate(var(--beam-tilt)) scaleX(0.72);
+      opacity: 0.1;
     }
-    40% {
-      transform: translate3d(-2%, -1%, 0) rotate(-8deg) scaleX(0.98);
-      opacity: 0.86;
+    28% {
+      transform: translate3d(-12%, var(--beam-y-mid), 0) rotate(calc(var(--beam-tilt) + 2deg)) scaleX(0.94);
+      opacity: 0.8;
     }
-    70% {
-      transform: translate3d(8%, -3%, 0) rotate(-5deg) scaleX(1.08);
-      opacity: 0.72;
+    58% {
+      transform: translate3d(6%, calc(var(--beam-y-mid) - 1%), 0) rotate(calc(var(--beam-tilt) + 4deg)) scaleX(1.08);
+      opacity: 0.92;
     }
     100% {
-      transform: translate3d(18%, -4%, 0) rotate(-3deg) scaleX(0.9);
-      opacity: 0.3;
+      transform: translate3d(34%, var(--beam-y-end), 0) rotate(calc(var(--beam-tilt) + 6deg)) scaleX(0.82);
+      opacity: 0.16;
+    }
+  }
+
+  @keyframes hero-cinematic-shimmer {
+    0% {
+      background-position: 0% 50%, 0% 50%;
+    }
+    100% {
+      background-position: 220% 50%, 180% 50%;
+    }
+  }
+
+  @keyframes hero-energy-ribbon-sweep {
+    0% {
+      transform: translate3d(-34%, var(--ribbon-y-start), 0) rotate(var(--ribbon-tilt)) scaleX(0.78);
+      opacity: 0.14;
+    }
+    35% {
+      transform: translate3d(-6%, var(--ribbon-y-mid), 0) rotate(calc(var(--ribbon-tilt) + 2deg)) scaleX(0.94);
+      opacity: 0.7;
+    }
+    62% {
+      transform: translate3d(10%, calc(var(--ribbon-y-mid) - 1%), 0) rotate(calc(var(--ribbon-tilt) + 4deg)) scaleX(1.04);
+      opacity: 0.88;
+    }
+    100% {
+      transform: translate3d(36%, var(--ribbon-y-end), 0) rotate(calc(var(--ribbon-tilt) + 6deg)) scaleX(0.8);
+      opacity: 0.2;
+    }
+  }
+
+  @keyframes hero-energy-ribbon-shimmer {
+    0% {
+      background-position: 0% 50%, 0% 50%;
+    }
+    100% {
+      background-position: 220% 50%, 180% 50%;
     }
   }
 
@@ -901,12 +1016,28 @@
       mask-image: none;
     }
 
+    .hero-energy-ribbon {
+      left: 2%;
+      width: min(96vw, 560px);
+      filter: blur(9px);
+      opacity: 0.48;
+      animation-duration: 6.4s, 4.8s;
+    }
+
+    .hero-energy-ribbon--north {
+      top: 15%;
+    }
+
+    .hero-energy-ribbon--south {
+      display: none;
+    }
+
     .hero-energy-beam {
       filter: blur(10px);
-      opacity: 0.45;
-      left: 6%;
-      width: min(88vw, 520px);
-      animation-duration: 7.4s;
+      opacity: 0.52;
+      left: 2%;
+      width: min(96vw, 540px);
+      animation-duration: 6.2s, 4.2s;
     }
 
     .hero-energy-beam--primary {
@@ -938,11 +1069,29 @@
   }
 
   @media (prefers-reduced-motion: reduce) {
-    .hero-energy::before,
-    .hero-energy::after,
-    .hero-energy-stream,
+    .hero-energy-ribbon {
+      animation-duration: 20s, 14s;
+      opacity: 0.22;
+    }
+
     .hero-energy-beam {
-      animation: none;
+      animation-duration: 22s, 12s;
+      opacity: 0.2;
+    }
+
+    .hero-energy::before,
+    .hero-energy::after {
+      animation-duration: 34s;
+      opacity: 0.32;
+    }
+
+    .hero-energy-stream {
+      animation-duration: 30s, 14s;
+      opacity: 0.28;
+    }
+
+    .hero-energy-stream--secondary {
+      animation-duration: 40s, 16s;
     }
 
     .quick-chip,
