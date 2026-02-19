@@ -6,7 +6,7 @@ import claraHeroFallback from '@/assets/clara-hero-fallback.jpg';
 
 const HERO_IMAGE_BREAKPOINTS = [480, 768, 1024, 1440, 1920, 2560, 3840] as const;
 const HERO_IMAGE_SIZES =
-  '(max-width: 899px) 100vw, (max-width: 1199px) 62vw, (max-width: 1919px) 54vw, (max-width: 2399px) 52vw, 50vw';
+  '(max-width: 899px) 100vw, (max-width: 1199px) 54vw, (max-width: 1439px) 53vw, (max-width: 1919px) 58vw, 60vw';
 
 const heroAvifFiles = [
   new URL('../assets/clara-hero-480.avif', import.meta.url),
@@ -68,12 +68,33 @@ interface HeroSectionProps {
   onOpenChat: (query?: string) => void;
 }
 
+interface HeroLayoutDebugState {
+  breakpoint: string;
+  posX: string;
+  posY: string;
+  scale: string;
+  overlay: string;
+  textCols: string;
+  artCols: string;
+}
+
 const HeroSection = ({ onOpenChat }: HeroSectionProps) => {
   const isMobile = useIsMobile();
   const prefersReducedMotion = useReducedMotion();
+  const heroSectionRef = useRef<HTMLElement>(null);
   const quickCarouselRef = useRef<HTMLDivElement>(null);
   const [canScrollPrev, setCanScrollPrev] = useState(false);
   const [canScrollNext, setCanScrollNext] = useState(false);
+  const [debugLayout, setDebugLayout] = useState(false);
+  const [debugLayoutState, setDebugLayoutState] = useState<HeroLayoutDebugState>({
+    breakpoint: '',
+    posX: '',
+    posY: '',
+    scale: '',
+    overlay: '',
+    textCols: '',
+    artCols: '',
+  });
 
   const containerVariants = prefersReducedMotion
     ? { hidden: { opacity: 1 }, visible: { opacity: 1 } }
@@ -140,6 +161,52 @@ const HeroSection = ({ onOpenChat }: HeroSectionProps) => {
     };
   }, [updateQuickScrollState]);
 
+  useEffect(() => {
+    const syncDebugLayout = () => {
+      const params = new URLSearchParams(window.location.search);
+      setDebugLayout(params.get('debugLayout') === '1');
+    };
+
+    syncDebugLayout();
+    window.addEventListener('popstate', syncDebugLayout);
+    return () => {
+      window.removeEventListener('popstate', syncDebugLayout);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!debugLayout || !heroSectionRef.current) return;
+
+    const getBreakpointLabel = (width: number) => {
+      if (width < 900) return '<900';
+      if (width <= 1199) return '900-1199';
+      if (width <= 1279) return '1024-1279';
+      if (width <= 1439) return '1280-1439';
+      return '>=1440';
+    };
+
+    const readLayoutState = () => {
+      const section = heroSectionRef.current;
+      if (!section) return;
+      const styles = window.getComputedStyle(section);
+      setDebugLayoutState({
+        breakpoint: getBreakpointLabel(window.innerWidth),
+        posX: styles.getPropertyValue('--clara-pos-x').trim() || '-',
+        posY: styles.getPropertyValue('--clara-pos-y').trim() || '-',
+        scale: styles.getPropertyValue('--clara-scale').trim() || '-',
+        overlay: styles.getPropertyValue('--clara-overlay').trim() || '-',
+        textCols: styles.getPropertyValue('--hero-text-cols').trim() || '-',
+        artCols: styles.getPropertyValue('--hero-art-cols').trim() || '-',
+      });
+    };
+
+    readLayoutState();
+    window.addEventListener('resize', readLayoutState);
+    return () => {
+      window.removeEventListener('resize', readLayoutState);
+    };
+  }, [debugLayout]);
+
   const energyLayerAnimation = prefersReducedMotion
     ? {
         x: [0, 4, 0],
@@ -165,7 +232,12 @@ const HeroSection = ({ onOpenChat }: HeroSectionProps) => {
       : { duration: 13.5, ease: 'easeInOut', repeat: Infinity };
 
   return (
-    <section className="hero-shell hero-composition-lock relative min-h-screen flex items-center overflow-hidden">
+    <section
+      ref={heroSectionRef}
+      className={`hero-shell hero-composition-lock relative min-h-screen flex items-center overflow-hidden ${
+        debugLayout ? 'hero-layout-debug' : ''
+      }`}
+    >
       {/* Background Image Layer */}
       <motion.div 
         initial={prefersReducedMotion ? { opacity: 1 } : { opacity: 0.35, scale: 1.03 }}
@@ -191,33 +263,35 @@ const HeroSection = ({ onOpenChat }: HeroSectionProps) => {
         }
         className="absolute inset-0 z-0 pointer-events-none hero-media-layer"
       >
-        <picture>
-          <source
-            type="image/avif"
-            srcSet={heroAvifSrcSet}
-            sizes={HERO_IMAGE_SIZES}
-          />
-          <source
-            type="image/webp"
-            srcSet={heroWebpSrcSet}
-            sizes={HERO_IMAGE_SIZES}
-          />
-          <source
-            type="image/jpeg"
-            srcSet={heroJpgSrcSet}
-            sizes={HERO_IMAGE_SIZES}
-          />
-          <img 
-            src={claraHeroFallback}
-            alt=""
-            fetchPriority="high"
-            loading="eager"
-            decoding="async"
-            className="hero-image hero-character-image"
-            aria-hidden="true"
-          />
-        </picture>
-        <div className="hero-character-vignette" />
+        <div className="hero-art-stage">
+          <picture className="hero-character-picture">
+            <source
+              type="image/avif"
+              srcSet={heroAvifSrcSet}
+              sizes={HERO_IMAGE_SIZES}
+            />
+            <source
+              type="image/webp"
+              srcSet={heroWebpSrcSet}
+              sizes={HERO_IMAGE_SIZES}
+            />
+            <source
+              type="image/jpeg"
+              srcSet={heroJpgSrcSet}
+              sizes={HERO_IMAGE_SIZES}
+            />
+            <img
+              src={claraHeroFallback}
+              alt=""
+              fetchPriority="high"
+              loading="eager"
+              decoding="async"
+              className="hero-image hero-character-image"
+              aria-hidden="true"
+            />
+          </picture>
+          <div className="hero-character-vignette" />
+        </div>
       </motion.div>
 
       {/* Overlay Layer (separate from media layer to avoid washing image details) */}
@@ -245,7 +319,7 @@ const HeroSection = ({ onOpenChat }: HeroSectionProps) => {
 
 
       {/* Content Layer */}
-      <div className="hero-content-wrap container mx-auto relative z-30 pt-24 md:pt-28 pb-16 md:pb-24">
+      <div className="hero-content-wrap relative z-30 pt-[clamp(5.5rem,9vh,7.25rem)] pb-[clamp(3.5rem,7vh,6rem)]">
         <div className="hero-layout-grid">
           {/* Left Column - Editorial Stack */}
           <motion.div 
@@ -408,8 +482,24 @@ const HeroSection = ({ onOpenChat }: HeroSectionProps) => {
               </motion.div>
             </div>
           </motion.div>
+
+          <div className="hero-art-column" aria-hidden="true">
+            <div className="hero-safe-frame" />
+          </div>
         </div>
       </div>
+
+      {debugLayout ? (
+        <aside className="hero-debug-panel" aria-live="polite">
+          <strong>Hero Layout Debug</strong>
+          <span>breakpoint: {debugLayoutState.breakpoint || '-'}</span>
+          <span>pos-x: {debugLayoutState.posX}</span>
+          <span>pos-y: {debugLayoutState.posY}</span>
+          <span>scale: {debugLayoutState.scale}</span>
+          <span>overlay: {debugLayoutState.overlay}</span>
+          <span>grid: texto {debugLayoutState.textCols} / arte {debugLayoutState.artCols}</span>
+        </aside>
+      ) : null}
 
       {/* Decorative gradient at bottom */}
       <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-background to-transparent z-10 pointer-events-none" />
