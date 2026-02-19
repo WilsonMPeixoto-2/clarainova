@@ -1,5 +1,23 @@
-import { jsPDF } from "jspdf";
-import claraLogoPdf from "@/assets/clara-logo-pdf.png";
+type PdfDependencies = {
+  jsPDF: typeof import("jspdf").jsPDF;
+  claraLogoPdf: string;
+};
+
+let pdfDependenciesPromise: Promise<PdfDependencies> | null = null;
+
+function loadPdfDependencies(): Promise<PdfDependencies> {
+  if (!pdfDependenciesPromise) {
+    pdfDependenciesPromise = Promise.all([
+      import("jspdf"),
+      import("@/assets/clara-logo-pdf.png"),
+    ]).then(([jspdfModule, logoModule]) => ({
+      jsPDF: jspdfModule.jsPDF,
+      claraLogoPdf: logoModule.default,
+    }));
+  }
+
+  return pdfDependenciesPromise;
+}
 
 interface ReportData {
   title: string;
@@ -30,6 +48,7 @@ async function loadImageAsBase64(src: string): Promise<string> {
 }
 
 export async function generateReportPdf(report: ReportData): Promise<void> {
+  const { jsPDF, claraLogoPdf } = await loadPdfDependencies();
   const doc = new jsPDF();
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();

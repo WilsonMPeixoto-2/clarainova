@@ -539,6 +539,56 @@
     mask-image: linear-gradient(90deg, transparent 0%, transparent 20%, #000 44%, #000 100%);
   }
 
+  .hero-energy-beam {
+    position: absolute;
+    pointer-events: none;
+    border-radius: 999px;
+    transform-origin: center;
+    will-change: transform, opacity, filter;
+    background: linear-gradient(
+      100deg,
+      transparent 0%,
+      hsl(var(--gold-1) / 0.08) 16%,
+      hsl(var(--gold-2) / 0.68) 48%,
+      hsl(var(--gold-1) / 0.3) 66%,
+      transparent 100%
+    );
+    animation: hero-cinematic-beam 9.2s ease-in-out infinite;
+  }
+
+  .hero-energy-beam--primary {
+    top: 16%;
+    left: 32%;
+    width: clamp(420px, 46vw, 1160px);
+    height: clamp(86px, 8.2vw, 164px);
+    filter: blur(12px);
+    opacity: 0.62;
+  }
+
+  .hero-energy-beam--secondary {
+    top: 40%;
+    left: 28%;
+    width: clamp(360px, 38vw, 980px);
+    height: clamp(78px, 6.9vw, 142px);
+    filter: blur(14px);
+    opacity: 0.5;
+    animation-duration: 12.4s;
+    animation-delay: -2.6s;
+    transform: rotate(-7deg);
+  }
+
+  .hero-energy-beam--tertiary {
+    top: 67%;
+    left: 40%;
+    width: clamp(300px, 30vw, 820px);
+    height: clamp(70px, 6vw, 128px);
+    filter: blur(16px);
+    opacity: 0.42;
+    animation-duration: 14.8s;
+    animation-delay: -5.2s;
+    transform: rotate(-11deg);
+  }
+
   .hero-energy::before,
   .hero-energy::after {
     content: '';
@@ -612,6 +662,25 @@
     50% {
       opacity: 1;
       transform: scale(1.05);
+    }
+  }
+
+  @keyframes hero-cinematic-beam {
+    0% {
+      transform: translate3d(-18%, 2%, 0) rotate(-11deg) scaleX(0.84);
+      opacity: 0.28;
+    }
+    40% {
+      transform: translate3d(-2%, -1%, 0) rotate(-8deg) scaleX(0.98);
+      opacity: 0.86;
+    }
+    70% {
+      transform: translate3d(8%, -3%, 0) rotate(-5deg) scaleX(1.08);
+      opacity: 0.72;
+    }
+    100% {
+      transform: translate3d(18%, -4%, 0) rotate(-3deg) scaleX(0.9);
+      opacity: 0.3;
     }
   }
 
@@ -832,6 +901,24 @@
       mask-image: none;
     }
 
+    .hero-energy-beam {
+      filter: blur(10px);
+      opacity: 0.45;
+      left: 6%;
+      width: min(88vw, 520px);
+      animation-duration: 7.4s;
+    }
+
+    .hero-energy-beam--primary {
+      top: 12%;
+      transform: rotate(-8deg);
+    }
+
+    .hero-energy-beam--secondary,
+    .hero-energy-beam--tertiary {
+      display: none;
+    }
+
     .hero-energy::before,
     .hero-energy::after {
       filter: blur(8px);
@@ -853,7 +940,8 @@
   @media (prefers-reduced-motion: reduce) {
     .hero-energy::before,
     .hero-energy::after,
-    .hero-energy-stream {
+    .hero-energy-stream,
+    .hero-energy-beam {
       animation: none;
     }
 

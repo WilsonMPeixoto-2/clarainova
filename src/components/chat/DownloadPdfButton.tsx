@@ -1,14 +1,12 @@
 import { useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { FileDown, Check, Loader2 } from "lucide-react";
-import { jsPDF } from "jspdf";
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { toast } from "@/hooks/use-toast";
-import claraLogoPdf from "@/assets/clara-logo-pdf.png";
 import type { ChatMessageSources, WebSourceData } from "@/hooks/useChat";
 
 interface DownloadPdfButtonProps {
@@ -17,6 +15,27 @@ interface DownloadPdfButtonProps {
   timestamp: Date;
   sources?: ChatMessageSources;
   className?: string;
+}
+
+type PdfDependencies = {
+  jsPDF: typeof import("jspdf").jsPDF;
+  claraLogoPdf: string;
+};
+
+let pdfDependenciesPromise: Promise<PdfDependencies> | null = null;
+
+function loadPdfDependencies(): Promise<PdfDependencies> {
+  if (!pdfDependenciesPromise) {
+    pdfDependenciesPromise = Promise.all([
+      import("jspdf"),
+      import("@/assets/clara-logo-pdf.png"),
+    ]).then(([jspdfModule, logoModule]) => ({
+      jsPDF: jspdfModule.jsPDF,
+      claraLogoPdf: logoModule.default,
+    }));
+  }
+
+  return pdfDependenciesPromise;
 }
 
 // Helper to extract URL from web source (works with both formats)
@@ -63,6 +82,7 @@ export function DownloadPdfButton({
     setIsDownloading(true);
     
     try {
+      const { jsPDF, claraLogoPdf } = await loadPdfDependencies();
       const doc = new jsPDF();
       const pageWidth = doc.internal.pageSize.getWidth();
       const pageHeight = doc.internal.pageSize.getHeight();

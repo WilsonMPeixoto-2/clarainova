@@ -204,6 +204,9 @@ const HeroSection = ({ onOpenChat }: HeroSectionProps) => {
 
       {/* Energy Motion Layer */}
       <div className="absolute inset-0 z-20 pointer-events-none hero-energy" aria-hidden="true">
+        <span className="hero-energy-beam hero-energy-beam--primary" />
+        <span className="hero-energy-beam hero-energy-beam--secondary" />
+        <span className="hero-energy-beam hero-energy-beam--tertiary" />
         <span className="hero-energy-stream" />
         <span className="hero-energy-stream hero-energy-stream--secondary" />
       </div>

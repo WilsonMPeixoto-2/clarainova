@@ -15,9 +15,11 @@ const Index = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const chatRouteHandledRef = useRef(false);
   const [chatOpen, setChatOpen] = useState(false);
+  const [chatPanelMounted, setChatPanelMounted] = useState(false);
   const [initialQuery, setInitialQuery] = useState('');
 
   const handleOpenChat = (query?: string) => {
+    setChatPanelMounted(true);
     setInitialQuery(query || '');
     setChatOpen(true);
   };
@@ -70,14 +72,16 @@ const Index = () => {
       </main>
       <Footer />
 
-      {/* Chat Panel - lazy loaded to break critical request chain */}
-      <Suspense fallback={null}>
-        <ChatPanel 
-          open={chatOpen} 
-          onOpenChange={setChatOpen} 
-          initialQuery={initialQuery}
-        />
-      </Suspense>
+      {/* Chat Panel - loaded only after first user intent */}
+      {chatPanelMounted ? (
+        <Suspense fallback={null}>
+          <ChatPanel
+            open={chatOpen}
+            onOpenChange={setChatOpen}
+            initialQuery={initialQuery}
+          />
+        </Suspense>
+      ) : null}
     </div>
   );
 };
