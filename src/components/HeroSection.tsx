@@ -1,12 +1,13 @@
-import { useCallback, useEffect, useRef, useState, type MouseEvent } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent } from 'react';
 import { motion, useReducedMotion, useScroll, useTransform } from 'framer-motion';
-import { MessageCircle, BookOpen, Sparkles, ChevronLeft, ChevronRight } from 'lucide-react';
+import { BookOpen, MessageCircle, Sparkles } from 'lucide-react';
+import { useLocation } from 'react-router-dom';
 import { useIsMobile } from '@/hooks/use-mobile';
 import claraHeroFallback from '@/assets/clara-hero-fallback.jpg';
 
 const HERO_IMAGE_BREAKPOINTS = [480, 768, 1024, 1440, 1920, 2560, 3840] as const;
 const HERO_IMAGE_SIZES =
-  '(max-width: 899px) 100vw, (max-width: 1199px) 54vw, (max-width: 1439px) 53vw, (max-width: 1919px) 58vw, 60vw';
+  '(max-width: 899px) 100vw, (max-width: 1023px) 100vw, (max-width: 1279px) 100vw, (max-width: 1439px) 100vw, 100vw';
 
 const heroAvifFiles = [
   new URL('../assets/clara-hero-480.avif', import.meta.url),
@@ -48,18 +49,18 @@ const heroJpgSrcSet = heroJpgFiles
 const heroPreloadSrc = heroAvifFiles[3].href;
 
 const QUICK_QUESTIONS = [
-  "Como anexar documentos no SEI-Rio?",
-  "Quais são os prazos da prestação de contas?",
-  "Como solicitar diárias administrativas?",
-  "Como organizar bloco de assinatura no SEI?",
-  "Como encaminhar um processo administrativo?",
-  "Como atualizar dados no SDP?",
-  "Quais documentos são exigidos em licitações?",
-  "Como validar uma assinatura digital?",
-  "Como acompanhar a tramitação de protocolos?",
-  "Como cadastrar contratos e aditivos?",
-  "Como configurar notificações de prazos?",
-  "Onde encontro modelos oficiais no sistema?",
+  'Como anexar documentos no SEI-Rio?',
+  'Quais são os prazos da prestação de contas?',
+  'Como solicitar diárias administrativas?',
+  'Como organizar bloco de assinatura no SEI?',
+  'Como encaminhar um processo administrativo?',
+  'Como atualizar dados no SDP?',
+  'Quais documentos são exigidos em licitações?',
+  'Como validar uma assinatura digital?',
+  'Como acompanhar a tramitação de protocolos?',
+  'Como cadastrar contratos e aditivos?',
+  'Como configurar notificações de prazos?',
+  'Onde encontro modelos oficiais no sistema?',
 ];
 
 const QUICK_SCROLL_DISTANCE = 320;
@@ -68,35 +69,34 @@ interface HeroSectionProps {
   onOpenChat: (query?: string) => void;
 }
 
-interface HeroLayoutDebugState {
+interface HeroDebugState {
   breakpoint: string;
+  cardW: string;
+  cardMl: string;
   claraPos: string;
-  scale: string;
+  claraScale: string;
   overlayOpacity: string;
-  cardWidth: string;
-  cardMarginLeft: string;
 }
 
 const HeroSection = ({ onOpenChat }: HeroSectionProps) => {
+  const location = useLocation();
   const isMobile = useIsMobile();
   const prefersReducedMotion = useReducedMotion();
   const heroSectionRef = useRef<HTMLElement>(null);
   const quickCarouselRef = useRef<HTMLDivElement>(null);
   const magneticRafRef = useRef<number | null>(null);
-  const [canScrollPrev, setCanScrollPrev] = useState(false);
-  const [canScrollNext, setCanScrollNext] = useState(false);
   const [isJsEnabled, setIsJsEnabled] = useState(false);
-  const [debugLayout, setDebugLayout] = useState(false);
-  const [debugLayoutState, setDebugLayoutState] = useState<HeroLayoutDebugState>({
+  const [debugHero, setDebugHero] = useState(false);
+  const [debugState, setDebugState] = useState<HeroDebugState>({
     breakpoint: '',
+    cardW: '',
+    cardMl: '',
     claraPos: '',
-    scale: '',
+    claraScale: '',
     overlayOpacity: '',
-    cardWidth: '',
-    cardMarginLeft: '',
   });
 
-  const shouldAnimate = isJsEnabled && !prefersReducedMotion;
+  const shouldAnimate = isJsEnabled && !prefersReducedMotion && !isMobile;
 
   const containerVariants = {
     hidden: { opacity: 0, y: 16 },
@@ -123,14 +123,6 @@ const HeroSection = ({ onOpenChat }: HeroSectionProps) => {
       },
     },
   };
-
-  const updateQuickScrollState = useCallback(() => {
-    const el = quickCarouselRef.current;
-    if (!el) return;
-    const epsilon = 2;
-    setCanScrollPrev(el.scrollLeft > epsilon);
-    setCanScrollNext(el.scrollLeft + el.clientWidth < el.scrollWidth - epsilon);
-  }, []);
 
   const scrollQuickCarousel = useCallback((direction: 'prev' | 'next') => {
     const el = quickCarouselRef.current;
@@ -185,19 +177,6 @@ const HeroSection = ({ onOpenChat }: HeroSectionProps) => {
   }, []);
 
   useEffect(() => {
-    const el = quickCarouselRef.current;
-    if (!el) return;
-    updateQuickScrollState();
-    const onScroll = () => updateQuickScrollState();
-    el.addEventListener('scroll', onScroll, { passive: true });
-    window.addEventListener('resize', onScroll);
-    return () => {
-      el.removeEventListener('scroll', onScroll);
-      window.removeEventListener('resize', onScroll);
-    };
-  }, [updateQuickScrollState]);
-
-  useEffect(() => {
     return () => {
       if (magneticRafRef.current) {
         cancelAnimationFrame(magneticRafRef.current);
@@ -206,126 +185,112 @@ const HeroSection = ({ onOpenChat }: HeroSectionProps) => {
   }, []);
 
   useEffect(() => {
-    const syncDebugLayout = () => {
-      const params = new URLSearchParams(window.location.search);
-      setDebugLayout(params.get('debugLayout') === '1');
-    };
-
-    syncDebugLayout();
-    window.addEventListener('popstate', syncDebugLayout);
-    return () => {
-      window.removeEventListener('popstate', syncDebugLayout);
-    };
-  }, []);
-
-  useEffect(() => {
     setIsJsEnabled(document.body.classList.contains('js-enabled'));
   }, []);
 
   useEffect(() => {
-    if (!debugLayout || !heroSectionRef.current) return;
+    const params = new URLSearchParams(location.search);
+    setDebugHero(params.get('debug') === 'hero');
+  }, [location.search]);
+
+  useEffect(() => {
+    if (!debugHero || !heroSectionRef.current) return;
 
     const getBreakpointLabel = (width: number) => {
       if (width < 900) return '<900';
-      if (width <= 1199) return '900-1199';
+      if (width <= 1023) return '900-1023';
       if (width <= 1279) return '1024-1279';
       if (width <= 1439) return '1280-1439';
       return '>=1440';
     };
 
-    const readLayoutState = () => {
+    const readDebugState = () => {
       const section = heroSectionRef.current;
       if (!section) return;
+
       const styles = window.getComputedStyle(section);
-      setDebugLayoutState({
+      setDebugState({
         breakpoint: getBreakpointLabel(window.innerWidth),
+        cardW: styles.getPropertyValue('--hero-card-w').trim() || '-',
+        cardMl: styles.getPropertyValue('--hero-card-ml').trim() || '-',
         claraPos: styles.getPropertyValue('--clara-pos').trim() || '-',
-        scale: styles.getPropertyValue('--clara-scale').trim() || '-',
+        claraScale: styles.getPropertyValue('--clara-scale').trim() || '-',
         overlayOpacity: styles.getPropertyValue('--hero-overlay-opacity').trim() || '-',
-        cardWidth: styles.getPropertyValue('--hero-card-w').trim() || '-',
-        cardMarginLeft: styles.getPropertyValue('--hero-card-ml').trim() || '-',
       });
     };
 
-    readLayoutState();
-    window.addEventListener('resize', readLayoutState);
+    readDebugState();
+    window.addEventListener('resize', readDebugState);
     return () => {
-      window.removeEventListener('resize', readLayoutState);
+      window.removeEventListener('resize', readDebugState);
     };
-  }, [debugLayout]);
+  }, [debugHero]);
 
   const { scrollYProgress } = useScroll({
     target: heroSectionRef,
     offset: ['start start', 'end start'],
   });
   const mediaParallaxY = useTransform(scrollYProgress, [0, 1], [0, 22]);
-  const auroraParallaxY = useTransform(scrollYProgress, [0, 1], [0, 28]);
+  const overlayParallaxY = useTransform(scrollYProgress, [0, 1], [0, 28]);
   const textParallaxY = useTransform(scrollYProgress, [0, 1], [0, 7]);
+
+  const safeFrameStyle = useMemo(() => {
+    const [x, y] = debugState.claraPos.split(/\s+/);
+    return {
+      left: x || '72%',
+      top: y || '34%',
+    };
+  }, [debugState.claraPos]);
 
   return (
     <section
       ref={heroSectionRef}
-      className={`clara-hero relative overflow-hidden ${
-        debugLayout ? 'hero-layout-debug' : ''
+      className={`clara-hero relative flex items-center overflow-hidden ${
+        debugHero ? 'clara-hero-debug' : ''
       }`}
     >
-      {/* Background Layer */}
       <motion.div
-        initial={shouldAnimate ? { opacity: 0.86 } : false}
-        animate={{ opacity: 1 }}
+        initial={shouldAnimate ? { opacity: 0.86, scale: 1.02 } : false}
+        animate={{ opacity: 1, scale: 1 }}
         transition={shouldAnimate ? { duration: 0.82, ease: [0.16, 1, 0.3, 1] } : { duration: 0 }}
         style={shouldAnimate ? { y: mediaParallaxY } : undefined}
-        className="hero-bg-parallax absolute inset-0 z-0 pointer-events-none"
+        className="clara-hero-bg-parallax hero-parallax-layer absolute inset-0 z-0 pointer-events-none"
       >
-        <div className="hero-bg-scale absolute inset-0">
-          <picture className="absolute inset-0 block">
-            <source
-              type="image/avif"
-              srcSet={heroAvifSrcSet}
-              sizes={HERO_IMAGE_SIZES}
-            />
-            <source
-              type="image/webp"
-              srcSet={heroWebpSrcSet}
-              sizes={HERO_IMAGE_SIZES}
-            />
-            <source
-              type="image/jpeg"
-              srcSet={heroJpgSrcSet}
-              sizes={HERO_IMAGE_SIZES}
-            />
+        <div className="clara-hero-bg-scale">
+          <picture className="clara-hero-picture">
+            <source type="image/avif" srcSet={heroAvifSrcSet} sizes={HERO_IMAGE_SIZES} />
+            <source type="image/webp" srcSet={heroWebpSrcSet} sizes={HERO_IMAGE_SIZES} />
+            <source type="image/jpeg" srcSet={heroJpgSrcSet} sizes={HERO_IMAGE_SIZES} />
             <img
               src={claraHeroFallback}
               alt=""
               fetchPriority="high"
               loading="eager"
               decoding="async"
-              className="hero-clara-img"
+              className="clara-hero-image"
               aria-hidden="true"
             />
           </picture>
         </div>
       </motion.div>
 
-      {/* Overlay Layer */}
+      <div className="clara-hero-aurora hero-aurora-layer absolute inset-0 z-10 pointer-events-none" aria-hidden="true" />
+
       <motion.div
-        className="absolute inset-0 z-10 pointer-events-none"
+        className="clara-hero-overlay-directional absolute inset-0 z-20 pointer-events-none"
         initial={shouldAnimate ? { opacity: 0.86 } : false}
         animate={{ opacity: 1 }}
         transition={shouldAnimate ? { duration: 0.9, ease: [0.16, 1, 0.3, 1] } : { duration: 0 }}
-        style={shouldAnimate ? { y: auroraParallaxY } : undefined}
+        style={shouldAnimate ? { y: overlayParallaxY } : undefined}
         aria-hidden="true"
-      >
-        <div className="absolute inset-0 hero-overlay-directional" />
-      </motion.div>
+      />
 
-      {/* Energy Motion Layer */}
       <motion.div
-        className="absolute inset-0 z-[15] pointer-events-none hero-energy"
+        className="hero-energy hero-energy-layer absolute inset-0 z-30 pointer-events-none"
         initial={shouldAnimate ? { opacity: 0 } : false}
         animate={{ opacity: 1 }}
         transition={shouldAnimate ? { duration: 0.95, ease: [0.16, 1, 0.3, 1], delay: 0.08 } : { duration: 0 }}
-        style={shouldAnimate ? { y: auroraParallaxY } : undefined}
+        style={shouldAnimate ? { y: overlayParallaxY } : undefined}
         aria-hidden="true"
       >
         <span className="hero-energy-ribbon hero-energy-ribbon--north" />
@@ -337,198 +302,157 @@ const HeroSection = ({ onOpenChat }: HeroSectionProps) => {
         <span className="hero-energy-stream hero-energy-stream--secondary" />
       </motion.div>
 
-
-      {/* Content Layer */}
       <motion.div
-        className="relative z-20 mx-auto w-full max-w-[1400px] px-6 lg:px-10 py-16 md:py-24"
+        className="clara-hero-content-wrap relative z-40"
         style={shouldAnimate ? { y: textParallaxY } : undefined}
       >
         <motion.div
           variants={containerVariants}
           initial={shouldAnimate ? 'hidden' : 'visible'}
           animate="visible"
-          className="hero-copy-column"
+          className="clara-hero-card-wrap"
         >
-          <div className="hero-glass-card space-y-6 md:space-y-9 w-full">
-              {/* Badge Chip */}
-              <motion.div variants={itemVariants}>
-                <span className="badge-chip">
-                  <motion.span
-                    animate={shouldAnimate ? { scale: [1, 1.2, 1] } : undefined}
-                    transition={shouldAnimate ? { duration: 2, repeat: Infinity } : undefined}
-                    className="w-2 h-2 rounded-full bg-primary"
-                  />
-                  <Sparkles className="w-3 h-3 text-primary" aria-hidden="true" />
-                  Inteligência Administrativa
-                </span>
-              </motion.div>
-
-              <motion.div variants={itemVariants}>
-                <div className="maintenance-chip" role="status" aria-live="polite">
-                  <span className="maintenance-dot animate-pulse-subtle" aria-hidden="true" />
-                  CLARA em manutenção e atualização. Volta em breve.
-                </div>
-              </motion.div>
-
-              {/* H1 - CLARA with tighter tracking for brand signature */}
-              <motion.h1 variants={itemVariants} className="hero-title-mask">
+          <div className="clara-hero-card space-y-6 md:space-y-9 w-full">
+            <motion.div variants={itemVariants}>
+              <span className="badge-chip">
                 <motion.span
-                  className="hero-title amber-glow inline-block hero-title-reveal"
-                  initial={
-                    shouldAnimate
-                      ? { opacity: 0, filter: 'blur(2px)', clipPath: 'inset(0 100% 0 0)' }
-                      : false
-                  }
-                  animate={{ opacity: 1, filter: 'blur(0px)', clipPath: 'inset(0 0% 0 0)' }}
-                  transition={
-                    shouldAnimate
-                      ? { duration: 0.68, delay: 0.16, ease: [0.16, 1, 0.3, 1] }
-                      : { duration: 0 }
-                  }
-                >
-                  CLARA
-                </motion.span>
-              </motion.h1>
+                  animate={shouldAnimate ? { scale: [1, 1.2, 1] } : undefined}
+                  transition={shouldAnimate ? { duration: 2, repeat: Infinity } : undefined}
+                  className="w-2 h-2 rounded-full bg-primary"
+                />
+                <Sparkles className="w-3 h-3 text-primary" aria-hidden="true" />
+                Inteligência Administrativa
+              </span>
+            </motion.div>
 
-              {/* Subtitle - with elegant leading */}
-              <motion.p 
-                variants={itemVariants}
-                className="hero-subtitle text-glow"
-              >
-                <span className="text-primary">C</span>onsultora de{' '}
-                <span className="text-primary">L</span>egislação e{' '}
-                <span className="text-primary">A</span>poio a{' '}
-                <span className="text-primary">R</span>otinas{' '}
-                <span className="text-primary">A</span>dministrativas
-              </motion.p>
+            <motion.div variants={itemVariants}>
+              <div className="maintenance-chip" role="status" aria-live="polite">
+                <span className="maintenance-dot animate-pulse-subtle" aria-hidden="true" />
+                CLARA em manutenção e atualização. Volta em breve.
+              </div>
+            </motion.div>
 
-              {/* Description */}
-              <motion.p 
-                variants={itemVariants}
-                className="text-body max-w-[50ch]"
+            <motion.h1 variants={itemVariants} className="hero-title-mask">
+              <motion.span
+                className="hero-title amber-glow inline-block hero-title-reveal"
+                initial={
+                  shouldAnimate
+                    ? { opacity: 0, filter: 'blur(2px)', clipPath: 'inset(0 100% 0 0)' }
+                    : false
+                }
+                animate={{ opacity: 1, filter: 'blur(0px)', clipPath: 'inset(0 0% 0 0)' }}
+                transition={
+                  shouldAnimate
+                    ? { duration: 0.68, delay: 0.16, ease: [0.16, 1, 0.3, 1] }
+                    : { duration: 0 }
+                }
               >
-                Sua assistente especializada em sistemas eletrônicos de informações e procedimentos administrativos. Orientações passo a passo com indicação de fontes documentais.
-              </motion.p>
+                CLARA
+              </motion.span>
+            </motion.h1>
 
-              {/* CTAs */}
-              <motion.div 
-                variants={itemVariants}
-                className="flex flex-col sm:flex-row gap-4 pt-3"
+            <motion.p variants={itemVariants} className="hero-subtitle text-glow">
+              <span className="text-primary">C</span>onsultora de{' '}
+              <span className="text-primary">L</span>egislação e{' '}
+              <span className="text-primary">A</span>poio a{' '}
+              <span className="text-primary">R</span>otinas{' '}
+              <span className="text-primary">A</span>dministrativas
+            </motion.p>
+
+            <motion.p variants={itemVariants} className="text-body max-w-[50ch]">
+              Sua assistente especializada em sistemas eletrônicos de informações e procedimentos
+              administrativos. Orientações passo a passo com indicação de fontes documentais.
+            </motion.p>
+
+            <motion.div variants={itemVariants} className="flex flex-col sm:flex-row gap-4 pt-3">
+              <button
+                onClick={() => onOpenChat()}
+                className="btn-clara-primary hero-cta-button type-label flex items-center justify-center gap-2"
+                onMouseMove={handleMagneticMove}
+                onMouseLeave={handleMagneticLeave}
               >
-                <button
-                  onClick={() => onOpenChat()}
-                  className="btn-clara-primary hero-cta-button type-label flex items-center justify-center gap-2"
-                  onMouseMove={handleMagneticMove}
-                  onMouseLeave={handleMagneticLeave}
-                >
-                  <MessageCircle size={20} aria-hidden="true" />
-                  Iniciar conversa
-                </button>
-                <button
-                  onClick={() => {
-                    const featuresSection = document.getElementById('conhecimento') ?? document.getElementById('features');
-                    featuresSection?.scrollIntoView({ behavior: 'smooth' });
+                <MessageCircle size={20} aria-hidden="true" />
+                Iniciar conversa
+              </button>
+              <button
+                onClick={() => {
+                  const featuresSection =
+                    document.getElementById('conhecimento') ?? document.getElementById('features');
+                  featuresSection?.scrollIntoView({ behavior: 'smooth' });
+                }}
+                className="btn-clara-secondary hero-cta-button type-label flex items-center justify-center gap-2"
+                onMouseMove={handleMagneticMove}
+                onMouseLeave={handleMagneticLeave}
+              >
+                <BookOpen size={20} aria-hidden="true" />
+                Ver tópicos
+              </button>
+            </motion.div>
+
+            <motion.p variants={itemVariants} className="text-caption max-w-[44ch]">
+              Ao usar nossos serviços, você concorda com nossa{' '}
+              <a
+                href="/privacidade.html"
+                className="text-primary hover:underline font-medium transition-colors duration-150"
+              >
+                Política de Privacidade
+              </a>
+            </motion.p>
+
+            <motion.div variants={itemVariants} className="pt-5">
+              <p className="text-caption mb-2 text-text-secondary">Perguntas rápidas</p>
+              <div className="quick-carousel-shell">
+                <div
+                  ref={quickCarouselRef}
+                  className="quick-carousel"
+                  role="list"
+                  aria-label="Perguntas rápidas"
+                  tabIndex={0}
+                  onKeyDown={(event) => {
+                    if (event.key === 'ArrowRight') {
+                      event.preventDefault();
+                      scrollQuickCarousel('next');
+                    }
+                    if (event.key === 'ArrowLeft') {
+                      event.preventDefault();
+                      scrollQuickCarousel('prev');
+                    }
                   }}
-                  className="btn-clara-secondary hero-cta-button type-label flex items-center justify-center gap-2"
-                  onMouseMove={handleMagneticMove}
-                  onMouseLeave={handleMagneticLeave}
                 >
-                  <BookOpen size={20} aria-hidden="true" />
-                  Ver tópicos
-                </button>
-              </motion.div>
-
-              {/* Privacy Policy Link */}
-              <motion.p 
-                variants={itemVariants}
-                className="text-caption max-w-[44ch]"
-              >
-                Ao usar nossos serviços, você concorda com nossa{' '}
-                <a 
-                  href="/privacidade.html" 
-                  className="text-primary hover:underline font-medium transition-colors duration-150"
-                >
-                  Política de Privacidade
-                </a>
-              </motion.p>
-
-              {/* Quick Actions Carousel */}
-              <motion.div variants={itemVariants} className="pt-5">
-                <p className="text-caption mb-2 text-text-secondary">Perguntas rápidas</p>
-                <div className="quick-carousel-shell">
-                  {!isMobile && (
-                    <button
-                      type="button"
-                      className="quick-carousel-arrow quick-carousel-arrow--prev"
-                      onClick={() => scrollQuickCarousel('prev')}
-                      disabled={!canScrollPrev}
-                      aria-label="Ver perguntas anteriores"
-                    >
-                      <ChevronLeft className="w-4 h-4" aria-hidden="true" />
-                    </button>
-                  )}
-
-                  <div
-                    ref={quickCarouselRef}
-                    className="quick-carousel"
-                    role="list"
-                    aria-label="Perguntas rápidas"
-                    tabIndex={0}
-                    onKeyDown={(event) => {
-                      if (event.key === 'ArrowRight') {
-                        event.preventDefault();
-                        scrollQuickCarousel('next');
-                      }
-                      if (event.key === 'ArrowLeft') {
-                        event.preventDefault();
-                        scrollQuickCarousel('prev');
-                      }
-                    }}
-                  >
-                    {QUICK_QUESTIONS.map((question, i) => (
-                      <div key={question} role="listitem" className="quick-chip-item">
-                        <button
-                          type="button"
-                          className="quick-chip"
-                          onClick={() => onOpenChat(question)}
-                          style={{ animationDelay: `${0.05 * i}s` }}
-                        >
-                          {question}
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-
-                  {!isMobile && (
-                    <button
-                      type="button"
-                      className="quick-carousel-arrow quick-carousel-arrow--next"
-                      onClick={() => scrollQuickCarousel('next')}
-                      disabled={!canScrollNext}
-                      aria-label="Ver próximas perguntas"
-                    >
-                      <ChevronRight className="w-4 h-4" aria-hidden="true" />
-                    </button>
-                  )}
+                  {QUICK_QUESTIONS.map((question, i) => (
+                    <div key={question} role="listitem" className="quick-chip-item">
+                      <button
+                        type="button"
+                        className="quick-chip"
+                        onClick={() => onOpenChat(question)}
+                        style={{ animationDelay: `${0.05 * i}s` }}
+                      >
+                        {question}
+                      </button>
+                    </div>
+                  ))}
                 </div>
-              </motion.div>
+              </div>
+            </motion.div>
           </div>
         </motion.div>
       </motion.div>
 
-      {debugLayout ? (
-        <aside className="hero-debug-panel" aria-live="polite">
-          <strong>Hero Layout Debug</strong>
-          <span>breakpoint: {debugLayoutState.breakpoint || '-'}</span>
-          <span>pos: {debugLayoutState.claraPos}</span>
-          <span>scale: {debugLayoutState.scale}</span>
-          <span>overlay: {debugLayoutState.overlayOpacity}</span>
-          <span>card-w: {debugLayoutState.cardWidth}</span>
-          <span>card-ml: {debugLayoutState.cardMarginLeft}</span>
-        </aside>
+      {debugHero ? (
+        <>
+          <div className="clara-hero-safe-frame" style={safeFrameStyle} aria-hidden="true" />
+          <aside className="clara-hero-debug-panel" aria-live="polite">
+            <strong>Hero Debug</strong>
+            <span>breakpoint: {debugState.breakpoint || '-'}</span>
+            <span>card-w: {debugState.cardW || '-'}</span>
+            <span>card-ml: {debugState.cardMl || '-'}</span>
+            <span>clara-pos: {debugState.claraPos || '-'}</span>
+            <span>clara-scale: {debugState.claraScale || '-'}</span>
+            <span>overlay-opacity: {debugState.overlayOpacity || '-'}</span>
+          </aside>
+        </>
       ) : null}
 
-      {/* Decorative gradient at bottom */}
       <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-background to-transparent z-10 pointer-events-none" />
     </section>
   );

@@ -1397,18 +1397,16 @@
      HERO CONTRACT V3 - Single Source Of Truth
      ============================================ */
   .clara-hero {
+    min-height: 100vh;
     min-height: 100svh;
     display: flex;
     align-items: center;
-    background:
-      radial-gradient(circle at 82% 28%, hsl(var(--glow) / 0.3), transparent 54%),
-      radial-gradient(circle at 14% 18%, hsl(var(--bg-elev) / 0.55), transparent 56%),
-      linear-gradient(102deg, hsl(var(--bg-base) / 0.98) 0%, hsl(var(--bg-base) / 0.72) 48%, hsl(var(--bg-base) / 0.34) 100%);
-    --hero-card-w: min(92vw, 520px);
+    background: hsl(var(--bg-base));
+    --hero-card-w: min(100%, 640px);
     --hero-card-ml: 0px;
-    --clara-pos: 72% 30%;
+    --clara-pos: 60% 48%;
     --clara-scale: 1;
-    --hero-overlay-opacity: 0.88;
+    --hero-overlay-opacity: 0.92;
   }
 
   @supports (min-height: 100dvh) {
@@ -1419,41 +1417,41 @@
 
   @media (min-width: 1440px) {
     .clara-hero {
-      --hero-card-w: clamp(420px, 34vw, 560px);
-      --hero-card-ml: clamp(40px, 4vw, 80px);
-      --clara-pos: 72% 30%;
-      --clara-scale: 1;
-      --hero-overlay-opacity: 0.88;
+      --hero-card-w: clamp(460px, 33vw, 600px);
+      --hero-card-ml: clamp(28px, 3.2vw, 72px);
+      --clara-pos: 74% 33%;
+      --clara-scale: 1.03;
+      --hero-overlay-opacity: 0.76;
     }
   }
 
   @media (min-width: 1280px) and (max-width: 1439px) {
     .clara-hero {
-      --hero-card-w: clamp(400px, 36vw, 520px);
-      --hero-card-ml: clamp(32px, 3vw, 64px);
-      --clara-pos: 70% 30%;
-      --clara-scale: 1;
-      --hero-overlay-opacity: 0.88;
+      --hero-card-w: clamp(440px, 35vw, 560px);
+      --hero-card-ml: clamp(24px, 2.7vw, 56px);
+      --clara-pos: 71% 35%;
+      --clara-scale: 1.01;
+      --hero-overlay-opacity: 0.8;
     }
   }
 
   @media (min-width: 1024px) and (max-width: 1279px) {
     .clara-hero {
-      --hero-card-w: clamp(380px, 40vw, 480px);
-      --hero-card-ml: clamp(24px, 2.5vw, 48px);
-      --clara-pos: 68% 32%;
-      --clara-scale: 1;
-      --hero-overlay-opacity: 0.9;
+      --hero-card-w: clamp(420px, 42vw, 520px);
+      --hero-card-ml: clamp(20px, 2.2vw, 44px);
+      --clara-pos: 68% 38%;
+      --clara-scale: 0.99;
+      --hero-overlay-opacity: 0.84;
     }
   }
 
   @media (min-width: 900px) and (max-width: 1023px) {
     .clara-hero {
-      --hero-card-w: clamp(320px, 40vw, 400px);
-      --hero-card-ml: clamp(10px, 1.2vw, 20px);
-      --clara-pos: 78% 34%;
-      --clara-scale: 1;
-      --hero-overlay-opacity: 0.92;
+      --hero-card-w: clamp(390px, 43vw, 500px);
+      --hero-card-ml: clamp(12px, 1.6vw, 22px);
+      --clara-pos: 74% 39%;
+      --clara-scale: 0.98;
+      --hero-overlay-opacity: 0.88;
     }
   }
 
@@ -1461,24 +1459,33 @@
     .clara-hero {
       --hero-card-w: min(100%, 640px);
       --hero-card-ml: 0px;
-      --clara-pos: 60% 46%;
+      --clara-pos: 60% 48%;
       --clara-scale: 1;
       --hero-overlay-opacity: 0.94;
     }
   }
 
-  .clara-hero .hero-bg-parallax {
+  .clara-hero .clara-hero-bg-parallax {
+    position: absolute;
+    inset: 0;
     will-change: transform;
   }
 
-  .clara-hero .hero-bg-scale {
+  .clara-hero .clara-hero-bg-scale {
     position: absolute;
     inset: 0;
     transform: scale(var(--clara-scale));
     transform-origin: center;
+    transition: transform 0.3s ease;
   }
 
-  .clara-hero .hero-clara-img {
+  .clara-hero .clara-hero-picture {
+    position: absolute;
+    inset: 0;
+    display: block;
+  }
+
+  .clara-hero .clara-hero-image {
     position: absolute;
     inset: 0;
     width: 100%;
@@ -1488,74 +1495,224 @@
     filter: saturate(1.1) contrast(1.06) brightness(1.03);
   }
 
-  .clara-hero .hero-overlay-directional {
+  .clara-hero .clara-hero-aurora::before,
+  .clara-hero .clara-hero-aurora::after {
+    content: '';
+    position: absolute;
+    inset: -8%;
+    pointer-events: none;
+    background-repeat: no-repeat;
+  }
+
+  .clara-hero .clara-hero-aurora::before {
+    background:
+      radial-gradient(circle at 82% 28%, hsl(var(--glow) / 0.34), transparent 56%),
+      radial-gradient(circle at 10% 18%, hsl(var(--bg-elev) / 0.56), transparent 58%);
+    animation: hero-aurora-breathe 22s ease-in-out infinite;
+  }
+
+  .clara-hero .clara-hero-aurora::after {
+    background:
+      radial-gradient(circle at 14% 60%, hsl(var(--bg-base) / 0.5), transparent 58%),
+      radial-gradient(circle at 90% 8%, hsl(var(--vignette-deep) / 0.5), transparent 52%);
+    mix-blend-mode: multiply;
+    animation: hero-aurora-veil 26s ease-in-out infinite;
+  }
+
+  .clara-hero .clara-hero-overlay-directional {
     background: linear-gradient(
       to right,
-      hsl(222 35% 7% / var(--hero-overlay-opacity)) 0%,
-      hsl(222 35% 7% / calc(var(--hero-overlay-opacity) - 0.2)) 30%,
-      hsl(222 35% 7% / 0.25) 55%,
-      hsl(222 35% 7% / 0.08) 75%,
+      hsl(var(--bg-base) / calc(var(--hero-overlay-opacity) * 1)) 0%,
+      hsl(var(--bg-base) / calc(var(--hero-overlay-opacity) * 0.82)) 32%,
+      hsl(var(--bg-base) / calc(var(--hero-overlay-opacity) * 0.48)) 58%,
+      hsl(var(--bg-base) / calc(var(--hero-overlay-opacity) * 0.18)) 78%,
       transparent 100%
     );
   }
 
-  .clara-hero .hero-copy-column {
-    width: var(--hero-card-w);
-    max-width: none;
+  .clara-hero .clara-hero-content-wrap {
+    width: 100%;
+    position: relative;
+    z-index: 40;
+    padding-block: clamp(5.5rem, 9vh, 7.25rem) clamp(3.5rem, 7vh, 6rem);
+    padding-inline: clamp(16px, 3.5vw, 88px);
+  }
+
+  .clara-hero .clara-hero-card-wrap {
+    width: min(100%, calc(var(--hero-card-w) + var(--hero-card-ml)));
     margin-left: var(--hero-card-ml);
   }
 
-  .clara-hero .hero-glass-card {
+  .clara-hero .clara-hero-card {
     position: relative;
-    width: 100%;
+    width: min(100%, var(--hero-card-w));
+    border-radius: var(--radius-2xl);
+    border: 1px solid hsl(var(--stroke) / 0.72);
+    box-shadow:
+      0 24px 42px hsl(var(--shadow) / 0.45),
+      inset 0 1px 0 hsl(var(--foreground) / 0.08);
+    padding: clamp(1.25rem, 1.6vw, 2.25rem);
     overflow: hidden;
-    background: transparent;
-    border: none;
-    border-radius: 1rem;
-    padding: 2.25rem;
   }
 
-  .clara-hero .hero-glass-card::before {
+  .clara-hero .clara-hero-card::before {
     content: '';
     position: absolute;
     inset: 0;
-    background: hsl(222 35% 7% / 0.52);
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
-    border: 1px solid hsl(220 25% 22% / 0.22);
     border-radius: inherit;
-    -webkit-mask-image: linear-gradient(to right, black 0%, black 75%, transparent 100%);
-    mask-image: linear-gradient(to right, black 0%, black 75%, transparent 100%);
+    border: 1px solid hsl(var(--stroke) / 0.5);
+    background:
+      radial-gradient(circle at 100% 0%, hsl(var(--gold-2) / 0.12), transparent 46%),
+      linear-gradient(160deg, hsl(var(--bg-elev) / 0.82), hsl(var(--bg-base) / 0.74));
     z-index: 0;
   }
 
-  .clara-hero .hero-glass-card > * {
+  .clara-hero .clara-hero-card > * {
     position: relative;
     z-index: 1;
   }
 
+  @supports ((backdrop-filter: blur(8px)) or (-webkit-backdrop-filter: blur(8px))) {
+    .clara-hero .clara-hero-card::before {
+      backdrop-filter: blur(9px);
+      -webkit-backdrop-filter: blur(9px);
+    }
+  }
+
+  @supports ((mask-image: linear-gradient(to right, #000, transparent)) or (-webkit-mask-image: linear-gradient(to right, #000, transparent))) {
+    .clara-hero .clara-hero-card::before {
+      -webkit-mask-image: linear-gradient(
+        to right,
+        hsl(var(--foreground) / 1) 0%,
+        hsl(var(--foreground) / 1) 76%,
+        hsl(var(--foreground) / 0.35) 90%,
+        transparent 100%
+      );
+      mask-image: linear-gradient(
+        to right,
+        hsl(var(--foreground) / 1) 0%,
+        hsl(var(--foreground) / 1) 76%,
+        hsl(var(--foreground) / 0.35) 90%,
+        transparent 100%
+      );
+    }
+  }
+
+  .clara-hero .clara-hero-safe-frame {
+    position: absolute;
+    z-index: 55;
+    transform: translate(-50%, -50%);
+    width: clamp(180px, 16vw, 260px);
+    height: clamp(220px, 24vh, 340px);
+    border-radius: 1.25rem;
+    border: 1px dashed hsl(var(--gold-1) / 0.82);
+    box-shadow: 0 0 0 1px hsl(var(--bg-base) / 0.58), 0 0 24px hsl(var(--gold-2) / 0.2);
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .clara-hero .clara-hero-debug-panel {
+    position: absolute;
+    top: clamp(0.8rem, 2.2vw, 1.3rem);
+    right: clamp(0.8rem, 2.2vw, 1.3rem);
+    z-index: 60;
+    display: grid;
+    gap: 0.2rem;
+    min-width: 230px;
+    border-radius: 0.8rem;
+    border: 1px solid hsl(var(--gold-1) / 0.7);
+    background: hsl(var(--bg-base) / 0.9);
+    padding: 0.55rem 0.7rem;
+    font-size: 0.72rem;
+    line-height: 1.35;
+    letter-spacing: 0.015em;
+    color: hsl(var(--text-primary) / 0.92);
+    backdrop-filter: blur(8px);
+  }
+
+  .clara-hero .clara-hero-debug-panel strong {
+    color: hsl(var(--gold-1));
+    font-size: 0.75rem;
+    margin-bottom: 0.12rem;
+  }
+
+  .clara-hero-debug {
+    outline: 1px dashed hsl(var(--teal-1) / 0.55);
+    outline-offset: -2px;
+  }
+
+  .clara-hero-debug .clara-hero-card-wrap {
+    outline: 1px dashed hsl(var(--gold-1) / 0.75);
+    outline-offset: 2px;
+  }
+
+  .clara-hero-debug .clara-hero-safe-frame {
+    opacity: 1;
+  }
+
   @media (max-width: 899px) {
-    .clara-hero .hero-glass-card {
-      padding: 1.5rem 1.25rem;
+    .clara-hero .clara-hero-content-wrap {
+      padding-inline: clamp(16px, 4.2vw, 24px);
+      padding-block: clamp(5rem, 7vh, 6.25rem) clamp(2.6rem, 5vh, 4rem);
     }
 
-    .clara-hero .hero-glass-card::before {
-      -webkit-mask-image: none;
-      mask-image: none;
-      background: hsl(222 35% 7% / 0.58);
+    .clara-hero .clara-hero-card-wrap {
+      width: 100%;
+      margin-left: 0;
     }
 
-    .clara-hero .hero-energy {
+    .clara-hero .clara-hero-card {
+      width: 100%;
+      max-width: 640px;
+      margin-inline: auto;
+    }
+
+    .clara-hero .clara-hero-card::before {
       -webkit-mask-image: none;
       mask-image: none;
-      opacity: 0.68;
+      backdrop-filter: none;
+      -webkit-backdrop-filter: none;
+      background:
+        radial-gradient(circle at 100% 0%, hsl(var(--gold-2) / 0.1), transparent 44%),
+        linear-gradient(160deg, hsl(var(--bg-elev) / 0.86), hsl(var(--bg-base) / 0.82));
+    }
+
+    .clara-hero .clara-hero-overlay-directional {
+      background: linear-gradient(
+        180deg,
+        hsl(var(--bg-base) / 0.1) 0%,
+        hsl(var(--bg-base) / calc(var(--hero-overlay-opacity) * 0.42)) 52%,
+        hsl(var(--bg-base) / calc(var(--hero-overlay-opacity) * 0.86)) 100%
+      );
+    }
+
+    .clara-hero .hero-aurora-layer,
+    .clara-hero .hero-energy-layer {
+      display: none;
+    }
+
+    .clara-hero .clara-hero-bg-parallax,
+    .clara-hero .clara-hero-bg-scale {
+      transform: none !important;
+      transition: none !important;
+    }
+
+    .clara-hero .clara-hero-debug-panel {
+      min-width: 185px;
+      font-size: 0.68rem;
     }
   }
 
   @media (prefers-reduced-motion: reduce) {
-    .clara-hero .hero-bg-parallax,
-    .clara-hero .hero-bg-scale {
+    .clara-hero .clara-hero-bg-parallax,
+    .clara-hero .clara-hero-bg-scale {
       transform: none !important;
+      transition: none !important;
+    }
+
+    .clara-hero .clara-hero-aurora::before,
+    .clara-hero .clara-hero-aurora::after {
+      animation: none;
     }
   }
 
@@ -2335,7 +2492,7 @@
     }
   }
 
-  @media (min-width: 1024px) {
+  @media (min-width: 900px) {
     .quick-carousel-shell::before,
     .quick-carousel-shell::after {
       display: none;

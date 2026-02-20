@@ -5,29 +5,57 @@ interface LenisProviderProps {
   children: ReactNode;
 }
 
+const MOBILE_SCROLL_QUERY = "(max-width: 899px)";
+const REDUCED_MOTION_QUERY = "(prefers-reduced-motion: reduce)";
+
+const getQueryMatch = (query: string) => {
+  if (typeof window === "undefined" || !window.matchMedia) {
+    return false;
+  }
+
+  return window.matchMedia(query).matches;
+};
+
 export function LenisProvider({ children }: LenisProviderProps) {
-  const [reducedMotion, setReducedMotion] = useState(false);
+  const [reducedMotion, setReducedMotion] = useState(() =>
+    getQueryMatch(REDUCED_MOTION_QUERY),
+  );
+  const [mobileViewport, setMobileViewport] = useState(() =>
+    getQueryMatch(MOBILE_SCROLL_QUERY),
+  );
 
   useEffect(() => {
     if (typeof window === "undefined" || !window.matchMedia) {
       return;
     }
 
-    const mediaQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
-    const updatePreference = () => setReducedMotion(mediaQuery.matches);
+    const reducedMotionQuery = window.matchMedia(REDUCED_MOTION_QUERY);
+    const mobileQuery = window.matchMedia(MOBILE_SCROLL_QUERY);
 
-    updatePreference();
+    const updateReducedMotion = () => setReducedMotion(reducedMotionQuery.matches);
+    const updateViewport = () => setMobileViewport(mobileQuery.matches);
 
-    if (mediaQuery.addEventListener) {
-      mediaQuery.addEventListener("change", updatePreference);
-      return () => mediaQuery.removeEventListener("change", updatePreference);
+    updateReducedMotion();
+    updateViewport();
+
+    if (reducedMotionQuery.addEventListener && mobileQuery.addEventListener) {
+      reducedMotionQuery.addEventListener("change", updateReducedMotion);
+      mobileQuery.addEventListener("change", updateViewport);
+      return () => {
+        reducedMotionQuery.removeEventListener("change", updateReducedMotion);
+        mobileQuery.removeEventListener("change", updateViewport);
+      };
     }
 
-    mediaQuery.addListener(updatePreference);
-    return () => mediaQuery.removeListener(updatePreference);
+    reducedMotionQuery.addListener(updateReducedMotion);
+    mobileQuery.addListener(updateViewport);
+    return () => {
+      reducedMotionQuery.removeListener(updateReducedMotion);
+      mobileQuery.removeListener(updateViewport);
+    };
   }, []);
 
-  if (reducedMotion) {
+  if (reducedMotion || mobileViewport) {
     return <>{children}</>;
   }
 
