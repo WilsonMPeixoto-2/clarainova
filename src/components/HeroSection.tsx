@@ -64,6 +64,7 @@ const QUICK_QUESTIONS = [
 ];
 
 const QUICK_SCROLL_DISTANCE = 320;
+const HERO_MOBILE_QUERY = '(max-width: 899px)';
 
 interface HeroSectionProps {
   onOpenChat: (query?: string) => void;
@@ -86,6 +87,12 @@ const HeroSection = ({ onOpenChat }: HeroSectionProps) => {
   const quickCarouselRef = useRef<HTMLDivElement>(null);
   const magneticRafRef = useRef<number | null>(null);
   const [isJsEnabled, setIsJsEnabled] = useState(false);
+  const [isHeroMobile, setIsHeroMobile] = useState(() => {
+    if (typeof window === 'undefined' || !window.matchMedia) {
+      return isMobile;
+    }
+    return window.matchMedia(HERO_MOBILE_QUERY).matches;
+  });
   const [debugHero, setDebugHero] = useState(false);
   const [debugState, setDebugState] = useState<HeroDebugState>({
     breakpoint: '',
@@ -96,7 +103,7 @@ const HeroSection = ({ onOpenChat }: HeroSectionProps) => {
     overlayOpacity: '',
   });
 
-  const shouldAnimate = isJsEnabled && !prefersReducedMotion && !isMobile;
+  const shouldAnimate = isJsEnabled && !prefersReducedMotion && !isHeroMobile;
 
   const containerVariants = {
     hidden: { opacity: 0, y: 16 },
@@ -104,7 +111,7 @@ const HeroSection = ({ onOpenChat }: HeroSectionProps) => {
       opacity: 1,
       y: 0,
       transition: {
-        staggerChildren: isMobile ? 0.1 : 0.12,
+        staggerChildren: isHeroMobile ? 0.1 : 0.12,
         delayChildren: 0.06,
         duration: 0.7,
         ease: [0.16, 1, 0.3, 1] as const,
@@ -118,7 +125,7 @@ const HeroSection = ({ onOpenChat }: HeroSectionProps) => {
       opacity: 1,
       y: 0,
       transition: {
-        duration: isMobile ? 0.55 : 0.75,
+        duration: isHeroMobile ? 0.55 : 0.75,
         ease: [0.16, 1, 0.3, 1] as const,
       },
     },
@@ -135,7 +142,7 @@ const HeroSection = ({ onOpenChat }: HeroSectionProps) => {
 
   const handleMagneticMove = useCallback(
     (event: MouseEvent<HTMLButtonElement>) => {
-      if (!shouldAnimate || isMobile || !window.matchMedia('(pointer:fine)').matches) {
+      if (!shouldAnimate || isHeroMobile || !window.matchMedia('(pointer:fine)').matches) {
         return;
       }
 
@@ -153,7 +160,7 @@ const HeroSection = ({ onOpenChat }: HeroSectionProps) => {
         target.style.setProperty('--magnetic-y', `${offsetY.toFixed(2)}px`);
       });
     },
-    [isMobile, shouldAnimate],
+    [isHeroMobile, shouldAnimate],
   );
 
   const handleMagneticLeave = useCallback((event: MouseEvent<HTMLButtonElement>) => {
@@ -187,6 +194,26 @@ const HeroSection = ({ onOpenChat }: HeroSectionProps) => {
   useEffect(() => {
     setIsJsEnabled(document.body.classList.contains('js-enabled'));
   }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.matchMedia) {
+      setIsHeroMobile(isMobile);
+      return;
+    }
+
+    const mediaQuery = window.matchMedia(HERO_MOBILE_QUERY);
+    const syncViewport = () => setIsHeroMobile(mediaQuery.matches);
+
+    syncViewport();
+
+    if (mediaQuery.addEventListener) {
+      mediaQuery.addEventListener('change', syncViewport);
+      return () => mediaQuery.removeEventListener('change', syncViewport);
+    }
+
+    mediaQuery.addListener(syncViewport);
+    return () => mediaQuery.removeListener(syncViewport);
+  }, [isMobile]);
 
   useEffect(() => {
     const params = new URLSearchParams(location.search);
@@ -250,8 +277,8 @@ const HeroSection = ({ onOpenChat }: HeroSectionProps) => {
       }`}
     >
       <motion.div
-        initial={shouldAnimate ? { opacity: 0.86, scale: 1.02 } : false}
-        animate={{ opacity: 1, scale: 1 }}
+        initial={shouldAnimate ? { opacity: 0.86 } : false}
+        animate={{ opacity: 1 }}
         transition={shouldAnimate ? { duration: 0.82, ease: [0.16, 1, 0.3, 1] } : { duration: 0 }}
         style={shouldAnimate ? { y: mediaParallaxY } : undefined}
         className="clara-hero-bg-parallax hero-parallax-layer absolute inset-0 z-0 pointer-events-none"
