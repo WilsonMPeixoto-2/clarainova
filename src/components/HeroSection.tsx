@@ -212,9 +212,10 @@ const HeroSection = ({ onOpenChat }: HeroSectionProps) => {
       ref={heroSectionRef}
       className={`clara-hero ${debugHero ? 'clara-hero-debug' : ''}`}
     >
-      {/* 1. Base Layer (Background + Deep Glow) */}
+      {/* 1. Base Layer (Background + Deep Glow + Film Grain) */}
       <div className="hero-base-layer" aria-hidden="true">
         <div className="hero-energy-glow" />
+        <div className="cinematic-noise" />
       </div>
 
       {/* 2. Media Layer (Video Stage Anchored to Right) */}
@@ -270,9 +271,9 @@ const HeroSection = ({ onOpenChat }: HeroSectionProps) => {
                 <motion.span
                   animate={shouldAnimate ? { scale: [1, 1.2, 1] } : undefined}
                   transition={shouldAnimate ? { duration: 2, repeat: Infinity } : undefined}
-                  className="w-2 h-2 rounded-full bg-primary"
+                  className="w-2 h-2 rounded-full bg-cyan-400 shadow-[0_0_8px_theme(colors.cyan.400)]"
                 />
-                <Sparkles className="w-3 h-3 text-primary" aria-hidden="true" />
+                <Sparkles className="w-3 h-3 text-cyan-400" aria-hidden="true" />
                 Inteligência Administrativa
               </span>
             </motion.div>
@@ -304,11 +305,11 @@ const HeroSection = ({ onOpenChat }: HeroSectionProps) => {
             </motion.h1>
 
             <motion.p variants={itemVariants} className="hero-subtitle text-glow">
-              <span className="text-primary">C</span>onsultora de{' '}
-              <span className="text-primary">L</span>egislação e{' '}
-              <span className="text-primary">A</span>poio a{' '}
-              <span className="text-primary">R</span>otinas{' '}
-              <span className="text-primary">A</span>dministrativas
+              <span className="text-white font-medium drop-shadow-[0_0_8px_rgba(255,255,255,0.4)]">C</span>onsultora de{' '}
+              <span className="text-white font-medium drop-shadow-[0_0_8px_rgba(255,255,255,0.4)]">L</span>egislação e{' '}
+              <span className="text-white font-medium drop-shadow-[0_0_8px_rgba(255,255,255,0.4)]">A</span>poio a{' '}
+              <span className="text-white font-medium drop-shadow-[0_0_8px_rgba(255,255,255,0.4)]">R</span>otinas{' '}
+              <span className="text-white font-medium drop-shadow-[0_0_8px_rgba(255,255,255,0.4)]">A</span>dministrativas
             </motion.p>
 
             <motion.p variants={itemVariants} className="text-body max-w-[50ch]">
@@ -319,7 +320,7 @@ const HeroSection = ({ onOpenChat }: HeroSectionProps) => {
             <motion.div variants={itemVariants} className="flex flex-col sm:flex-row gap-4 pt-3">
               <button
                 onClick={() => onOpenChat()}
-                className="btn-clara-primary hero-cta-button type-label flex items-center justify-center gap-2"
+                className="btn-cinematic-glow hero-cta-button type-label flex items-center justify-center gap-2"
                 onMouseMove={handleMagneticMove}
                 onMouseLeave={handleMagneticLeave}
               >
