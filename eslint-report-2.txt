@@ -1,0 +1,28 @@
+
+C:\Users\okidata\clarainova\src\components\admin\ChatMetricsDashboard.tsx
+   7:3   warning  'LineChart' is defined but never used  @typescript-eslint/no-unused-vars
+   7:14  warning  'Line' is defined but never used       @typescript-eslint/no-unused-vars
+  11:3   warning  'Globe' is defined but never used      @typescript-eslint/no-unused-vars
+
+C:\Users\okidata\clarainova\src\components\admin\DocumentEditorModal.tsx
+  53:3  warning  'adminKey' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\okidata\clarainova\src\hooks\use-toast.ts
+  15:7  warning  'actionTypes' is assigned a value but only used as a type  @typescript-eslint/no-unused-vars
+
+C:\Users\okidata\clarainova\src\pages\Chat.tsx
+  92:5  warning  'refreshSessions' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\okidata\clarainova\src\utils\extractPdfText.ts
+  82:9  warning  'emptyPageRatio' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\okidata\clarainova\src\utils\generateReportPdf.ts
+  77:12  warning  'error' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\okidata\clarainova\supabase\functions\documents\index.ts
+    45:7   warning  'LIMITS' is assigned a value but never used    @typescript-eslint/no-unused-vars
+    54:10  warning  'safeJsonStringify' is defined but never used  @typescript-eslint/no-unused-vars
+  1818:18  warning  'docxError' is defined but never used          @typescript-eslint/no-unused-vars
+
+Ô£û 11 problems (0 errors, 11 warnings)
+

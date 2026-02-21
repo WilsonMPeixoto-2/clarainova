@@ -1,0 +1,27 @@
+Package                     Current    Wanted   Latest  Location                                Depended by
+@eslint/js                   9.39.2    9.39.3   10.0.1  node_modules/@eslint/js                 clarainova
+@hookform/resolvers          3.10.0    3.10.0    5.2.2  node_modules/@hookform/resolvers        clarainova
+@types/node                22.19.11  22.19.11   25.3.0  node_modules/@types/node                clarainova
+@types/react                18.3.28   18.3.28  19.2.14  node_modules/@types/react               clarainova
+@types/react-dom             18.3.7    18.3.7   19.2.3  node_modules/@types/react-dom           clarainova
+@vitejs/plugin-react-swc     3.11.0    3.11.0    4.2.3  node_modules/@vitejs/plugin-react-swc   clarainova
+date-fns                      3.6.0     3.6.0    4.1.0  node_modules/date-fns                   clarainova
+eslint                       9.39.2    9.39.3   10.0.1  node_modules/eslint                     clarainova
+eslint-plugin-react-hooks     5.2.0     5.2.0    7.0.1  node_modules/eslint-plugin-react-hooks  clarainova
+framer-motion               12.34.2   12.34.3  12.34.3  node_modules/framer-motion              clarainova
+globals                     15.15.0   15.15.0   17.3.0  node_modules/globals                    clarainova
+jsdom                        20.0.3    20.0.3   28.1.0  node_modules/jsdom                      clarainova
+lucide-react                0.574.0   0.574.0  0.575.0  node_modules/lucide-react               clarainova
+pdfjs-dist                  4.10.38   4.10.38  5.4.624  node_modules/pdfjs-dist                 clarainova
+react                        18.3.1    18.3.1   19.2.4  node_modules/react                      clarainova
+react-day-picker             8.10.1    8.10.1   9.13.2  node_modules/react-day-picker           clarainova
+react-dom                    18.3.1    18.3.1   19.2.4  node_modules/react-dom                  clarainova
+react-hook-form              7.71.1    7.71.2   7.71.2  node_modules/react-hook-form            clarainova
+react-resizable-panels        2.1.9     2.1.9    4.6.4  node_modules/react-resizable-panels     clarainova
+react-router-dom             6.30.3    6.30.3   7.13.0  node_modules/react-router-dom           clarainova
+recharts                     2.15.4    2.15.4    3.7.0  node_modules/recharts                   clarainova
+sonner                        1.7.4     1.7.4    2.0.7  node_modules/sonner                     clarainova
+tailwindcss                  3.4.19    3.4.19    4.2.0  node_modules/tailwindcss                clarainova
+vaul                          0.9.9     0.9.9    1.1.2  node_modules/vaul                       clarainova
+vitest                        3.2.4     3.2.4   4.0.18  node_modules/vitest                     clarainova
+zod                         3.25.76   3.25.76    4.3.6  node_modules/zod                        clarainova

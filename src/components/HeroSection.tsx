@@ -73,9 +73,6 @@ interface HeroSectionProps {
 interface HeroDebugState {
   breakpoint: string;
   cardW: string;
-  cardMl: string;
-  claraPos: string;
-  claraScale: string;
   overlayOpacity: string;
 }
 
@@ -97,9 +94,6 @@ const HeroSection = ({ onOpenChat }: HeroSectionProps) => {
   const [debugState, setDebugState] = useState<HeroDebugState>({
     breakpoint: '',
     cardW: '',
-    cardMl: '',
-    claraPos: '',
-    claraScale: '',
     overlayOpacity: '',
   });
 
@@ -239,9 +233,6 @@ const HeroSection = ({ onOpenChat }: HeroSectionProps) => {
       setDebugState({
         breakpoint: getBreakpointLabel(window.innerWidth),
         cardW: styles.getPropertyValue('--hero-card-w').trim() || '-',
-        cardMl: styles.getPropertyValue('--hero-card-ml').trim() || '-',
-        claraPos: styles.getPropertyValue('--clara-pos').trim() || '-',
-        claraScale: styles.getPropertyValue('--clara-scale').trim() || '-',
         overlayOpacity: styles.getPropertyValue('--hero-overlay-opacity').trim() || '-',
       });
     };
@@ -262,19 +253,18 @@ const HeroSection = ({ onOpenChat }: HeroSectionProps) => {
   const textParallaxY = useTransform(scrollYProgress, [0, 1], [0, 7]);
 
   const safeFrameStyle = useMemo(() => {
-    const [x, y] = debugState.claraPos.split(/\s+/);
+    // Deprecated exact coords in favor of right alignment visual approximation
     return {
-      left: x || '72%',
-      top: y || '34%',
+      left: '72%',
+      top: '34%',
     };
-  }, [debugState.claraPos]);
+  }, []);
 
   return (
     <section
       ref={heroSectionRef}
-      className={`clara-hero relative flex items-center overflow-hidden ${
-        debugHero ? 'clara-hero-debug' : ''
-      }`}
+      className={`clara-hero relative flex items-center overflow-hidden ${debugHero ? 'clara-hero-debug' : ''
+        }`}
     >
       <motion.div
         initial={shouldAnimate ? { opacity: 0.86 } : false}
@@ -472,9 +462,6 @@ const HeroSection = ({ onOpenChat }: HeroSectionProps) => {
             <strong>Hero Debug</strong>
             <span>breakpoint: {debugState.breakpoint || '-'}</span>
             <span>card-w: {debugState.cardW || '-'}</span>
-            <span>card-ml: {debugState.cardMl || '-'}</span>
-            <span>clara-pos: {debugState.claraPos || '-'}</span>
-            <span>clara-scale: {debugState.claraScale || '-'}</span>
             <span>overlay-opacity: {debugState.overlayOpacity || '-'}</span>
           </aside>
         </>
