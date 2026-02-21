@@ -5,48 +5,7 @@ import { useLocation } from 'react-router-dom';
 import { useIsMobile } from '@/hooks/use-mobile';
 import claraHeroFallback from '@/assets/clara-hero-fallback.jpg';
 
-const HERO_IMAGE_BREAKPOINTS = [480, 768, 1024, 1440, 1920, 2560, 3840] as const;
-const HERO_IMAGE_SIZES =
-  '(max-width: 899px) 100vw, (max-width: 1023px) 100vw, (max-width: 1279px) 100vw, (max-width: 1439px) 100vw, 100vw';
-
-const heroAvifFiles = [
-  new URL('../assets/clara-hero-480.avif', import.meta.url),
-  new URL('../assets/clara-hero-768.avif', import.meta.url),
-  new URL('../assets/clara-hero-1024.avif', import.meta.url),
-  new URL('../assets/clara-hero-1440.avif', import.meta.url),
-  new URL('../assets/clara-hero-1920.avif', import.meta.url),
-  new URL('../assets/clara-hero-2560.avif', import.meta.url),
-  new URL('../assets/clara-hero-3840.avif', import.meta.url),
-] as const;
-const heroWebpFiles = [
-  new URL('../assets/clara-hero-480.webp', import.meta.url),
-  new URL('../assets/clara-hero-768.webp', import.meta.url),
-  new URL('../assets/clara-hero-1024.webp', import.meta.url),
-  new URL('../assets/clara-hero-1440.webp', import.meta.url),
-  new URL('../assets/clara-hero-1920.webp', import.meta.url),
-  new URL('../assets/clara-hero-2560.webp', import.meta.url),
-  new URL('../assets/clara-hero-3840.webp', import.meta.url),
-] as const;
-const heroJpgFiles = [
-  new URL('../assets/clara-hero-480.jpg', import.meta.url),
-  new URL('../assets/clara-hero-768.jpg', import.meta.url),
-  new URL('../assets/clara-hero-1024.jpg', import.meta.url),
-  new URL('../assets/clara-hero-1440.jpg', import.meta.url),
-  new URL('../assets/clara-hero-1920.jpg', import.meta.url),
-  new URL('../assets/clara-hero-2560.jpg', import.meta.url),
-  new URL('../assets/clara-hero-3840.jpg', import.meta.url),
-] as const;
-
-const heroAvifSrcSet = heroAvifFiles
-  .map((file, index) => `${file.href} ${HERO_IMAGE_BREAKPOINTS[index]}w`)
-  .join(', ');
-const heroWebpSrcSet = heroWebpFiles
-  .map((file, index) => `${file.href} ${HERO_IMAGE_BREAKPOINTS[index]}w`)
-  .join(', ');
-const heroJpgSrcSet = heroJpgFiles
-  .map((file, index) => `${file.href} ${HERO_IMAGE_BREAKPOINTS[index]}w`)
-  .join(', ');
-const heroPreloadSrc = heroAvifFiles[3].href;
+import claraAnimatedVideo from '@/assets/clara-animated.mp4';
 
 const QUICK_QUESTIONS = [
   'Como anexar documentos no SEI-Rio?',
@@ -163,19 +122,7 @@ const HeroSection = ({ onOpenChat }: HeroSectionProps) => {
     target.style.setProperty('--magnetic-y', '0px');
   }, []);
 
-  useEffect(() => {
-    const link = document.createElement('link');
-    link.rel = 'preload';
-    link.as = 'image';
-    link.href = heroPreloadSrc;
-    link.type = 'image/avif';
-    link.imagesrcset = heroAvifSrcSet;
-    link.imagesizes = HERO_IMAGE_SIZES;
-    document.head.appendChild(link);
-    return () => {
-      document.head.removeChild(link);
-    };
-  }, []);
+  // Preload deprecado: O navegador gerenciará o buffer do vídeo nativamente.
 
   useEffect(() => {
     return () => {
@@ -274,20 +221,16 @@ const HeroSection = ({ onOpenChat }: HeroSectionProps) => {
         className="clara-hero-bg-parallax hero-parallax-layer absolute inset-0 z-0 pointer-events-none"
       >
         <div className="clara-hero-bg-scale">
-          <picture className="clara-hero-picture">
-            <source type="image/avif" srcSet={heroAvifSrcSet} sizes={HERO_IMAGE_SIZES} />
-            <source type="image/webp" srcSet={heroWebpSrcSet} sizes={HERO_IMAGE_SIZES} />
-            <source type="image/jpeg" srcSet={heroJpgSrcSet} sizes={HERO_IMAGE_SIZES} />
-            <img
-              src={claraHeroFallback}
-              alt=""
-              fetchPriority="high"
-              loading="eager"
-              decoding="async"
-              className="clara-hero-image"
-              aria-hidden="true"
-            />
-          </picture>
+          <video
+            src={claraAnimatedVideo}
+            autoPlay
+            loop
+            muted
+            playsInline
+            poster={claraHeroFallback}
+            className="clara-hero-image"
+            aria-hidden="true"
+          />
         </div>
       </motion.div>
 
