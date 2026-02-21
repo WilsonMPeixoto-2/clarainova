@@ -221,14 +221,22 @@ const HeroSection = ({ onOpenChat }: HeroSectionProps) => {
         className="clara-hero-bg-parallax hero-parallax-layer absolute inset-0 z-0 pointer-events-none"
       >
         <div className="clara-hero-bg-scale">
+          {/* VÍDEO PARA DESKTOP (Aguardando o Asset Limpo 16:9) */}
           <video
             src={claraAnimatedVideo}
             autoPlay
             loop
             muted
             playsInline
-            poster={claraHeroFallback}
-            className="absolute inset-0 w-full h-full object-cover object-center md:object-[80%_center] -z-20"
+            className="absolute inset-0 w-full h-full object-cover object-[80%_center] hidden md:block -z-20"
+            aria-hidden="true"
+          />
+
+          {/* IMAGEM DE FALLBACK / MOBILE */}
+          <img
+            src={claraHeroFallback}
+            alt="Clara AI"
+            className="absolute inset-0 w-full h-full object-cover object-[80%_center] md:hidden -z-20"
             aria-hidden="true"
           />
           <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/40 to-transparent -z-10" aria-hidden="true" />
