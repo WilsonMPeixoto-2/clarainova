@@ -228,9 +228,10 @@ const HeroSection = ({ onOpenChat }: HeroSectionProps) => {
             muted
             playsInline
             poster={claraHeroFallback}
-            className="clara-hero-image"
+            className="absolute inset-0 w-full h-full object-cover object-center md:object-[80%_center] -z-20"
             aria-hidden="true"
           />
+          <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/40 to-transparent -z-10" aria-hidden="true" />
         </div>
       </motion.div>
 
