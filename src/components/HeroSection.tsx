@@ -46,6 +46,35 @@ const HeroSection = ({ onOpenChat }: HeroSectionProps) => {
 
   const [debugHero, setDebugHero] = useState(false);
 
+  // VIDEO INFRASTRUCTURE: Premium Quality Fallback Pipeline
+  const [videoErrorLevel, setVideoErrorLevel] = useState(0);
+
+  const desktopVideoSources = [
+    '/videos/clara-hero-desktop-4k.mp4',     // 3840x2160 Priority
+    '/videos/clara-hero-desktop-1440p.mp4',  // 2560x1440 
+    '/videos/clara-hero.mp4',                // 720p Temporary Fallback
+  ];
+
+  const mobileVideoSources = [
+    '/videos/clara-hero-mobile-1080x1920.mp4', // Vertical 9:16 Priority
+    '/videos/clara-hero.mp4',                  // Desktop crop
+  ];
+
+  const currentSources = isHeroMobile ? mobileVideoSources : desktopVideoSources;
+  const currentVideoSrc = currentSources[Math.min(videoErrorLevel, currentSources.length - 1)];
+
+  // Reset error pipeline when crossing breakpoints so we don't get stuck caching a lower resolution
+  useEffect(() => {
+    setVideoErrorLevel(0);
+  }, [isHeroMobile]);
+
+  const handleVideoError = () => {
+    if (videoErrorLevel < currentSources.length - 1) {
+      console.warn(`[Hero] Video asset not found: ${currentVideoSrc}. Falling back to lower resolution.`);
+      setVideoErrorLevel((prev) => prev + 1);
+    }
+  };
+
   const shouldAnimate = isJsEnabled && !prefersReducedMotion && !isHeroMobile;
 
   const containerVariants = {
@@ -200,18 +229,23 @@ const HeroSection = ({ onOpenChat }: HeroSectionProps) => {
           {shouldAnimate ? (
             <video
               ref={videoRef}
-              src="/videos/clara-hero.mp4"
-              poster={claraHeroFallback}
+              src={currentVideoSrc}
+              poster="/videos/clara-hero-poster-4k.jpg" // High quality poster request
               autoPlay
               loop
               muted
               playsInline
               preload="metadata"
+              onError={handleVideoError}
               className="hero-clara-video"
             />
           ) : (
             <img
-              src={claraHeroFallback}
+              src="/videos/clara-hero-poster-4k.jpg" // Reduced motion fallback
+              onError={(e) => {
+                // Failsafe to older fallback if poster-4k isn't uploaded yet
+                e.currentTarget.src = claraHeroFallback;
+              }}
               alt=""
               className="hero-clara-video"
             />
