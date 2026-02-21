@@ -1,11 +1,9 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent } from 'react';
+import { useCallback, useEffect, useRef, useState, type MouseEvent } from 'react';
 import { motion, useReducedMotion, useScroll, useTransform } from 'framer-motion';
 import { BookOpen, MessageCircle, Sparkles } from 'lucide-react';
 import { useLocation } from 'react-router-dom';
 import { useIsMobile } from '@/hooks/use-mobile';
 import claraHeroFallback from '@/assets/clara-hero-fallback.jpg';
-
-import claraAnimatedVideo from '@/assets/clara-animated.mp4';
 
 const QUICK_QUESTIONS = [
   'Como anexar documentos no SEI-Rio?',
@@ -29,19 +27,15 @@ interface HeroSectionProps {
   onOpenChat: (query?: string) => void;
 }
 
-interface HeroDebugState {
-  breakpoint: string;
-  cardW: string;
-  overlayOpacity: string;
-}
-
 const HeroSection = ({ onOpenChat }: HeroSectionProps) => {
   const location = useLocation();
   const isMobile = useIsMobile();
   const prefersReducedMotion = useReducedMotion();
   const heroSectionRef = useRef<HTMLElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
   const quickCarouselRef = useRef<HTMLDivElement>(null);
   const magneticRafRef = useRef<number | null>(null);
+
   const [isJsEnabled, setIsJsEnabled] = useState(false);
   const [isHeroMobile, setIsHeroMobile] = useState(() => {
     if (typeof window === 'undefined' || !window.matchMedia) {
@@ -49,12 +43,8 @@ const HeroSection = ({ onOpenChat }: HeroSectionProps) => {
     }
     return window.matchMedia(HERO_MOBILE_QUERY).matches;
   });
+
   const [debugHero, setDebugHero] = useState(false);
-  const [debugState, setDebugState] = useState<HeroDebugState>({
-    breakpoint: '',
-    cardW: '',
-    overlayOpacity: '',
-  });
 
   const shouldAnimate = isJsEnabled && !prefersReducedMotion && !isHeroMobile;
 
@@ -122,7 +112,27 @@ const HeroSection = ({ onOpenChat }: HeroSectionProps) => {
     target.style.setProperty('--magnetic-y', '0px');
   }, []);
 
-  // Preload deprecado: O navegador gerenciará o buffer do vídeo nativamente.
+  // Performance Video Observer
+  useEffect(() => {
+    if (!videoRef.current || !heroSectionRef.current || isHeroMobile || prefersReducedMotion) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (!videoRef.current) return;
+          if (entry.isIntersecting) {
+            videoRef.current.play().catch(() => { });
+          } else {
+            videoRef.current.pause();
+          }
+        });
+      },
+      { threshold: 0.05 }
+    );
+
+    observer.observe(heroSectionRef.current);
+    return () => observer.disconnect();
+  }, [isHeroMobile, prefersReducedMotion]);
 
   useEffect(() => {
     return () => {
@@ -161,127 +171,66 @@ const HeroSection = ({ onOpenChat }: HeroSectionProps) => {
     setDebugHero(params.get('debug') === 'hero');
   }, [location.search]);
 
-  useEffect(() => {
-    if (!debugHero || !heroSectionRef.current) return;
-
-    const getBreakpointLabel = (width: number) => {
-      if (width < 900) return '<900';
-      if (width <= 1023) return '900-1023';
-      if (width <= 1279) return '1024-1279';
-      if (width <= 1439) return '1280-1439';
-      return '>=1440';
-    };
-
-    const readDebugState = () => {
-      const section = heroSectionRef.current;
-      if (!section) return;
-
-      const styles = window.getComputedStyle(section);
-      setDebugState({
-        breakpoint: getBreakpointLabel(window.innerWidth),
-        cardW: styles.getPropertyValue('--hero-card-w').trim() || '-',
-        overlayOpacity: styles.getPropertyValue('--hero-overlay-opacity').trim() || '-',
-      });
-    };
-
-    readDebugState();
-    window.addEventListener('resize', readDebugState);
-    return () => {
-      window.removeEventListener('resize', readDebugState);
-    };
-  }, [debugHero]);
-
   const { scrollYProgress } = useScroll({
     target: heroSectionRef,
     offset: ['start start', 'end start'],
   });
-  const mediaParallaxY = useTransform(scrollYProgress, [0, 1], [0, 22]);
-  const overlayParallaxY = useTransform(scrollYProgress, [0, 1], [0, 28]);
-  const textParallaxY = useTransform(scrollYProgress, [0, 1], [0, 7]);
-
-  const safeFrameStyle = useMemo(() => {
-    // Deprecated exact coords in favor of right alignment visual approximation
-    return {
-      left: '72%',
-      top: '34%',
-    };
-  }, []);
+  const textParallaxY = useTransform(scrollYProgress, [0, 1], [0, 30]);
+  const mediaParallaxY = useTransform(scrollYProgress, [0, 1], [0, 60]);
 
   return (
     <section
       ref={heroSectionRef}
-      className={`clara-hero relative flex items-center overflow-hidden ${debugHero ? 'clara-hero-debug' : ''
-        }`}
+      className={`clara-hero ${debugHero ? 'clara-hero-debug' : ''}`}
     >
+      {/* 1. Base Layer (Background + Deep Glow) */}
+      <div className="hero-base-layer" aria-hidden="true">
+        <div className="hero-energy-glow" />
+      </div>
+
+      {/* 2. Media Layer (Video Stage Anchored to Right) */}
+      <div className="hero-media-stage" aria-hidden="true">
+        <motion.div
+          className="hero-media-motion"
+          initial={shouldAnimate ? { opacity: 0 } : false}
+          animate={{ opacity: 1 }}
+          transition={shouldAnimate ? { duration: 1.2, ease: [0.16, 1, 0.3, 1] } : { duration: 0 }}
+          style={shouldAnimate ? { y: mediaParallaxY } : undefined}
+        >
+          {shouldAnimate ? (
+            <video
+              ref={videoRef}
+              src="/videos/clara-hero.mp4"
+              poster={claraHeroFallback}
+              autoPlay
+              loop
+              muted
+              playsInline
+              preload="metadata"
+              className="hero-clara-video"
+            />
+          ) : (
+            <img
+              src={claraHeroFallback}
+              alt=""
+              className="hero-clara-video"
+            />
+          )}
+        </motion.div>
+      </div>
+
+      {/* 3. Content Layer (Copy Safe Zone to the Left) */}
       <motion.div
-        initial={shouldAnimate ? { opacity: 0.86 } : false}
-        animate={{ opacity: 1 }}
-        transition={shouldAnimate ? { duration: 0.82, ease: [0.16, 1, 0.3, 1] } : { duration: 0 }}
-        style={shouldAnimate ? { y: mediaParallaxY } : undefined}
-        className="clara-hero-bg-parallax hero-parallax-layer absolute inset-0 z-0 pointer-events-none"
-      >
-        <div className="clara-hero-bg-scale">
-          {/* VÍDEO PARA DESKTOP (Aguardando o Asset Limpo 16:9) */}
-          <video
-            src={claraAnimatedVideo}
-            autoPlay
-            loop
-            muted
-            playsInline
-            className="absolute inset-0 w-full h-full object-cover object-[80%_center] hidden md:block -z-20"
-            aria-hidden="true"
-          />
-
-          {/* IMAGEM DE FALLBACK / MOBILE */}
-          <img
-            src={claraHeroFallback}
-            alt="Clara AI"
-            className="absolute inset-0 w-full h-full object-cover object-[80%_center] md:hidden -z-20"
-            aria-hidden="true"
-          />
-          <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/40 to-transparent -z-10" aria-hidden="true" />
-        </div>
-      </motion.div>
-
-      <div className="clara-hero-aurora hero-aurora-layer absolute inset-0 z-10 pointer-events-none" aria-hidden="true" />
-
-      <motion.div
-        className="clara-hero-overlay-directional absolute inset-0 z-20 pointer-events-none"
-        initial={shouldAnimate ? { opacity: 0.86 } : false}
-        animate={{ opacity: 1 }}
-        transition={shouldAnimate ? { duration: 0.9, ease: [0.16, 1, 0.3, 1] } : { duration: 0 }}
-        style={shouldAnimate ? { y: overlayParallaxY } : undefined}
-        aria-hidden="true"
-      />
-
-      <motion.div
-        className="hero-energy hero-energy-layer absolute inset-0 z-30 pointer-events-none"
-        initial={shouldAnimate ? { opacity: 0 } : false}
-        animate={{ opacity: 1 }}
-        transition={shouldAnimate ? { duration: 0.95, ease: [0.16, 1, 0.3, 1], delay: 0.08 } : { duration: 0 }}
-        style={shouldAnimate ? { y: overlayParallaxY } : undefined}
-        aria-hidden="true"
-      >
-        <span className="hero-energy-ribbon hero-energy-ribbon--north" />
-        <span className="hero-energy-ribbon hero-energy-ribbon--south" />
-        <span className="hero-energy-beam hero-energy-beam--primary" />
-        <span className="hero-energy-beam hero-energy-beam--secondary" />
-        <span className="hero-energy-beam hero-energy-beam--tertiary" />
-        <span className="hero-energy-stream" />
-        <span className="hero-energy-stream hero-energy-stream--secondary" />
-      </motion.div>
-
-      <motion.div
-        className="clara-hero-content-wrap relative z-40"
+        className="hero-content-layer"
         style={shouldAnimate ? { y: textParallaxY } : undefined}
       >
-        <motion.div
-          variants={containerVariants}
-          initial={shouldAnimate ? 'hidden' : 'visible'}
-          animate="visible"
-          className="clara-hero-card-wrap"
-        >
-          <div className="clara-hero-card space-y-6 md:space-y-9 w-full">
+        <div className="hero-copy-column">
+          <motion.div
+            variants={containerVariants}
+            initial={shouldAnimate ? 'hidden' : 'visible'}
+            animate="visible"
+            className="hero-copy-surface space-y-6 md:space-y-9"
+          >
             <motion.div variants={itemVariants}>
               <span className="badge-chip">
                 <motion.span
@@ -303,10 +252,10 @@ const HeroSection = ({ onOpenChat }: HeroSectionProps) => {
 
             <motion.h1 variants={itemVariants} className="hero-title-mask">
               <motion.span
-                className="hero-title amber-glow inline-block hero-title-reveal"
+                className="hero-title inline-block hero-title-reveal"
                 initial={
                   shouldAnimate
-                    ? { opacity: 0, filter: 'blur(2px)', clipPath: 'inset(0 100% 0 0)' }
+                    ? { opacity: 0, filter: 'blur(4px)', clipPath: 'inset(0 100% 0 0)' }
                     : false
                 }
                 animate={{ opacity: 1, filter: 'blur(0px)', clipPath: 'inset(0 0% 0 0)' }}
@@ -403,23 +352,18 @@ const HeroSection = ({ onOpenChat }: HeroSectionProps) => {
                 </div>
               </div>
             </motion.div>
-          </div>
-        </motion.div>
+          </motion.div>
+        </div>
       </motion.div>
 
       {debugHero ? (
-        <>
-          <div className="clara-hero-safe-frame" style={safeFrameStyle} aria-hidden="true" />
-          <aside className="clara-hero-debug-panel" aria-live="polite">
-            <strong>Hero Debug</strong>
-            <span>breakpoint: {debugState.breakpoint || '-'}</span>
-            <span>card-w: {debugState.cardW || '-'}</span>
-            <span>overlay-opacity: {debugState.overlayOpacity || '-'}</span>
-          </aside>
-        </>
+        <aside className="clara-hero-debug-panel" aria-live="polite">
+          <strong>Awwwards Hero Debug</strong>
+          <span>Mode: Layered Geometric</span>
+          <span>Window width: {window.innerWidth}px</span>
+        </aside>
       ) : null}
 
-      <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-background to-transparent z-10 pointer-events-none" />
     </section>
   );
 };

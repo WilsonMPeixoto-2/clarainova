@@ -869,7 +869,7 @@
   /* === LIQUID AUTHORITY: END === */
 
   /* ============================================
-     HERO CONTRACT V4 - Geometric Layout Stability
+     HERO GEOMETRIC CONTRACT (AWWWARDS TIER)
      ============================================ */
   .clara-hero {
     min-height: 100vh;
@@ -878,10 +878,14 @@
     align-items: center;
     background: hsl(var(--bg-base));
     position: relative;
-    /* Clean layout variables instead of absolute coordinates */
-    --hero-card-w: min(100%, 680px);
-    /* max allowed width for text */
-    --hero-overlay-opacity: 0.90;
+    overflow: hidden;
+
+    /* Mobile default (<900px) */
+    --hero-copy-max: 100%;
+    --hero-copy-left: 0;
+    --hero-media-width: 100%;
+    --hero-overlay-strength: 0;
+    --hero-min-h: auto;
   }
 
   @supports (min-height: 100dvh) {
@@ -890,150 +894,149 @@
     }
   }
 
-  /* Control just the width limit of the copy column */
-  @media (min-width: 1440px) {
+  @media (min-width: 900px) {
     .clara-hero {
-      --hero-card-w: clamp(540px, 42vw, 760px);
-      --hero-overlay-opacity: 0.70;
+      --hero-copy-max: 420px;
+      --hero-copy-left: clamp(20px, 2.5vw, 40px);
+      --hero-media-width: 40%;
+      --hero-overlay-strength: 0.90;
+      --hero-min-h: 100svh;
     }
   }
 
-  @media (min-width: 1280px) and (max-width: 1439px) {
+  @media (min-width: 1024px) {
     .clara-hero {
-      --hero-card-w: clamp(500px, 45vw, 680px);
-      --hero-overlay-opacity: 0.75;
+      --hero-copy-max: 480px;
+      --hero-copy-left: clamp(28px, 3vw, 56px);
+      --hero-media-width: 42%;
+      --hero-overlay-strength: 0.88;
     }
   }
 
-  @media (min-width: 1024px) and (max-width: 1279px) {
+  @media (min-width: 1280px) {
     .clara-hero {
-      --hero-card-w: clamp(480px, 50vw, 640px);
-      --hero-overlay-opacity: 0.80;
+      --hero-copy-max: 520px;
+      --hero-copy-left: clamp(40px, 4vw, 72px);
+      --hero-media-width: 44%;
+      --hero-overlay-strength: 0.87;
     }
   }
 
-  @media (min-width: 900px) and (max-width: 1023px) {
+  @media (min-width: 1600px) {
     .clara-hero {
-      --hero-card-w: clamp(420px, 55vw, 560px);
-      --hero-overlay-opacity: 0.85;
+      --hero-copy-max: 560px;
+      --hero-copy-left: clamp(48px, 5vw, 96px);
+      --hero-media-width: 45%;
+      --hero-overlay-strength: 0.85;
     }
   }
 
-  @media (max-width: 899px) {
-    .clara-hero {
-      --hero-card-w: min(100%, 720px);
-      --hero-overlay-opacity: 0.94;
-    }
+  /* ============================================
+     THREE-LAYER HERO STRUCTURE
+     ============================================ */
+
+  /* 1. Base Layer */
+  .hero-base-layer {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    background-color: hsl(var(--background));
+    overflow: hidden;
   }
 
-  .clara-hero .clara-hero-bg-parallax {
+  .hero-energy-glow {
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(circle at 60% 40%, hsl(var(--glow) / 0.15) 0%, transparent 60%);
+    pointer-events: none;
+  }
+
+  /* 2. Media Layer */
+  .hero-media-stage {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    right: 0;
+    width: var(--hero-media-width);
+    z-index: 10;
+    overflow: hidden;
+    /* Organic integration fade */
+    -webkit-mask-image: linear-gradient(to right, transparent 0%, black 15%);
+    mask-image: linear-gradient(to right, transparent 0%, black 15%);
+  }
+
+  .hero-media-motion {
     position: absolute;
     inset: 0;
     will-change: transform;
-    z-index: 0;
   }
 
-  .clara-hero .clara-hero-bg-scale {
-    position: absolute;
-    inset: 0;
-    transform-origin: center;
-  }
-
-  .clara-hero .clara-hero-picture {
-    position: absolute;
-    inset: 0;
-    display: block;
-  }
-
-  .clara-hero .clara-hero-image {
-    position: absolute;
-    inset: 0;
+  .hero-clara-video {
     width: 100%;
     height: 100%;
-    object-fit: cover;
-    /* Sacrosanct anchor: The subject right side stays right, top stays top */
-    object-position: right top;
-    filter: saturate(1.1) contrast(1.06) brightness(1.03);
+    object-fit: contain;
+    /* Strict aspect ratio lock */
+    object-position: center;
+    /* Natural centering inside stage */
   }
 
-  .clara-hero .clara-hero-aurora::before,
-  .clara-hero .clara-hero-aurora::after {
-    content: '';
-    position: absolute;
-    inset: -8%;
-    pointer-events: none;
-    background-repeat: no-repeat;
+  @media (min-width: 900px) {
+    .hero-clara-video {
+      object-fit: cover;
+      /* Desktop: Stage limits width, cover perfectly anchors to right natively */
+      object-position: right center;
+      /* Focus completely to the right side of the box */
+    }
   }
 
-  .clara-hero .clara-hero-aurora::before {
-    background:
-      radial-gradient(circle at 82% 28%, hsl(var(--glow) / 0.34), transparent 56%),
-      radial-gradient(circle at 10% 18%, hsl(var(--bg-elev) / 0.56), transparent 58%);
-    animation: hero-aurora-breathe 22s ease-in-out infinite;
-  }
-
-  .clara-hero .clara-hero-aurora::after {
-    background:
-      radial-gradient(circle at 14% 60%, hsl(var(--bg-base) / 0.5), transparent 58%),
-      radial-gradient(circle at 90% 8%, hsl(var(--vignette-deep) / 0.5), transparent 52%);
-    mix-blend-mode: multiply;
-    animation: hero-aurora-veil 26s ease-in-out infinite;
-  }
-
-  .clara-hero .clara-hero-overlay-directional {
-    background: linear-gradient(to right,
-        hsl(var(--bg-base) / calc(var(--hero-overlay-opacity) * 1)) 0%,
-        hsl(var(--bg-base) / calc(var(--hero-overlay-opacity) * 0.82)) 32%,
-        hsl(var(--bg-base) / calc(var(--hero-overlay-opacity) * 0.48)) 58%,
-        hsl(var(--bg-base) / calc(var(--hero-overlay-opacity) * 0.18)) 78%,
-        transparent 100%);
-  }
-
-  .clara-hero .clara-hero-content-wrap {
-    width: 100%;
+  /* 3. Content Layer */
+  .hero-content-layer {
     position: relative;
-    z-index: 40;
+    z-index: 20;
+    width: 100%;
     display: flex;
     justify-content: flex-start;
     padding-block: clamp(5.5rem, 9vh, 7.25rem) clamp(3.5rem, 7vh, 6rem);
     padding-inline: clamp(1.5rem, 4vw, 5.5rem);
   }
 
-  .clara-hero .clara-hero-card-wrap {
+  .hero-copy-column {
     width: 100%;
-    max-width: var(--hero-card-w);
-    /* No artificial margin-left needed, flex handles it */
+    max-width: var(--hero-copy-max);
+    margin-left: var(--hero-copy-left);
+    display: flex;
+    flex-direction: column;
   }
 
-  /* Anti-Wall Glass Card */
-  .clara-hero .clara-hero-card {
+  .hero-copy-surface {
     position: relative;
     width: 100%;
     padding: clamp(1.25rem, 2.5vw, 3rem);
     border-radius: var(--radius-2xl);
     overflow: hidden;
+    border: 1px solid hsl(var(--border) / 0.4);
   }
 
-  .clara-hero .clara-hero-card::before {
+  .hero-copy-surface::before {
     content: '';
     position: absolute;
     inset: 0;
     border-radius: inherit;
-    background: linear-gradient(135deg, hsl(var(--bg-elev) / 0.86), hsl(var(--bg-base) / 0.65));
+    background: linear-gradient(135deg, hsl(var(--surface-2) / 0.86), hsl(var(--surface-0) / 0.65));
     z-index: 0;
   }
 
   @supports ((backdrop-filter: blur(8px)) or (-webkit-backdrop-filter: blur(8px))) {
-    .clara-hero .clara-hero-card::before {
-      backdrop-filter: blur(12px);
-      -webkit-backdrop-filter: blur(12px);
+    .hero-copy-surface::before {
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
     }
   }
 
-  /* Smooth fade-out mask to right so it blends organically */
+  /* Structural progressive fade for the copy glass */
   @supports ((mask-image: linear-gradient(to right, #000, transparent)) or (-webkit-mask-image: linear-gradient(to right, #000, transparent))) {
     @media (min-width: 900px) {
-      .clara-hero .clara-hero-card {
+      .hero-copy-surface {
         -webkit-mask-image: linear-gradient(to right,
             hsl(var(--foreground) / 1) 0%,
             hsl(var(--foreground) / 1) 50%,
@@ -1048,25 +1051,13 @@
     }
   }
 
-  .clara-hero .clara-hero-card>* {
+  .hero-copy-surface>* {
     position: relative;
     z-index: 1;
   }
 
-  .clara-hero .clara-hero-safe-frame {
-    position: absolute;
-    z-index: 55;
-    transform: translate(-50%, -50%);
-    width: clamp(180px, 16vw, 260px);
-    height: clamp(220px, 24vh, 340px);
-    border-radius: 1.25rem;
-    border: 1px dashed hsl(var(--gold-1) / 0.82);
-    box-shadow: 0 0 0 1px hsl(var(--bg-base) / 0.58), 0 0 24px hsl(var(--gold-2) / 0.2);
-    opacity: 0;
-    pointer-events: none;
-  }
-
-  .clara-hero .clara-hero-debug-panel {
+  /* DEBUG MODE */
+  .clara-hero-debug-panel {
     position: absolute;
     top: clamp(0.8rem, 2.2vw, 1.3rem);
     right: clamp(0.8rem, 2.2vw, 1.3rem);
@@ -1075,18 +1066,18 @@
     gap: 0.2rem;
     min-width: 230px;
     border-radius: 0.8rem;
-    border: 1px solid hsl(var(--gold-1) / 0.7);
+    border: 1px solid hsl(var(--primary) / 0.7);
     background: hsl(var(--bg-base) / 0.9);
     padding: 0.55rem 0.7rem;
     font-size: 0.72rem;
     line-height: 1.35;
     letter-spacing: 0.015em;
-    color: hsl(var(--text-primary) / 0.92);
+    color: hsl(var(--foreground) / 0.92);
     backdrop-filter: blur(8px);
   }
 
-  .clara-hero .clara-hero-debug-panel strong {
-    color: hsl(var(--gold-1));
+  .clara-hero-debug-panel strong {
+    color: hsl(var(--primary));
     font-size: 0.75rem;
     margin-bottom: 0.12rem;
   }
@@ -1096,88 +1087,94 @@
     outline-offset: -2px;
   }
 
-  .clara-hero-debug .clara-hero-card-wrap {
-    outline: 1px dashed hsl(var(--gold-1) / 0.75);
-    outline-offset: 2px;
+  .clara-hero-debug .hero-copy-column {
+    outline: 2px dashed #00dd55;
+    outline-offset: 4px;
+    position: relative;
   }
 
-  .clara-hero-debug .clara-hero-safe-frame {
-    opacity: 1;
+  .clara-hero-debug .hero-copy-column::before {
+    content: 'copy-safe-zone';
+    position: absolute;
+    top: -20px;
+    left: 0;
+    background: #00dd55;
+    color: #000;
+    font-size: 10px;
+    padding: 2px 4px;
   }
 
+  .clara-hero-debug .hero-media-stage {
+    outline: 2px dashed #00aaff;
+    outline-offset: -4px;
+  }
+
+  .clara-hero-debug .hero-media-stage::before {
+    content: 'media-stage';
+    position: absolute;
+    bottom: 20px;
+    right: 20px;
+    background: #00aaff;
+    color: #000;
+    font-size: 10px;
+    padding: 2px 4px;
+  }
+
+  /* MOBILE DEFENSIVE OVERRIDES */
   @media (max-width: 899px) {
     .clara-hero {
-      /* Pushing text down to not overlap face on portrait screens */
       align-items: flex-end;
     }
 
-    .clara-hero .clara-hero-image {
-      object-position: center top;
-      /* On narrow screens focus on the face block */
+    .hero-media-stage {
+      left: 0;
+      /* Center back */
+      -webkit-mask-image: none;
+      mask-image: none;
+      /* No cut on mobile */
     }
 
-    .clara-hero .clara-hero-content-wrap {
+    .hero-clara-video {
+      object-fit: cover !important;
+      object-position: center top !important;
+      /* Emphasize face on mobile */
+    }
+
+    .hero-content-layer {
       padding-inline: clamp(16px, 4.2vw, 24px);
       padding-block: min(40vh, 18rem) clamp(2.6rem, 5vh, 4rem);
     }
 
-    .clara-hero .clara-hero-card-wrap {
-      width: 100%;
-      margin-left: 0;
+    .hero-copy-column {
       max-width: 640px;
       margin-inline: auto;
     }
 
-    .clara-hero .clara-hero-card {
-      width: 100%;
+    .hero-copy-surface {
       padding: clamp(1.2rem, 4vw, 2rem);
     }
 
-    .clara-hero .clara-hero-card::before {
+    .hero-copy-surface::before {
       -webkit-mask-image: none;
       mask-image: none;
-      background: linear-gradient(160deg, hsl(var(--bg-elev) / 0.94), hsl(var(--bg-base) / 0.98));
-      backdrop-filter: blur(8px);
-      -webkit-backdrop-filter: blur(8px);
+      background: linear-gradient(160deg, hsl(var(--surface-3) / 0.94), hsl(var(--surface-0) / 0.98));
     }
 
-    .clara-hero .clara-hero-overlay-directional {
-      background: linear-gradient(180deg,
-          hsl(var(--bg-base) / 0.1) 0%,
-          hsl(var(--bg-base) / calc(var(--hero-overlay-opacity) * 0.42)) 30%,
-          hsl(var(--bg-base) / calc(var(--hero-overlay-opacity) * 0.96)) 70%,
-          hsl(var(--bg-base) / 1) 100%);
-    }
-
-    /* Aggressive cleanup for mobile performance and visual clutter */
-    .clara-hero .hero-aurora-layer,
-    .clara-hero .hero-energy-layer {
+    /* Aggressive cleanup for mobile */
+    .hero-energy-glow {
       display: none !important;
     }
 
-    .clara-hero .clara-hero-bg-parallax,
-    .clara-hero .clara-hero-bg-scale {
+    .hero-media-motion {
       transform: none !important;
       transition: none !important;
-    }
-
-    .clara-hero .clara-hero-debug-panel {
-      min-width: 185px;
-      font-size: 0.68rem;
     }
   }
 
   @media (prefers-reduced-motion: reduce) {
-
-    .clara-hero .clara-hero-bg-parallax,
-    .clara-hero .clara-hero-bg-scale {
+    .hero-media-motion {
       transform: none !important;
       transition: none !important;
-    }
-
-    .clara-hero .clara-hero-aurora::before,
-    .clara-hero .clara-hero-aurora::after {
-      animation: none;
     }
   }
 
