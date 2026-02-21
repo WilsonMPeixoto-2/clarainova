@@ -3,7 +3,7 @@ import { render } from "@testing-library/react";
 import { ChatInput } from "./ChatInput";
 
 // Mock framer-motion
-const stripMotionProps = ({ initial, animate, exit, transition, whileHover, whileTap, layoutId, layout, ...rest }: any) => rest;
+const stripMotionProps = ({ ...rest }: any) => rest;
 vi.mock("framer-motion", () => ({
   motion: {
     div: ({ children, ...props }: any) => <div {...stripMotionProps(props)}>{children}</div>,
@@ -43,7 +43,7 @@ describe("ChatInput", () => {
 
   it("renders textarea with placeholder", () => {
     const { container } = render(<ChatInput onSend={mockOnSend} isLoading={false} />);
-    
+
     const textarea = container.querySelector("textarea");
     expect(textarea).toBeTruthy();
     expect(textarea?.getAttribute("placeholder")).toContain("Digite sua pergunta");
@@ -51,14 +51,14 @@ describe("ChatInput", () => {
 
   it("renders send button", () => {
     const { container } = render(<ChatInput onSend={mockOnSend} isLoading={false} />);
-    
+
     const sendButton = container.querySelector('button[aria-label="Enviar mensagem"]');
     expect(sendButton).toBeTruthy();
   });
 
   it("disables send button when input is empty", () => {
     const { container } = render(<ChatInput onSend={mockOnSend} isLoading={false} />);
-    
+
     const sendButton = container.querySelector('button[aria-label="Enviar mensagem"]');
     expect(sendButton?.hasAttribute("disabled")).toBe(true);
   });
@@ -67,46 +67,46 @@ describe("ChatInput", () => {
     const { container } = render(
       <ChatInput onSend={mockOnSend} isLoading={true} onCancel={mockOnCancel} />
     );
-    
+
     const cancelButton = container.querySelector('button[aria-label="Cancelar resposta"]');
     expect(cancelButton).toBeTruthy();
   });
 
   it("disables textarea when loading", () => {
     const { container } = render(<ChatInput onSend={mockOnSend} isLoading={true} />);
-    
+
     const textarea = container.querySelector("textarea");
     expect(textarea?.hasAttribute("disabled")).toBe(true);
   });
 
   it("shows character counter with initial value", () => {
     const { container } = render(<ChatInput onSend={mockOnSend} isLoading={false} />);
-    
+
     expect(container.textContent).toContain("0/2000");
   });
 
   it("shows loading indicator when processing", () => {
     const { container } = render(<ChatInput onSend={mockOnSend} isLoading={true} />);
-    
+
     expect(container.textContent).toContain("CLARA está digitando");
   });
 
   it("accepts initial value prop", () => {
     const { container } = render(
-      <ChatInput 
-        onSend={mockOnSend} 
-        isLoading={false} 
+      <ChatInput
+        onSend={mockOnSend}
+        isLoading={false}
         initialValue="Valor inicial"
       />
     );
-    
+
     const textarea = container.querySelector("textarea") as HTMLTextAreaElement;
     expect(textarea?.value).toBe("Valor inicial");
   });
 
   it("has accessible form label", () => {
     const { container } = render(<ChatInput onSend={mockOnSend} isLoading={false} />);
-    
+
     const form = container.querySelector('[role="form"]');
     expect(form).toBeTruthy();
     expect(form?.getAttribute("aria-label")).toBe("Enviar mensagem");
@@ -114,14 +114,14 @@ describe("ChatInput", () => {
 
   it("has accessible textarea label", () => {
     const { container } = render(<ChatInput onSend={mockOnSend} isLoading={false} />);
-    
+
     const label = container.querySelector('label[for="chat-input"]');
     expect(label).toBeTruthy();
   });
 
   it("has screen reader hint for keyboard shortcuts", () => {
     const { container } = render(<ChatInput onSend={mockOnSend} isLoading={false} />);
-    
+
     const hint = container.querySelector("#chat-hint");
     expect(hint).toBeTruthy();
     expect(hint?.textContent).toContain("Enter");
@@ -129,7 +129,7 @@ describe("ChatInput", () => {
 
   it("includes mode selector", () => {
     const { container } = render(<ChatInput onSend={mockOnSend} isLoading={false} />);
-    
+
     // Mode selector should be present (contains "Direto" / "Didático")
     expect(container.textContent).toContain("Direto");
     expect(container.textContent).toContain("Didático");

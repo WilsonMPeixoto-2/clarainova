@@ -41,7 +41,7 @@ interface DocumentEditorModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSaved: () => void;
-  adminKey: string;
+
   allDocuments: DocumentListItem[];
 }
 
@@ -50,19 +50,19 @@ export function DocumentEditorModal({
   open,
   onOpenChange,
   onSaved,
-  adminKey,
+
   allDocuments,
 }: DocumentEditorModalProps) {
   const { toast } = useToast();
   const [isSaving, setIsSaving] = useState(false);
-  
+
   // Form state
   const [tags, setTags] = useState<string[]>([]);
   const [newTag, setNewTag] = useState('');
   const [versionLabel, setVersionLabel] = useState('');
   const [effectiveDate, setEffectiveDate] = useState<Date | undefined>();
   const [supersedesDocumentId, setSupersedesDocumentId] = useState<string>('');
-  
+
   // Initialize form when document changes
   useEffect(() => {
     if (document) {
@@ -72,19 +72,19 @@ export function DocumentEditorModal({
       setSupersedesDocumentId(document.supersedes_document_id || '');
     }
   }, [document]);
-  
+
   // Filter out current document from supersedes options
   const supersedesOptions = useMemo(() => {
     return allDocuments.filter(d => d.id !== document?.id);
   }, [allDocuments, document?.id]);
-  
+
   // Find documents that supersede this one (reverse lookup)
   const currentDocumentId = document?.id;
   const supersededBy = useMemo(() => {
     if (!currentDocumentId) return [];
     return allDocuments.filter((d) => d.supersedes_document_id === currentDocumentId);
   }, [allDocuments, currentDocumentId]);
-  
+
   const handleAddTag = () => {
     const trimmed = newTag.trim().toLowerCase();
     if (trimmed && !tags.includes(trimmed)) {
@@ -92,23 +92,23 @@ export function DocumentEditorModal({
       setNewTag('');
     }
   };
-  
+
   const handleRemoveTag = (tagToRemove: string) => {
     setTags(tags.filter(t => t !== tagToRemove));
   };
-  
+
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
       e.preventDefault();
       handleAddTag();
     }
   };
-  
+
   const handleSave = async () => {
     if (!document) return;
-    
+
     setIsSaving(true);
-    
+
     try {
       const { error } = await supabase
         .from('documents')
@@ -120,14 +120,14 @@ export function DocumentEditorModal({
           updated_at: new Date().toISOString(),
         })
         .eq('id', document.id);
-      
+
       if (error) throw error;
-      
+
       toast({
         title: 'Documento atualizado',
         description: 'Metadados salvos com sucesso.',
       });
-      
+
       onSaved();
       onOpenChange(false);
     } catch (error: unknown) {
@@ -141,9 +141,9 @@ export function DocumentEditorModal({
       setIsSaving(false);
     }
   };
-  
+
   if (!document) return null;
-  
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[500px]">
@@ -156,7 +156,7 @@ export function DocumentEditorModal({
             {document.title}
           </DialogDescription>
         </DialogHeader>
-        
+
         <div className="space-y-6 py-4">
           {/* Tags Section */}
           <div className="space-y-3">
@@ -204,7 +204,7 @@ export function DocumentEditorModal({
               </Button>
             </div>
           </div>
-          
+
           {/* Version Label */}
           <div className="space-y-2">
             <Label htmlFor="version-label">Versão</Label>
@@ -215,7 +215,7 @@ export function DocumentEditorModal({
               onChange={(e) => setVersionLabel(e.target.value)}
             />
           </div>
-          
+
           {/* Effective Date */}
           <div className="space-y-2">
             <Label>Data de Vigência</Label>
@@ -254,7 +254,7 @@ export function DocumentEditorModal({
               </Button>
             )}
           </div>
-          
+
           {/* Supersedes Document */}
           <div className="space-y-2">
             <Label className="flex items-center gap-2">
@@ -281,7 +281,7 @@ export function DocumentEditorModal({
               Indica que este documento substitui uma versão anterior
             </p>
           </div>
-          
+
           {/* Superseded By (read-only info) */}
           {supersededBy.length > 0 && (
             <div className="space-y-2 p-3 rounded-md bg-amber-500/10 border border-amber-500/30">
@@ -296,7 +296,7 @@ export function DocumentEditorModal({
             </div>
           )}
         </div>
-        
+
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isSaving}>
             Cancelar

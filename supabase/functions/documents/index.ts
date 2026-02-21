@@ -41,23 +41,12 @@ interface DebugInfo {
   steps_failed: string[];
 }
 
-// Clear size limits for base64/LLM operations
-const LIMITS = {
-  MAX_BASE64_OCR_MB: 4,       // 4MB PDF → ~5.3MB base64
-  MAX_LLM_PAYLOAD_MB: 15,     // Hard limit for any LLM operation
-  LARGE_PDF_THRESHOLD_MB: 20, // Warning for large PDFs
-};
+
 
 const AI_TIMEOUT_MS = 120_000;
 const PAGES_PER_BATCH = 10;
 
-function safeJsonStringify(x: unknown): string {
-  try {
-    return JSON.stringify(x);
-  } catch {
-    return String(x);
-  }
-}
+
 
 function truncateErrorBody(body: string, maxLen = 2048): string {
   if (!body) return "";
@@ -77,10 +66,10 @@ async function withTimeout<T>(promise: Promise<T>, ms: number, label: string): P
 function isRateLimitError(error: unknown): boolean {
   if (error instanceof Error) {
     const message = error.message.toLowerCase();
-    return message.includes("429") || 
-           message.includes("rate limit") || 
-           message.includes("quota") ||
-           message.includes("resource_exhausted");
+    return message.includes("429") ||
+      message.includes("rate limit") ||
+      message.includes("quota") ||
+      message.includes("resource_exhausted");
   }
   return false;
 }
@@ -100,13 +89,13 @@ async function extractPdfTextDeterministic(
 ): Promise<PdfExtractionResult> {
   const arrayBuffer = await fileData.arrayBuffer();
   const data = new Uint8Array(arrayBuffer);
-  
+
   const doc = await getDocument({ data }).promise;
   const totalPages = doc.numPages;
   const actualEndPage = Math.min(endPage || totalPages, totalPages);
-  
+
   const pages: string[] = [];
-  
+
   for (let i = startPage; i <= actualEndPage; i++) {
     try {
       const page = await doc.getPage(i);
@@ -123,7 +112,7 @@ async function extractPdfTextDeterministic(
       pages.push("");
     }
   }
-  
+
   return { pages, totalPages };
 }
 
@@ -243,29 +232,29 @@ function normalizeText(text: string): string {
 // Detect section anchors for better metadata
 function detectSectionAnchor(text: string): { title: string | null; level: number } {
   const lines = text.split('\n').slice(0, 3);
-  
+
   for (const line of lines) {
     const trimmed = line.trim();
     if (!trimmed || trimmed.length > 150) continue;
-    
+
     // Markdown headers
     const mdMatch = trimmed.match(/^(#{1,3})\s+(.+)/);
     if (mdMatch) {
       return { title: mdMatch[2], level: mdMatch[1].length };
     }
-    
+
     // ALL CAPS titles (common in legal docs)
     if (trimmed === trimmed.toUpperCase() && trimmed.length > 5 && trimmed.length < 100 && /[A-Z]/.test(trimmed)) {
       return { title: trimmed, level: 1 };
     }
-    
+
     // Numbered sections (1. Title, Art. 1º, etc)
     const numMatch = trimmed.match(/^(Art\.?\s*\d+[°º]?|Artigo\s+\d+|\d+\.\s+|[IVX]+\s*[-–.]\s*)(.{5,100})/i);
     if (numMatch) {
       return { title: numMatch[0], level: 2 };
     }
   }
-  
+
   return { title: null, level: 0 };
 }
 
@@ -274,14 +263,14 @@ function splitIntoChunks(text: string): { content: string; metadata: Record<stri
   const chunks: { content: string; metadata: Record<string, unknown> }[] = [];
   let start = 0;
   let chunkIndex = 0;
-  
+
   while (start < normalizedText.length) {
     let end = start + CHUNK_SIZE;
-    
+
     if (end < normalizedText.length) {
       // Try to break at semantic boundaries
       const searchWindow = normalizedText.slice(start + CHUNK_SIZE / 2, end);
-      
+
       // Priority: section break > double newline > sentence end
       const sectionBreak = searchWindow.lastIndexOf('\n\n\n');
       if (sectionBreak > 0) {
@@ -298,11 +287,11 @@ function splitIntoChunks(text: string): { content: string; metadata: Record<stri
         }
       }
     }
-    
+
     const content = normalizedText.slice(start, end).trim();
     if (content.length > 50) {
       const anchor = detectSectionAnchor(content);
-      
+
       chunks.push({
         content,
         metadata: {
@@ -317,12 +306,12 @@ function splitIntoChunks(text: string): { content: string; metadata: Record<stri
       });
       chunkIndex++;
     }
-    
+
     start = end - CHUNK_OVERLAP;
     if (start < 0) start = 0;
     if (start >= normalizedText.length) break;
   }
-  
+
   return chunks;
 }
 
@@ -336,7 +325,7 @@ function getClientKey(req: Request): string {
   const forwarded = req.headers.get("x-forwarded-for");
   const cfIp = req.headers.get("cf-connecting-ip");
   const realIp = req.headers.get("x-real-ip");
-  
+
   if (forwarded) return forwarded.split(",")[0].trim();
   if (cfIp) return cfIp;
   if (realIp) return realIp;
@@ -356,18 +345,18 @@ function parseAdminKeys(): string[] {
       .split(",")
       .map(k => k.trim())
       .filter(k => k.length > 0);
-    
+
     if (keys.length > 0) {
       return keys;
     }
   }
-  
+
   // Fallback to single ADMIN_KEY
   const adminKey = Deno.env.get("ADMIN_KEY");
   if (adminKey && adminKey.trim().length > 0) {
     return [adminKey.trim()];
   }
-  
+
   return [];
 }
 
@@ -378,10 +367,10 @@ function parseAdminKeys(): string[] {
 function validateAdminKey(req: Request): boolean {
   const providedKey = (req.headers.get("x-admin-key") || "").trim();
   if (!providedKey) return false;
-  
+
   const validKeys = parseAdminKeys();
   if (validKeys.length === 0) return false;
-  
+
   return validKeys.includes(providedKey);
 }
 
@@ -399,13 +388,13 @@ async function processChunksAndEmbeddings(
   // Compute content hash for idempotency check
   const contentHash = await computeContentHash(contentText);
   console.log(`[${requestId}] Content hash: ${contentHash}`);
-  
+
   const chunkStart = Date.now();
   const chunks = splitIntoChunks(contentText);
   debug.timings.chunk_ms = Date.now() - chunkStart;
   debug.steps_completed.push("chunk");
   console.log(`[${requestId}] ✓ chunk: ${chunks.length} chunks in ${debug.timings.chunk_ms}ms`);
-  
+
   const chunkRecords: DocumentChunkRecord[] = [];
   let embeddingsWarning: string | null = null;
   let embeddingModel: GeminiEmbeddingModel | null = null;
@@ -443,14 +432,14 @@ async function processChunksAndEmbeddings(
         embeddingsDisabled = true;
         const msg = e instanceof Error ? e.message : String(e);
         embeddingsWarning = embeddingsWarning || `Embeddings interrompidas: ${msg}`;
-        
+
         debug.provider = {
           name: "gemini-embedding",
           http_status: isRateLimitError(e) ? 429 : 500,
           error_body_trunc: truncateErrorBody(msg),
           elapsed_ms: Date.now() - embedStart,
         };
-        
+
         console.error(`[${requestId}] ✗ embed: ${msg}`);
         debug.steps_failed.push("embed");
       }
@@ -470,28 +459,28 @@ async function processChunksAndEmbeddings(
       await new Promise((resolve) => setTimeout(resolve, 100));
     }
   }
-  
+
   if (!embeddingsDisabled) {
     debug.timings.embed_ms = Date.now() - embedStart;
     debug.steps_completed.push("embed");
     console.log(`[${requestId}] ✓ embed: ${chunks.length} embeddings in ${debug.timings.embed_ms}ms`);
   }
-  
+
   // IDEMPOTENT: Delete existing chunks then insert new ones (transactional behavior)
   const dbInsertStart = Date.now();
-  
+
   // Delete old chunks first
   const { error: deleteError } = await supabase
     .from("document_chunks")
     .delete()
     .eq("document_id", documentId);
-  
+
   if (deleteError) {
     console.warn(`[${requestId}] ⚠ delete_old_chunks: ${deleteError.message}`);
   } else {
     console.log(`[${requestId}] ✓ delete_old_chunks: Cleared previous chunks`);
   }
-  
+
   // Insert new chunks in batches
   const batchSize = 50;
   for (let i = 0; i < chunkRecords.length; i += batchSize) {
@@ -499,14 +488,14 @@ async function processChunksAndEmbeddings(
     const { error: chunksError } = await supabase
       .from("document_chunks")
       .insert(batch);
-    
+
     if (chunksError) {
       console.error(`[${requestId}] ✗ db_insert: ${chunksError.message}`);
       debug.steps_failed.push("db_insert");
       throw chunksError;
     }
   }
-  
+
   // Fetch current version for atomic increment
   const { data: currentDoc } = await supabase
     .from("documents")
@@ -526,11 +515,11 @@ async function processChunksAndEmbeddings(
       version: nextVersion
     })
     .eq("id", documentId);
-  
+
   debug.timings.db_insert_ms = Date.now() - dbInsertStart;
   debug.steps_completed.push("db_insert");
   console.log(`[${requestId}] ✓ db_insert: ${chunks.length} chunks in ${debug.timings.db_insert_ms}ms (idempotent)`);
-  
+
   return { chunksCount: chunks.length, warning: embeddingsWarning, contentHash };
 }
 
@@ -545,7 +534,7 @@ function createDebugResponse(
   startTime: number
 ): Response {
   debug.timings.total_ms = Date.now() - startTime;
-  
+
   return new Response(
     JSON.stringify({
       ...data,
@@ -585,7 +574,7 @@ serve(async (req) => {
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
   const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
   const supabase = createClient(supabaseUrl, supabaseServiceKey);
-  
+
   // GEMINI_API_KEY is used for embeddings and OCR (no external gateways)
   const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
 
@@ -596,7 +585,7 @@ serve(async (req) => {
   try {
     // Rate limiting for POST/DELETE - exclude worker endpoints from rate limiting
     const isWorkerEndpoint = lastPart === "process-job" || lastPart === "ingest-batch";
-    
+
     if ((req.method === "POST" || req.method === "DELETE") && !isWorkerEndpoint) {
       const clientKey = getClientKey(req);
       const { data: rateLimitResult, error: rateLimitError } = await supabase.rpc(
@@ -638,9 +627,9 @@ serve(async (req) => {
         .single();
 
       if (jobError || !job) {
-        return createDebugResponse(true, 200, { 
-          message: "Nenhum job pendente", 
-          processed: 0 
+        return createDebugResponse(true, 200, {
+          message: "Nenhum job pendente",
+          processed: 0
         }, debug, startTime);
       }
 
@@ -685,7 +674,7 @@ serve(async (req) => {
         // 6. Append text to document
         const newText = pages.join("\n\n--- Página ---\n\n");
         const updatedText = (document.content_text || "") + "\n\n--- Página ---\n\n" + newText;
-        
+
         await supabase
           .from("documents")
           .update({ content_text: updatedText, updated_at: new Date().toISOString() })
@@ -693,9 +682,9 @@ serve(async (req) => {
 
         // 7. Check if completed
         if (endPage >= job.total_pages) {
-          await supabase.from("document_jobs").update({ 
-            status: "completed", 
-            next_page: endPage + 1 
+          await supabase.from("document_jobs").update({
+            status: "completed",
+            next_page: endPage + 1
           }).eq("id", job.id);
 
           // Update document status to ready
@@ -705,7 +694,7 @@ serve(async (req) => {
             .eq("id", job.document_id);
 
           console.log(`[${requestId}] Job completed. Processing chunks...`);
-          
+
           const { data: finalDoc } = await supabase
             .from("documents")
             .select("content_text")
@@ -724,9 +713,9 @@ serve(async (req) => {
             remaining: 0
           }, debug, startTime);
         } else {
-          await supabase.from("document_jobs").update({ 
-            status: "pending", 
-            next_page: endPage + 1 
+          await supabase.from("document_jobs").update({
+            status: "pending",
+            next_page: endPage + 1
           }).eq("id", job.id);
 
           return createDebugResponse(true, 200, {
@@ -741,11 +730,11 @@ serve(async (req) => {
       } catch (jobProcessError) {
         console.error(`[${requestId}] ✗ job_process: ${jobProcessError}`);
         debug.steps_failed.push("job_process");
-        
+
         const errorMsg = jobProcessError instanceof Error ? jobProcessError.message : String(jobProcessError);
-        
-        await supabase.from("document_jobs").update({ 
-          status: "failed", 
+
+        await supabase.from("document_jobs").update({
+          status: "failed",
           error: errorMsg
         }).eq("id", job.id);
 
@@ -771,7 +760,7 @@ serve(async (req) => {
       }
 
       const documentId = lastPart;
-      
+
       const { data: job, error } = await supabase
         .from("document_jobs")
         .select("*")
@@ -802,17 +791,17 @@ serve(async (req) => {
       if (!validateAdminKey(req)) {
         return createDebugResponse(false, 401, { error: "Não autorizado" }, debug, startTime);
       }
-      
+
       const { data: documents, error } = await supabase
         .from("documents")
         .select("id, title, category, file_path, created_at, updated_at, status, error_reason")
         .order("created_at", { ascending: false });
-      
+
       if (error) throw error;
-      
+
       // Count chunks per document
       const { data: chunkCounts } = await supabase.from("document_chunks").select("document_id");
-      
+
       const countMap = new Map<string, number>();
       chunkCounts?.forEach(c => {
         countMap.set(c.document_id, (countMap.get(c.document_id) || 0) + 1);
@@ -832,16 +821,16 @@ serve(async (req) => {
       };
       const jobMap = new Map<string, DocumentJobRow>();
       (jobs as DocumentJobRow[] | null | undefined)?.forEach((j) => jobMap.set(j.document_id, j));
-      
+
       const documentsWithInfo = documents?.map(doc => ({
         ...doc,
         chunk_count: countMap.get(doc.id) || 0,
         processing_status: jobMap.get(doc.id)?.status || null,
-        processing_progress: jobMap.get(doc.id) 
-          ? Math.round((jobMap.get(doc.id).next_page / jobMap.get(doc.id).total_pages) * 100) 
+        processing_progress: jobMap.get(doc.id)
+          ? Math.round((jobMap.get(doc.id).next_page / jobMap.get(doc.id).total_pages) * 100)
           : null
       }));
-      
+
       return createDebugResponse(true, 200, { documents: documentsWithInfo }, debug, startTime);
     }
 
@@ -864,8 +853,8 @@ serve(async (req) => {
         .single();
 
       if (docError || !document || !document.file_path) {
-        return createDebugResponse(false, 404, { 
-          error: "Documento não encontrado ou sem arquivo" 
+        return createDebugResponse(false, 404, {
+          error: "Documento não encontrado ou sem arquivo"
         }, debug, startTime);
       }
 
@@ -877,8 +866,8 @@ serve(async (req) => {
 
       if (signedUrlError || !signedUrlData?.signedUrl) {
         console.error(`[${requestId}] ✗ signed_url: ${signedUrlError?.message}`);
-        return createDebugResponse(false, 500, { 
-          error: "Falha ao gerar URL de download" 
+        return createDebugResponse(false, 500, {
+          error: "Falha ao gerar URL de download"
         }, debug, startTime);
       }
 
@@ -958,8 +947,8 @@ serve(async (req) => {
       const { documentId, batchText, batchIndex, totalBatches } = body;
 
       if (!documentId || batchText === undefined || batchIndex === undefined) {
-        return createDebugResponse(false, 400, { 
-          error: "documentId, batchText e batchIndex são obrigatórios" 
+        return createDebugResponse(false, 400, {
+          error: "documentId, batchText e batchIndex são obrigatórios"
         }, debug, startTime);
       }
 
@@ -1007,19 +996,19 @@ serve(async (req) => {
       }
 
       if (doc.status !== "ingesting") {
-        return createDebugResponse(false, 400, { 
-          error: `Documento não está em modo de ingestão (status: ${doc.status})` 
+        return createDebugResponse(false, 400, {
+          error: `Documento não está em modo de ingestão (status: ${doc.status})`
         }, debug, startTime);
       }
 
       // Append batch text
       const updatedText = (doc.content_text || "") + batchText;
-      
+
       await supabase
         .from("documents")
-        .update({ 
-          content_text: updatedText, 
-          updated_at: new Date().toISOString() 
+        .update({
+          content_text: updatedText,
+          updated_at: new Date().toISOString()
         })
         .eq("id", documentId);
 
@@ -1053,8 +1042,8 @@ serve(async (req) => {
       );
 
       if (resumeError) {
-        return createDebugResponse(false, 500, { 
-          error: `Falha ao verificar ponto de retomada: ${resumeError.message}` 
+        return createDebugResponse(false, 500, {
+          error: `Falha ao verificar ponto de retomada: ${resumeError.message}`
         }, debug, startTime);
       }
 
@@ -1115,8 +1104,8 @@ serve(async (req) => {
           .update({ status: "failed", error_reason: "Texto muito curto após ingestão" })
           .eq("id", documentId);
 
-        return createDebugResponse(false, 400, { 
-          error: "Texto muito curto. Mínimo 100 caracteres." 
+        return createDebugResponse(false, 400, {
+          error: "Texto muito curto. Mínimo 100 caracteres."
         }, debug, startTime);
       }
 
@@ -1159,8 +1148,8 @@ serve(async (req) => {
       const { title, category, fullText, metadata, filePath } = body;
 
       if (!fullText || fullText.trim().length < 100) {
-        return createDebugResponse(false, 400, { 
-          error: "Texto muito curto. Mínimo 100 caracteres." 
+        return createDebugResponse(false, 400, {
+          error: "Texto muito curto. Mínimo 100 caracteres."
         }, debug, startTime);
       }
 
@@ -1223,7 +1212,7 @@ serve(async (req) => {
 
       await supabase
         .from("documents")
-        .update({ 
+        .update({
           status: finalStatus,
           extraction_metadata: finalMetadata
         })
@@ -1253,8 +1242,8 @@ serve(async (req) => {
       const { documentId, pageImages, appendToExisting } = body;
 
       if (!pageImages || !Array.isArray(pageImages) || pageImages.length === 0) {
-        return createDebugResponse(false, 400, { 
-          error: "pageImages é obrigatório (array de { pageNum, dataUrl })" 
+        return createDebugResponse(false, 400, {
+          error: "pageImages é obrigatório (array de { pageNum, dataUrl })"
         }, debug, startTime);
       }
 
@@ -1303,7 +1292,7 @@ serve(async (req) => {
           return createDebugResponse(false, 404, { error: "Documento não encontrado" }, debug, startTime);
         }
 
-        const updatedText = appendToExisting 
+        const updatedText = appendToExisting
           ? (doc.content_text || "") + "\n\n" + combinedText
           : combinedText;
 
@@ -1343,18 +1332,18 @@ serve(async (req) => {
       }
 
       const body = await req.json();
-      const { 
+      const {
         pageImages,           // Array of { pageIndex: number, dataUrl: string } for OCR pages
         existingPages,        // Array of { pageIndex: number, text: string } from PDF.js
         title,
         category,
         filePath,
-        metadata 
+        metadata
       } = body;
 
       if (!pageImages && !existingPages) {
-        return createDebugResponse(false, 400, { 
-          error: "Pelo menos pageImages ou existingPages é obrigatório" 
+        return createDebugResponse(false, 400, {
+          error: "Pelo menos pageImages ou existingPages é obrigatório"
         }, debug, startTime);
       }
 
@@ -1412,7 +1401,7 @@ Responda APENAS com o texto extraído.`,
 
       // Combine into full text
       const fullText = allPages
-        .map(({ pageIndex, text, source }) => 
+        .map(({ pageIndex, text, source }) =>
           `--- Página ${pageIndex + 1} (${source === 'ocr' ? 'OCR' : 'texto'}) ---\n\n${text}`
         )
         .join('\n\n');
@@ -1462,7 +1451,7 @@ Responda APENAS com o texto extraído.`,
       // Update document status
       await supabase
         .from("documents")
-        .update({ 
+        .update({
           status: finalStatus,
           extraction_metadata: {
             ...extractionMetadata,
@@ -1475,13 +1464,13 @@ Responda APENAS com o texto extraído.`,
       return createDebugResponse(true, 200, {
         status: finalStatus,
         warning,
-        document: { 
-          id: document.id, 
-          title: document.title, 
-          chunk_count: chunksCount 
+        document: {
+          id: document.id,
+          title: document.title,
+          chunk_count: chunksCount
         },
-        metrics: { 
-          charCount, 
+        metrics: {
+          charCount,
           mbSize: parseFloat(mbSize),
           pdfjsPages: textPages.length,
           ocrPages: ocrResults.length
@@ -1562,7 +1551,7 @@ Responda APENAS com o texto extraído.`,
           if (totalPages > PAGES_PER_BATCH) {
             // Delete old chunks first
             await supabase.from("document_chunks").delete().eq("document_id", document_id);
-            
+
             const { error: jobError } = await supabase
               .from("document_jobs")
               .insert({
@@ -1626,7 +1615,7 @@ Responda APENAS com o texto extraído.`,
       } catch (processError) {
         const errorMsg = processError instanceof Error ? processError.message : String(processError);
         console.error(`[${requestId}] ✗ process: ${errorMsg}`);
-        
+
         await supabase
           .from("documents")
           .update({ status: "failed", error_reason: errorMsg })
@@ -1646,13 +1635,13 @@ Responda APENAS com o texto extraído.`,
       if (!validateAdminKey(req)) {
         return createDebugResponse(false, 401, { error: "Não autorizado" }, debug, startTime);
       }
-      
+
       const body = await req.json();
       const { filePath, title, category, fileType, originalName, mode } = body;
-      
+
       console.log(`[${requestId}] ========== PROCESSING REQUEST ==========`);
       console.log(`[${requestId}] filePath: ${filePath}, mode: ${mode || "full"}`);
-      
+
       if (!filePath) {
         return createDebugResponse(false, 400, { error: "filePath é obrigatório" }, debug, startTime);
       }
@@ -1662,7 +1651,7 @@ Responda APENAS com o texto extraído.`,
       // =============================================
       if (mode === "upload-only") {
         console.log(`[${requestId}] Mode: upload-only - creating document record only`);
-        
+
         const { data: document, error: docError } = await supabase
           .from("documents")
           .insert({
@@ -1691,30 +1680,30 @@ Responda APENAS com o texto extraído.`,
       // =============================================
       // MODE: full (backward compatible - upload + process)
       // =============================================
-      
+
       // Download file from Storage
       const downloadStart = Date.now();
       const { data: fileData, error: downloadError } = await supabase.storage
         .from("knowledge-base")
         .download(filePath);
-      
+
       if (downloadError || !fileData) {
         return createDebugResponse(false, 404, {
           error: "Arquivo não encontrado no Storage",
           details: downloadError?.message
         }, debug, startTime);
       }
-      
+
       debug.timings.download_storage_ms = Date.now() - downloadStart;
       debug.steps_completed.push("download_storage");
       console.log(`[${requestId}] ✓ download_storage: ${Math.round(fileData.size / 1024)}KB in ${debug.timings.download_storage_ms}ms`);
-      
+
       const isPDF = filePath.endsWith(".pdf") || fileType?.includes("pdf");
       const isDOCX = filePath.endsWith(".docx") || fileType?.includes("wordprocessingml");
       const isTXT = filePath.endsWith(".txt") || fileType?.includes("text/plain");
-      
+
       let contentText: string;
-      
+
       if (isTXT) {
         const extractStart = Date.now();
         contentText = await fileData.text();
@@ -1723,7 +1712,7 @@ Responda APENAS com o texto extraído.`,
         console.log(`[${requestId}] ✓ extract: TXT ${contentText.length} chars in ${debug.timings.extract_ms}ms`);
       } else if (isPDF) {
         console.log(`[${requestId}] ========== DETERMINISTIC PDF EXTRACTION ==========`);
-        
+
         try {
           const extractStart = Date.now();
           const { pages, totalPages } = await extractPdfTextDeterministic(fileData, 1, PAGES_PER_BATCH);
@@ -1731,7 +1720,7 @@ Responda APENAS com o texto extraído.`,
           debug.timings.extract_ms = Date.now() - extractStart;
           debug.steps_completed.push("extract");
           console.log(`[${requestId}] ✓ extract: ${pages.length}/${totalPages} pages in ${debug.timings.extract_ms}ms`);
-          
+
           const totalChars = pages.reduce((sum, p) => sum + p.length, 0);
 
           if (totalChars < 100 && totalPages > 0) {
@@ -1741,7 +1730,7 @@ Responda APENAS com o texto extraído.`,
           }
 
           contentText = partialText;
-          
+
           // Create document in database
           const { data: document, error: docError } = await supabase
             .from("documents")
@@ -1754,16 +1743,16 @@ Responda APENAS com o texto extraído.`,
             })
             .select()
             .single();
-          
+
           if (docError) throw docError;
-          
+
           debug.steps_completed.push("db_insert");
           console.log(`[${requestId}] ✓ db_insert: Document ${document.id}`);
-          
+
           // If PDF has more pages, create background job
           if (totalPages > PAGES_PER_BATCH) {
             console.log(`[${requestId}] Creating background job for ${totalPages - PAGES_PER_BATCH} remaining pages...`);
-            
+
             const { error: jobError } = await supabase
               .from("document_jobs")
               .insert({
@@ -1773,29 +1762,29 @@ Responda APENAS com o texto extraído.`,
                 total_pages: totalPages,
                 pages_per_batch: PAGES_PER_BATCH
               });
-            
+
             if (jobError) {
               console.error(`[${requestId}] Error creating job:`, jobError);
             }
-            
+
             return createDebugResponse(true, 200, {
               status: "processing",
               message: `Documento criado. Processando ${totalPages} páginas em background...`,
               document: { id: document.id, title: document.title, category: document.category, totalPages, processedPages: PAGES_PER_BATCH }
             }, debug, startTime);
           }
-          
+
           // Small PDF - process chunks immediately
           const { chunksCount, warning } = await processChunksAndEmbeddings(
             supabase, document.id, contentText, GEMINI_API_KEY, requestId, debug
           );
-          
+
           return createDebugResponse(true, 200, {
             status: "completed",
             warning,
             document: { id: document.id, title: document.title, category: document.category, chunk_count: chunksCount }
           }, debug, startTime);
-          
+
         } catch (pdfError) {
           console.error(`[${requestId}] ✗ pdf_extraction: ${pdfError}`);
           debug.steps_failed.push("extract");
@@ -1815,7 +1804,7 @@ Responda APENAS com o texto extraído.`,
           debug.timings.extract_ms = Date.now() - extractStart;
           debug.steps_completed.push("extract");
           console.log(`[${requestId}] ✓ extract: DOCX ${contentText.length} chars in ${debug.timings.extract_ms}ms`);
-        } catch (docxError) {
+        } catch {
           debug.steps_failed.push("extract");
           return createDebugResponse(false, 400, { error: "Erro ao processar DOCX" }, debug, startTime);
         }
@@ -1824,13 +1813,13 @@ Responda APENAS com o texto extraído.`,
           error: "Tipo de arquivo não suportado. Use PDF, DOCX ou TXT."
         }, debug, startTime);
       }
-      
+
       // For non-PDF files (TXT, DOCX) - standard processing
       if (!isPDF) {
         if (!contentText || contentText.trim().length < 100) {
           return createDebugResponse(false, 400, { error: "Conteúdo muito curto ou vazio" }, debug, startTime);
         }
-        
+
         const { data: document, error: docError } = await supabase
           .from("documents")
           .insert({
@@ -1842,15 +1831,15 @@ Responda APENAS com o texto extraído.`,
           })
           .select()
           .single();
-        
+
         if (docError) throw docError;
-        
+
         debug.steps_completed.push("db_insert");
-        
+
         const { chunksCount, warning } = await processChunksAndEmbeddings(
           supabase, document.id, contentText, GEMINI_API_KEY, requestId, debug
         );
-        
+
         return createDebugResponse(true, 200, {
           status: "completed",
           warning,
@@ -1866,46 +1855,46 @@ Responda APENAS com o texto extraído.`,
       if (!validateAdminKey(req)) {
         return createDebugResponse(false, 401, { error: "Não autorizado" }, debug, startTime);
       }
-      
+
       let docId = lastPart && lastPart !== "documents" ? lastPart : null;
-      
+
       if (!docId) {
         try {
           const body = await req.json();
           docId = body.id;
         } catch { /* ignore */ }
       }
-      
+
       if (!docId) {
         return createDebugResponse(false, 400, { error: "ID do documento obrigatório" }, debug, startTime);
       }
-      
+
       const { data: document, error: fetchError } = await supabase
         .from("documents")
         .select("id, file_path")
         .eq("id", docId)
         .single();
-      
+
       if (fetchError || !document) {
         return createDebugResponse(false, 404, { error: "Documento não encontrado" }, debug, startTime);
       }
-      
+
       // Remove related jobs
       await supabase.from("document_jobs").delete().eq("document_id", docId);
-      
+
       // Remove chunks
       await supabase.from("document_chunks").delete().eq("document_id", docId);
-      
+
       // Remove file from storage
       if (document.file_path) {
         await supabase.storage.from("knowledge-base").remove([document.file_path]);
       }
-      
+
       // Remove document
       const { error: deleteError } = await supabase.from("documents").delete().eq("id", docId);
-      
+
       if (deleteError) throw deleteError;
-      
+
       debug.steps_completed.push("delete");
       return createDebugResponse(true, 200, { deleted: docId }, debug, startTime);
     }

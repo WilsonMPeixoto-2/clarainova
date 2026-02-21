@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { History, MessageSquare, Trash2, Plus, X, Loader2 } from "lucide-react";
+import { History, MessageSquare, Trash2, Plus, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Sheet,
@@ -140,11 +140,10 @@ export function ChatHistory({
                         animate={{ opacity: 1, x: 0 }}
                         exit={{ opacity: 0, x: -20 }}
                         transition={{ delay: index * 0.03 }}
-                        className={`group relative p-3 rounded-lg cursor-pointer transition-colors ${
-                          session.id === currentSessionId
+                        className={`group relative p-3 rounded-lg cursor-pointer transition-colors ${session.id === currentSessionId
                             ? "bg-primary/10 border border-primary/20"
                             : "bg-muted/30 hover:bg-muted/50"
-                        }`}
+                          }`}
                         onClick={() => handleLoadSession(session.id)}
                       >
                         <div className="flex items-start justify-between gap-2">

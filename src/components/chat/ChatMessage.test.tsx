@@ -5,7 +5,7 @@ import type { ChatMessage as ChatMessageType } from "@/hooks/useChat";
 import { TooltipProvider } from "@/components/ui/tooltip";
 
 // Mock framer-motion to avoid animation issues in tests
-const stripMotionProps = ({ initial, animate, exit, transition, whileHover, whileTap, layoutId, layout, ...rest }: any) => rest;
+const stripMotionProps = ({ ...rest }: any) => rest;
 vi.mock("framer-motion", () => ({
   motion: {
     div: ({ children, ...props }: any) => <div {...stripMotionProps(props)}>{children}</div>,
@@ -32,7 +32,7 @@ describe("ChatMessage", () => {
   it("renders assistant message correctly", () => {
     const message = createMessage();
     const { container } = renderWithProviders(<ChatMessage message={message} />);
-    
+
     expect(container.textContent).toContain("Olá! Como posso ajudar?");
   });
 
@@ -42,14 +42,14 @@ describe("ChatMessage", () => {
       content: "Como criar um processo?",
     });
     const { container } = renderWithProviders(<ChatMessage message={message} />);
-    
+
     expect(container.textContent).toContain("Como criar um processo?");
   });
 
   it("displays timestamp correctly", () => {
     const message = createMessage();
     const { container } = renderWithProviders(<ChatMessage message={message} />);
-    
+
     expect(container.textContent).toContain("10:30");
   });
 
@@ -58,7 +58,7 @@ describe("ChatMessage", () => {
       content: "Clique no botão **Incluir Documento**",
     });
     const { container } = renderWithProviders(<ChatMessage message={message} />);
-    
+
     const strongElement = container.querySelector("strong");
     expect(strongElement).toBeTruthy();
     expect(strongElement?.textContent).toBe("Incluir Documento");
@@ -69,7 +69,7 @@ describe("ChatMessage", () => {
       content: "Acesse o menu `Processo`",
     });
     const { container } = renderWithProviders(<ChatMessage message={message} />);
-    
+
     const codeElement = container.querySelector("code");
     expect(codeElement).toBeTruthy();
     expect(codeElement?.textContent).toBe("Processo");
@@ -80,11 +80,11 @@ describe("ChatMessage", () => {
       content: "1. Primeiro passo\n2. Segundo passo\n3. Terceiro passo",
     });
     const { container } = renderWithProviders(<ChatMessage message={message} />);
-    
+
     expect(container.textContent).toContain("Primeiro passo");
     expect(container.textContent).toContain("Segundo passo");
     expect(container.textContent).toContain("Terceiro passo");
-    
+
     const listItems = container.querySelectorAll("li");
     expect(listItems.length).toBe(3);
   });
@@ -94,7 +94,7 @@ describe("ChatMessage", () => {
       content: "- Item A\n- Item B\n- Item C",
     });
     const { container } = renderWithProviders(<ChatMessage message={message} />);
-    
+
     expect(container.textContent).toContain("Item A");
     expect(container.textContent).toContain("Item B");
     expect(container.textContent).toContain("Item C");
@@ -105,7 +105,7 @@ describe("ChatMessage", () => {
       content: "## Título Principal\n\nConteúdo abaixo",
     });
     const { container } = renderWithProviders(<ChatMessage message={message} />);
-    
+
     const heading = container.querySelector("h2");
     expect(heading).toBeTruthy();
     expect(heading?.textContent).toContain("Título Principal");
@@ -114,7 +114,7 @@ describe("ChatMessage", () => {
   it("has correct accessibility attributes", () => {
     const message = createMessage();
     const { container } = renderWithProviders(<ChatMessage message={message} />);
-    
+
     const article = container.querySelector('[role="article"]');
     expect(article).toBeTruthy();
     expect(article?.getAttribute("aria-label")).toBe("Mensagem de CLARA");
@@ -123,7 +123,7 @@ describe("ChatMessage", () => {
   it("has correct accessibility for user messages", () => {
     const message = createMessage({ role: "user" });
     const { container } = renderWithProviders(<ChatMessage message={message} />);
-    
+
     const article = container.querySelector('[role="article"]');
     expect(article).toBeTruthy();
     expect(article?.getAttribute("aria-label")).toBe("Mensagem de você");
@@ -137,7 +137,7 @@ describe("ChatMessage", () => {
       },
     });
     const { container } = renderWithProviders(<ChatMessage message={message} />);
-    
+
     expect(container.textContent).toContain("Fontes (2)");
   });
 });

@@ -2,13 +2,13 @@ import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { 
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
-  LineChart, Line, Legend, AreaChart, Area 
+import {
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+  Legend, AreaChart, Area
 } from 'recharts';
-import { 
-  Activity, Clock, AlertTriangle, TrendingUp, Zap, 
-  Globe, Server, RefreshCw, AlertCircle 
+import {
+  Activity, Clock, AlertTriangle, TrendingUp, Zap,
+  Server, RefreshCw, AlertCircle
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -49,7 +49,7 @@ export function ChatMetricsDashboard() {
   const fetchMetrics = async () => {
     setIsLoading(true);
     setError(null);
-    
+
     try {
       const [chatResult, errorsResult] = await Promise.all([
         supabase.rpc('get_chat_metrics_summary', { p_days: 7 }),
@@ -80,7 +80,7 @@ export function ChatMetricsDashboard() {
   const totalRateLimits = chatMetrics.reduce((sum, d) => sum + d.rate_limit_hits, 0);
   const totalErrors = frontendErrors.reduce((sum, d) => sum + d.total_errors, 0);
   const fallbackRate = totalRequests > 0 ? ((totalFallbacks / totalRequests) * 100).toFixed(1) : '0';
-  
+
   // Calculate average latencies across all days
   const avgLatencies = chatMetrics.length > 0 ? {
     embedding: Math.round(chatMetrics.reduce((sum, d) => sum + (d.avg_embedding_ms || 0), 0) / chatMetrics.length),
@@ -168,11 +168,10 @@ export function ChatMetricsDashboard() {
           {alerts.map((alert, i) => (
             <div
               key={i}
-              className={`flex items-center gap-3 p-3 rounded-lg ${
-                alert.type === 'error' 
-                  ? 'bg-destructive/10 border border-destructive/30' 
-                  : 'bg-amber-500/10 border border-amber-500/30'
-              }`}
+              className={`flex items-center gap-3 p-3 rounded-lg ${alert.type === 'error'
+                ? 'bg-destructive/10 border border-destructive/30'
+                : 'bg-amber-500/10 border border-amber-500/30'
+                }`}
             >
               <AlertTriangle className={`w-5 h-5 ${alert.type === 'error' ? 'text-destructive' : 'text-amber-500'}`} />
               <span className={alert.type === 'error' ? 'text-destructive' : 'text-amber-500'}>
@@ -280,9 +279,9 @@ export function ChatMetricsDashboard() {
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                   <XAxis dataKey="date" stroke="hsl(var(--muted-foreground))" fontSize={12} />
                   <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} />
-                  <Tooltip 
-                    contentStyle={{ 
-                      backgroundColor: 'hsl(var(--card))', 
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: 'hsl(var(--card))',
                       border: '1px solid hsl(var(--border))',
                       borderRadius: '8px'
                     }}
@@ -313,18 +312,18 @@ export function ChatMetricsDashboard() {
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                   <XAxis dataKey="date" stroke="hsl(var(--muted-foreground))" fontSize={12} />
                   <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} />
-                  <Tooltip 
-                    contentStyle={{ 
-                      backgroundColor: 'hsl(var(--card))', 
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: 'hsl(var(--card))',
                       border: '1px solid hsl(var(--border))',
                       borderRadius: '8px'
                     }}
                   />
-                   <Legend />
-                   <Area type="monotone" dataKey="Gemini" stackId="1" fill="hsl(var(--primary))" stroke="hsl(var(--primary))" />
-                   <Area type="monotone" dataKey="Web Search" stackId="2" fill="hsl(220, 70%, 50%)" stroke="hsl(220, 70%, 50%)" fillOpacity={0.3} />
-                 </AreaChart>
-               </ResponsiveContainer>
+                  <Legend />
+                  <Area type="monotone" dataKey="Gemini" stackId="1" fill="hsl(var(--primary))" stroke="hsl(var(--primary))" />
+                  <Area type="monotone" dataKey="Web Search" stackId="2" fill="hsl(220, 70%, 50%)" stroke="hsl(220, 70%, 50%)" fillOpacity={0.3} />
+                </AreaChart>
+              </ResponsiveContainer>
             </CardContent>
           </Card>
         </div>

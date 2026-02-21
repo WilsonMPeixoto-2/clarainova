@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -24,16 +24,16 @@ export function DocumentFilters({
 }: DocumentFiltersProps) {
   const [open, setOpen] = useState(false);
   const [debouncedSearch, setDebouncedSearch] = useState(searchQuery);
-  
+
   // Debounce search input
   useEffect(() => {
     const timer = setTimeout(() => {
       onSearchChange(debouncedSearch);
     }, 300);
-    
+
     return () => clearTimeout(timer);
   }, [debouncedSearch, onSearchChange]);
-  
+
   const handleTagToggle = useCallback((tag: string) => {
     if (selectedTags.includes(tag)) {
       onTagsChange(selectedTags.filter(t => t !== tag));
@@ -41,11 +41,11 @@ export function DocumentFilters({
       onTagsChange([...selectedTags, tag]);
     }
   }, [selectedTags, onTagsChange]);
-  
+
   const handleClearTags = useCallback(() => {
     onTagsChange([]);
   }, [onTagsChange]);
-  
+
   return (
     <div className="flex flex-col sm:flex-row gap-3 mb-4">
       {/* Search Input */}
@@ -57,7 +57,7 @@ export function DocumentFilters({
           className="w-full"
         />
       </div>
-      
+
       {/* Tags Filter */}
       {availableTags.length > 0 && (
         <div className="flex gap-2 items-center">
@@ -106,7 +106,7 @@ export function DocumentFilters({
               </Command>
             </PopoverContent>
           </Popover>
-          
+
           {selectedTags.length > 0 && (
             <Button
               variant="ghost"
@@ -119,7 +119,7 @@ export function DocumentFilters({
           )}
         </div>
       )}
-      
+
       {/* Selected Tags Display */}
       {selectedTags.length > 0 && (
         <div className="flex flex-wrap gap-1 items-center sm:hidden">

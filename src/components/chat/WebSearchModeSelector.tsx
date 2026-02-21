@@ -44,7 +44,6 @@ export const WebSearchModeSelector = memo(function WebSearchModeSelector({
 }: WebSearchModeSelectorProps) {
   const [isOpen, setIsOpen] = useState(false);
   const currentMode = modeConfig[mode];
-  const ModeIcon = currentMode.icon;
 
   return (
     <DropdownMenu open={isOpen} onOpenChange={setIsOpen}>

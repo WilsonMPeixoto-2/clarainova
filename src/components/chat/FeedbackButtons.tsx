@@ -1,5 +1,5 @@
 import { useState, memo } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import { ThumbsUp, ThumbsDown, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { FeedbackModal } from "./FeedbackModal";
@@ -19,7 +19,7 @@ export const FeedbackButtons = memo(function FeedbackButtons({ queryId }: Feedba
 
   const handlePositive = async () => {
     if (feedbackGiven) return;
-    
+
     const success = await submitFeedback({
       queryId,
       rating: true,

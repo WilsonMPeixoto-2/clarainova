@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Upload, FileText, Trash2, RefreshCw, Lock, Check, X, AlertCircle, BarChart3, ClipboardList, Eye, EyeOff, Loader2, Play, RotateCcw, FileWarning, Activity, MessageSquareWarning, Settings2 } from 'lucide-react';
+import { ArrowLeft, Upload, FileText, Trash2, RefreshCw, Lock, Check, AlertCircle, BarChart3, ClipboardList, Eye, EyeOff, Loader2, Play, RotateCcw, FileWarning, Activity, MessageSquareWarning, Settings2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -19,7 +19,7 @@ import { DocumentFilters } from '@/components/admin/DocumentFilters';
 import { extractPdfTextClient, extractTxtContent, isPdfFile, isTxtFile, isDocxFile, splitTextIntoBatches, calculatePayloadMetrics } from '@/utils/extractPdfText';
 import { validateTextQuality, type TextQualityResult } from '@/utils/textQualityValidator';
 import { TextQualityDialog } from '@/components/admin/TextQualityDialog';
-import { loadPdfDocument, renderPagesAsImages, getPageBatches, type PageImage } from '@/utils/renderPdfPages';
+import { loadPdfDocument, renderPagesAsImages, getPageBatches } from '@/utils/renderPdfPages';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -76,31 +76,7 @@ function getErrorMessage(error: unknown): string {
   return "Erro desconhecido";
 }
 
-// Guard function to ensure file is a valid Blob (prevents silent failures)
-function assertIsBlobLike(x: unknown, filename: string): asserts x is Blob {
-  if (!(x instanceof Blob)) {
-    throw new Error(`Upload abortado: "${filename}" não é File/Blob válido.`);
-  }
-  if (x.size === 0) {
-    throw new Error(`Upload abortado: "${filename}" está vazio (0 bytes).`);
-  }
-}
 
-// Map HTTP status codes to user-friendly error messages
-function getUploadErrorMessage(status: number, body: string): string {
-  const errorMap: Record<number, string> = {
-    400: 'Requisição inválida - verifique o formato do arquivo',
-    403: 'URL expirada ou sem permissão - tente novamente',
-    404: 'Bucket ou caminho não encontrado - verifique configuração',
-    409: 'Conflito - arquivo já existe com mesmo nome',
-    413: 'Arquivo muito grande - limite excedido',
-    429: 'Muitas requisições - aguarde e tente novamente',
-    500: 'Erro interno do servidor - tente novamente',
-    502: 'Gateway inválido - serviço temporariamente indisponível',
-    503: 'Serviço indisponível - tente novamente em alguns minutos',
-  };
-  return errorMap[status] || `Erro ${status}: ${body || 'Erro desconhecido'}`;
-}
 
 // Get status badge variant and label
 function getStatusBadge(status?: string, errorReason?: string | null) {
@@ -127,12 +103,12 @@ function isDocumentStuck(doc: Document): boolean {
   if (!['processing', 'ingesting', 'chunks_ok_embed_pending'].includes(doc.status || '')) {
     return false;
   }
-  
+
   // Consider stuck if processing for more than 5 minutes
   const updatedAt = new Date(doc.updated_at || doc.created_at);
   const now = new Date();
   const diffMinutes = (now.getTime() - updatedAt.getTime()) / (1000 * 60);
-  
+
   return diffMinutes > 5;
 }
 
@@ -140,28 +116,28 @@ const Admin = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const supabaseAnonKey = getSupabaseAnonKey();
-  
+
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [adminKey, setAdminKey] = useState('');
   const [isAuthenticating, setIsAuthenticating] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  
+
   const [documents, setDocuments] = useState<Document[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [extractionPhase, setExtractionPhase] = useState<'idle' | 'extracting' | 'uploading' | 'processing' | 'batching'>('idle');
   const [payloadMetrics, setPayloadMetrics] = useState<{ charCount: number; estimatedMB: number; warning: string | null } | null>(null);
-  
+
   const [isDragOver, setIsDragOver] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [documentToDelete, setDocumentToDelete] = useState<Document | null>(null);
-  
+
   // OCR Dialog state
   const [showOcrDialog, setShowOcrDialog] = useState(false);
   const [ocrFile, setOcrFile] = useState<File | null>(null);
   const [ocrProcessing, setOcrProcessing] = useState(false);
-  
+
   // Text Quality Dialog state
   const [showQualityDialog, setShowQualityDialog] = useState(false);
   const [qualityResult, setQualityResult] = useState<TextQualityResult | null>(null);
@@ -170,14 +146,14 @@ const Admin = () => {
     fullText: string;
     metadata: Record<string, unknown>;
   } | null>(null);
-  
+
   // Track documents being processed
   const [processingDocs, setProcessingDocs] = useState<Set<string>>(new Set());
-  
+
   // Document editor modal state
   const [editorModalOpen, setEditorModalOpen] = useState(false);
   const [documentToEdit, setDocumentToEdit] = useState<Document | null>(null);
-  
+
   // Document filters state
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
@@ -297,17 +273,17 @@ const Admin = () => {
         },
         (payload) => {
           debugLog('[Admin] Realtime update received:', payload.new);
-          
+
           // Update the specific document in state
-          setDocuments(prev => prev.map(doc => 
-            doc.id === payload.new.id 
-              ? { 
-                  ...doc, 
-                  status: payload.new.status as string,
-                  error_reason: payload.new.error_reason as string | null,
-                  chunk_count: payload.new.chunk_count as number | undefined,
-                  updated_at: payload.new.updated_at as string
-                }
+          setDocuments(prev => prev.map(doc =>
+            doc.id === payload.new.id
+              ? {
+                ...doc,
+                status: payload.new.status as string,
+                error_reason: payload.new.error_reason as string | null,
+                chunk_count: payload.new.chunk_count as number | undefined,
+                updated_at: payload.new.updated_at as string
+              }
               : doc
           ));
 
@@ -365,7 +341,7 @@ const Admin = () => {
 
     const pollAndProcess = async () => {
       const key = getAdminKey();
-      
+
       try {
         const response = await fetch(
           `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/documents/process-job`,
@@ -391,12 +367,12 @@ const Admin = () => {
               next.delete(result.documentId);
               return next;
             });
-            
+
             toast({
               title: 'Processamento concluído',
               description: `Documento processado com sucesso!`,
             });
-            
+
             await fetchDocuments();
           } else if (result.status === 'processing') {
             await fetchDocuments();
@@ -429,7 +405,7 @@ const Admin = () => {
     }
 
     setIsAuthenticating(true);
-    
+
     try {
       const authResponse = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/admin-auth`,
@@ -456,7 +432,7 @@ const Admin = () => {
       sessionStorage.setItem('clara_admin_key', key);
       setAdminKey(key);
       setIsAuthenticated(true);
-      
+
       toast({
         title: 'Autenticado',
         description: 'Acesso concedido à área administrativa.',
@@ -476,9 +452,9 @@ const Admin = () => {
   // Process or reprocess a document
   const handleProcessDocument = async (documentId: string) => {
     const key = getAdminKey();
-    
+
     setProcessingDocs(prev => new Set(prev).add(documentId));
-    
+
     toast({
       title: 'Iniciando processamento...',
       description: 'O documento será processado em background.',
@@ -512,7 +488,7 @@ const Admin = () => {
           next.delete(documentId);
           return next;
         });
-        
+
         toast({
           title: 'Processamento concluído',
           description: result.warning || 'Documento processado com sucesso!',
@@ -528,19 +504,19 @@ const Admin = () => {
 
     } catch (error: unknown) {
       console.error('[Admin] Process error:', error);
-      
+
       setProcessingDocs(prev => {
         const next = new Set(prev);
         next.delete(documentId);
         return next;
       });
-      
+
       toast({
         title: 'Erro ao processar',
         description: getErrorMessage(error),
         variant: 'destructive',
       });
-      
+
       await fetchDocuments();
     }
   };
@@ -548,9 +524,9 @@ const Admin = () => {
   // Retry processing for stuck documents (uses ingest-finish to reprocess from existing text)
   const handleRetryProcessing = async (documentId: string, documentTitle: string) => {
     const key = getAdminKey();
-    
+
     setProcessingDocs(prev => new Set(prev).add(documentId));
-    
+
     toast({
       title: 'Reprocessando...',
       description: `Retomando processamento de "${documentTitle}"`,
@@ -593,19 +569,19 @@ const Admin = () => {
 
     } catch (error: unknown) {
       console.error('[Admin] Retry error:', error);
-      
+
       setProcessingDocs(prev => {
         const next = new Set(prev);
         next.delete(documentId);
         return next;
       });
-      
+
       toast({
         title: 'Erro ao reprocessar',
         description: getErrorMessage(error),
         variant: 'destructive',
       });
-      
+
       await fetchDocuments();
     }
   };
@@ -625,15 +601,15 @@ const Admin = () => {
 
     const MAX_PDF_SIZE = 50 * 1024 * 1024;
     const MAX_OTHER_SIZE = 50 * 1024 * 1024;
-    
+
     const validFiles = Array.from(files).filter(file => {
       debugLog(`[Admin] Checking file: ${file.name}, type: ${file.type}, size: ${Math.round(file.size / 1024 / 1024)}MB`);
-      
+
       const isValidType = allowedTypes.includes(file.type) || file.name.endsWith('.txt') || file.name.endsWith('.pdf') || file.name.endsWith('.docx');
       const isPDF = isPdfFile(file);
       const maxSize = isPDF ? MAX_PDF_SIZE : MAX_OTHER_SIZE;
       const isValidSize = file.size <= maxSize;
-      
+
       if (!isValidType) {
         toast({
           title: `Arquivo ignorado: ${file.name}`,
@@ -642,20 +618,20 @@ const Admin = () => {
         });
         return false;
       }
-      
+
       if (!isValidSize) {
         const fileSizeMB = Math.round(file.size / 1024 / 1024);
         const maxSizeMB = Math.round(maxSize / 1024 / 1024);
         toast({
           title: `Arquivo muito grande: ${file.name}`,
-          description: isPDF 
+          description: isPDF
             ? `PDFs têm limite de ${maxSizeMB}MB. Seu arquivo: ${fileSizeMB}MB.`
             : `Limite: ${maxSizeMB}MB. Seu arquivo: ${fileSizeMB}MB.`,
           variant: 'destructive',
         });
         return false;
       }
-      
+
       return true;
     });
 
@@ -690,20 +666,20 @@ const Admin = () => {
         if (isPdfFile(file)) {
           setExtractionPhase('extracting');
           debugLog(`[Admin] Extracting PDF text client-side: ${file.name}`);
-          
+
           try {
             const result = await extractPdfTextClient(file, (progress) => {
               setUploadProgress(Math.round(((completedFiles + (progress / 100) * 0.4) / totalFiles) * 100));
             });
-            
+
             debugLog(`[Admin] PDF extraction result: ${result.totalPages} pages, ${result.avgCharsPerPage.toFixed(0)} avg chars/page, needsOcr: ${result.needsOcr}, isHybrid: ${result.isHybrid}`);
             debugLog(`[Admin] Metrics: ${result.metrics.totalChars} chars, ${result.metrics.estimatedMB}MB, ${result.metrics.emptyPages} empty, ${result.metrics.validTextPages} valid`);
             debugLog(`[Admin] Pages needing OCR: [${result.pagesNeedingOcr.slice(0, 10).join(', ')}${result.pagesNeedingOcr.length > 10 ? '...' : ''}] (${result.pagesNeedingOcr.length} total)`);
-            
+
             // Calculate and display payload metrics
             const metrics = calculatePayloadMetrics(result.fullText);
             setPayloadMetrics(metrics);
-            
+
             if (metrics.warning) {
               toast({
                 title: 'Aviso de tamanho',
@@ -711,7 +687,7 @@ const Admin = () => {
                 variant: metrics.estimatedMB > 10 ? 'destructive' : 'default',
               });
             }
-            
+
             if (result.needsOcr) {
               // PDF is scanned/image-based, show OCR dialog
               setOcrFile(file);
@@ -722,20 +698,20 @@ const Admin = () => {
               setPayloadMetrics(null);
               return; // Stop here, wait for user decision
             }
-            
+
             // NEW: Validate text quality to detect gibberish/encoding issues
             const qualityValidation = validateTextQuality(result.fullText, {
               expectedLanguage: 'pt-BR',
               minConfidence: 0.6
             });
-            
+
             debugLog(`[Admin] Quality validation:`, {
               isValid: qualityValidation.isValid,
               confidence: qualityValidation.confidence,
               recommendation: qualityValidation.recommendation,
               issues: qualityValidation.issues
             });
-            
+
             if (!qualityValidation.isValid) {
               // Text quality is poor - show quality dialog
               const extractionMetadata = {
@@ -744,7 +720,7 @@ const Admin = () => {
                 extractedAt: new Date().toISOString(),
                 extractionMethod: 'pdfjs-client'
               };
-              
+
               setQualityResult(qualityValidation);
               setQualityFile(file);
               setQualityExtractionResult({ fullText: result.fullText, metadata: extractionMetadata });
@@ -755,7 +731,7 @@ const Admin = () => {
               setPayloadMetrics(null);
               return; // Stop here, wait for user decision
             }
-            
+
             fullText = result.fullText;
             metadata = {
               originalFilename: file.name,
@@ -781,7 +757,7 @@ const Admin = () => {
           // DOCX still needs backend processing (mammoth)
           setExtractionPhase('uploading');
           debugLog(`[Admin] DOCX file - using backend extraction: ${file.name}`);
-          
+
           // Use old flow for DOCX
           const signedUrlResponse = await fetch(
             `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/admin_get_upload_url`,
@@ -793,9 +769,9 @@ const Admin = () => {
                 apikey: supabaseAnonKey,
                 Authorization: `Bearer ${supabaseAnonKey}`,
               },
-              body: JSON.stringify({ 
-                filename: file.name, 
-                contentType: file.type || 'application/octet-stream' 
+              body: JSON.stringify({
+                filename: file.name,
+                contentType: file.type || 'application/octet-stream'
               }),
             }
           );
@@ -806,13 +782,13 @@ const Admin = () => {
           }
 
           const signedUrlData = await signedUrlResponse.json();
-          
+
           // Upload file
           await uploadFileWithRetry(file, signedUrlData.signedUrl);
           setUploadProgress(Math.round(((completedFiles + 0.6) / totalFiles) * 100));
-          
+
           setExtractionPhase('processing');
-          
+
           // Process via backend (old flow)
           const processResponse = await fetch(
             `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/documents`,
@@ -833,23 +809,23 @@ const Admin = () => {
               }),
             }
           );
-          
+
           if (!processResponse.ok) {
             const errorData = await processResponse.json().catch(() => ({ error: 'Falha ao processar documento.' }));
             throw new Error(`[${processResponse.status}] ${errorData.error || 'Erro ao processar documento'}`);
           }
-          
+
           const processResult = await processResponse.json();
           debugLog(`[Admin] DOCX processing result:`, processResult);
-          
+
           completedFiles++;
           setUploadProgress(Math.round((completedFiles / totalFiles) * 100));
-          
+
           toast({
             title: 'Upload concluído',
             description: `"${file.name}" processado com sucesso.${processResult?.warning ? `\n\nAviso: ${processResult.warning}` : ''}`,
           });
-          
+
           continue; // Skip to next file
         } else {
           throw new Error('Tipo de arquivo não suportado');
@@ -872,9 +848,9 @@ const Admin = () => {
               apikey: supabaseAnonKey,
               Authorization: `Bearer ${supabaseAnonKey}`,
             },
-            body: JSON.stringify({ 
-              filename: file.name, 
-              contentType: file.type || 'application/octet-stream' 
+            body: JSON.stringify({
+              filename: file.name,
+              contentType: file.type || 'application/octet-stream'
             }),
           }
         );
@@ -898,17 +874,17 @@ const Admin = () => {
         const textBytes = new TextEncoder().encode(fullText).length;
         const textMB = textBytes / (1024 * 1024);
         debugLog(`[Admin] Text payload: ${fullText.length} chars, ${textMB.toFixed(2)}MB`);
-        
+
         const BATCH_THRESHOLD_MB = 1; // Use batching above 1MB
-        
+
         if (textMB > BATCH_THRESHOLD_MB) {
           // Large text - use batch ingestion
           setExtractionPhase('batching');
           debugLog(`[Admin] Using batch ingestion for large text (${textMB.toFixed(2)}MB)`);
-          
+
           const batches = splitTextIntoBatches(fullText, 400_000); // ~400KB per batch
           debugLog(`[Admin] Split into ${batches.length} batches`);
-          
+
           // Step 1: Start ingestion
           const startResponse = await fetch(
             `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/documents/ingest-start`,
@@ -928,21 +904,21 @@ const Admin = () => {
               }),
             }
           );
-          
+
           if (!startResponse.ok) {
             const errorData = await startResponse.json().catch(() => ({ error: 'Falha ao iniciar ingestão' }));
             throw new Error(errorData.error);
           }
-          
+
           const startResult = await startResponse.json();
           const documentId = startResult.documentId;
           debugLog(`[Admin] Ingestion started, documentId: ${documentId}`);
-          
+
           // Step 2: Send batches
           for (let i = 0; i < batches.length; i++) {
             const batchProgress = 0.7 + (i / batches.length) * 0.2; // 70% to 90%
             setUploadProgress(Math.round(((completedFiles + batchProgress) / totalFiles) * 100));
-            
+
             const batchResponse = await fetch(
               `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/documents/ingest-batch`,
               {
@@ -961,18 +937,18 @@ const Admin = () => {
                 }),
               }
             );
-            
+
             if (!batchResponse.ok) {
               const errorData = await batchResponse.json().catch(() => ({ error: 'Falha ao enviar batch' }));
               throw new Error(`Batch ${i + 1}/${batches.length}: ${errorData.error}`);
             }
-            
+
             debugLog(`[Admin] Batch ${i + 1}/${batches.length} sent`);
           }
-          
+
           // Step 3: Finish ingestion
           setUploadProgress(Math.round(((completedFiles + 0.95) / totalFiles) * 100));
-          
+
           const finishResponse = await fetch(
             `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/documents/ingest-finish`,
             {
@@ -986,7 +962,7 @@ const Admin = () => {
               body: JSON.stringify({ documentId }),
             }
           );
-          
+
           if (!finishResponse.ok) {
             if (finishResponse.status === 401) {
               handleAuthExpired();
@@ -994,10 +970,10 @@ const Admin = () => {
             const errorData = await finishResponse.json().catch(() => ({ error: 'Falha ao finalizar ingestão' }));
             throw new Error(errorData.error);
           }
-          
+
           const ingestResult = await finishResponse.json();
           debugLog(`[Admin] Batch ingestion completed:`, ingestResult);
-          
+
           completedFiles++;
           setUploadProgress(Math.round((completedFiles / totalFiles) * 100));
 
@@ -1005,11 +981,11 @@ const Admin = () => {
             title: 'Upload concluído',
             description: `"${file.name}" processado em ${batches.length} partes.${ingestResult?.warning ? `\n\nAviso: ${ingestResult.warning}` : ''}`,
           });
-          
+
         } else {
           // Small text - use single request (original flow)
           debugLog(`[Admin] Sending pre-extracted text to backend: ${fullText.length} chars`);
-          
+
           const ingestResponse = await fetch(
             `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/documents/ingest-text`,
             {
@@ -1029,7 +1005,7 @@ const Admin = () => {
               }),
             }
           );
-          
+
           setUploadProgress(Math.round(((completedFiles + 0.95) / totalFiles) * 100));
 
           if (!ingestResponse.ok) {
@@ -1038,18 +1014,18 @@ const Admin = () => {
             }
 
             const errorData = await ingestResponse.json().catch(() => ({ error: 'Falha ao processar documento.' }));
-            
+
             if (errorData.debug) {
               console.error('[Admin] Ingestion failed with debug:', errorData.debug);
             }
-            
+
             // Cleanup uploaded file
             try {
               await supabase.storage.from('knowledge-base').remove([signedUrlData.path]);
             } catch {
               // Best-effort cleanup after an ingestion failure.
             }
-            
+
             throw new Error(`[${ingestResponse.status}] ${errorData.error || 'Erro ao processar documento'}`);
           }
 
@@ -1096,7 +1072,7 @@ const Admin = () => {
     const uploadFile = async (file: File, url: string): Promise<Response> => {
       const isMobile = /mobile|android|iphone|ipad|ipod/i.test(navigator.userAgent);
       const maxMb = isMobile ? 10 : 50;
-      
+
       if (file.size > maxMb * 1024 * 1024) {
         throw new Error(`Arquivo muito grande para este dispositivo (máx ${maxMb}MB).`);
       }
@@ -1149,35 +1125,35 @@ const Admin = () => {
     const MAX_RETRIES = 3;
     const BASE_DELAY = 1000;
     let lastError: Error | null = null;
-    
+
     for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
       try {
         await uploadFile(fileToUpload, signedUrl);
         return;
       } catch (error) {
         lastError = error instanceof Error ? error : new Error(String(error));
-        
-        if (lastError.message.includes("muito grande") || 
-            lastError.message.includes("não autorizado") ||
-            lastError.message.includes("conflito") ||
-            lastError.message.includes("permissão")) {
+
+        if (lastError.message.includes("muito grande") ||
+          lastError.message.includes("não autorizado") ||
+          lastError.message.includes("conflito") ||
+          lastError.message.includes("permissão")) {
           throw lastError;
         }
-        
+
         if (attempt < MAX_RETRIES) {
           const delay = BASE_DELAY * Math.pow(2, attempt - 1);
           await new Promise(r => setTimeout(r, delay));
         }
       }
     }
-    
+
     throw lastError || new Error("Upload falhou após todas tentativas");
   };
 
   // Handle OCR processing for scanned PDFs
   const handleOcrUpload = async () => {
     if (!ocrFile) return;
-    
+
     const key = getAdminKey();
     if (!key) {
       handleAuthExpired();
@@ -1194,7 +1170,7 @@ const Admin = () => {
       // Load PDF and render pages as images
       const pdf = await loadPdfDocument(ocrFile);
       const batches = getPageBatches(pdf.numPages, 5);
-      
+
       let allExtractedText = '';
       let processedPages = 0;
 
@@ -1207,7 +1183,7 @@ const Admin = () => {
 
         // Send to OCR endpoint
         const pageImages = images.map(img => ({ pageNum: img.pageNum, dataUrl: img.dataUrl }));
-        
+
         const ocrResponse = await fetch(
           `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/documents/ocr-batch`,
           {
@@ -1249,9 +1225,9 @@ const Admin = () => {
             apikey: supabaseAnonKey,
             Authorization: `Bearer ${supabaseAnonKey}`,
           },
-          body: JSON.stringify({ 
-            filename: ocrFile.name, 
-            contentType: ocrFile.type || 'application/pdf' 
+          body: JSON.stringify({
+            filename: ocrFile.name,
+            contentType: ocrFile.type || 'application/pdf'
           }),
         }
       );
@@ -1266,7 +1242,7 @@ const Admin = () => {
 
       // Send OCR'd text to backend
       setExtractionPhase('processing');
-      
+
       const ingestResponse = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/documents/ingest-text`,
         {
@@ -1298,7 +1274,7 @@ const Admin = () => {
       }
 
       const ingestResult = await ingestResponse.json();
-      
+
       toast({
         title: 'OCR concluído',
         description: `"${ocrFile.name}" processado com OCR.${ingestResult?.warning ? `\n\nAviso: ${ingestResult.warning}` : ''}`,
@@ -1326,7 +1302,7 @@ const Admin = () => {
   // Handle user choosing to proceed with extracted text despite quality warnings
   const handleUseExtractedText = async () => {
     if (!qualityFile || !qualityExtractionResult) return;
-    
+
     const key = getAdminKey();
     if (!key) {
       handleAuthExpired();
@@ -1353,9 +1329,9 @@ const Admin = () => {
             apikey: supabaseAnonKey,
             Authorization: `Bearer ${supabaseAnonKey}`,
           },
-          body: JSON.stringify({ 
-            filename: file.name, 
-            contentType: file.type || 'application/pdf' 
+          body: JSON.stringify({
+            filename: file.name,
+            contentType: file.type || 'application/pdf'
           }),
         }
       );
@@ -1370,14 +1346,14 @@ const Admin = () => {
 
       // Send to backend with quality metadata
       setExtractionPhase('processing');
-      
+
       const enrichedMetadata = {
         ...metadata,
         qualityScore: qualityResult?.confidence,
         qualityIssues: qualityResult?.issues,
         userOverride: true // User chose to use text despite warnings
       };
-      
+
       const ingestResponse = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/documents/ingest-text`,
         {
@@ -1406,7 +1382,7 @@ const Admin = () => {
       }
 
       const ingestResult = await ingestResponse.json();
-      
+
       toast({
         title: 'Upload concluído',
         description: `"${file.name}" processado (texto pode conter erros).${ingestResult?.warning ? `\n\nAviso: ${ingestResult.warning}` : ''}`,
@@ -1435,17 +1411,17 @@ const Admin = () => {
   // Handle user choosing OCR for quality issues
   const handleQualityOcr = async () => {
     if (!qualityFile) return;
-    
+
     // Transfer to OCR flow
     setOcrFile(qualityFile);
     setShowQualityDialog(false);
     setQualityFile(null);
     setQualityResult(null);
     setQualityExtractionResult(null);
-    
+
     // Trigger OCR
     setShowOcrDialog(false); // Skip the dialog, go directly to processing
-    
+
     const key = getAdminKey();
     if (!key) {
       handleAuthExpired();
@@ -1459,11 +1435,11 @@ const Admin = () => {
 
     try {
       const file = qualityFile!;
-      
+
       // Load PDF and render pages as images
       const pdf = await loadPdfDocument(file);
       const batches = getPageBatches(pdf.numPages, 5);
-      
+
       let allExtractedText = '';
       let processedPages = 0;
 
@@ -1474,7 +1450,7 @@ const Admin = () => {
         });
 
         const pageImages = images.map(img => ({ pageNum: img.pageNum, dataUrl: img.dataUrl }));
-        
+
         const ocrResponse = await fetch(
           `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/documents/ocr-batch`,
           {
@@ -1516,9 +1492,9 @@ const Admin = () => {
             apikey: supabaseAnonKey,
             Authorization: `Bearer ${supabaseAnonKey}`,
           },
-          body: JSON.stringify({ 
-            filename: file.name, 
-            contentType: file.type || 'application/pdf' 
+          body: JSON.stringify({
+            filename: file.name,
+            contentType: file.type || 'application/pdf'
           }),
         }
       );
@@ -1533,7 +1509,7 @@ const Admin = () => {
 
       // Send OCR'd text to backend
       setExtractionPhase('processing');
-      
+
       const ingestResponse = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/documents/ingest-text`,
         {
@@ -1567,7 +1543,7 @@ const Admin = () => {
       }
 
       const ingestResult = await ingestResponse.json();
-      
+
       toast({
         title: 'OCR concluído',
         description: `"${file.name}" processado com OCR (fallback de qualidade).${ingestResult?.warning ? `\n\nAviso: ${ingestResult.warning}` : ''}`,
@@ -1707,7 +1683,7 @@ const Admin = () => {
                 )}
               </Button>
             </div>
-            <Button 
+            <Button
               onClick={handleAuthenticate}
               disabled={isAuthenticating}
               className="w-full btn-clara-primary"
@@ -1814,8 +1790,8 @@ const Admin = () => {
                     onDrop={handleDrop}
                     className={`
                       relative border-2 border-dashed rounded-lg p-12 text-center transition-all duration-200
-                      ${isDragOver 
-                        ? 'border-primary bg-primary/10' 
+                      ${isDragOver
+                        ? 'border-primary bg-primary/10'
                         : 'border-border hover:border-primary/50 hover:bg-muted/30'
                       }
                       ${isUploading ? 'pointer-events-none opacity-60' : 'cursor-pointer'}
@@ -1830,7 +1806,7 @@ const Admin = () => {
                       onChange={(e) => handleFileUpload(e.target.files)}
                       className="hidden"
                     />
-                    
+
                     {isUploading ? (
                       <div className="space-y-4">
                         <RefreshCw className="w-12 h-12 text-primary mx-auto animate-spin" />
@@ -1896,7 +1872,7 @@ const Admin = () => {
                     onTagsChange={setSelectedTags}
                     availableTags={availableTags}
                   />
-                  
+
                   {isLoading ? (
                     <div className="flex items-center justify-center py-12">
                       <RefreshCw className="w-8 h-8 text-primary animate-spin" />
@@ -1932,10 +1908,10 @@ const Admin = () => {
                         const canProcess = doc.status === 'uploaded' || doc.status === 'failed';
                         const isStuck = isDocumentStuck(doc);
                         const canRetry = isStuck || doc.status === 'chunks_ok_embed_pending';
-                        const supersedesDoc = doc.supersedes_document_id 
+                        const supersedesDoc = doc.supersedes_document_id
                           ? documents.find(d => d.id === doc.supersedes_document_id)
                           : null;
-                        
+
                         return (
                           <div
                             key={doc.id}
@@ -1955,7 +1931,7 @@ const Admin = () => {
                                   <Badge variant="secondary" className={getCategoryColor(doc.category)}>
                                     {doc.category}
                                   </Badge>
-                                  
+
                                   {/* Status Badge */}
                                   {statusBadge.tooltip || isStuck ? (
                                     <Tooltip>
@@ -1966,7 +1942,7 @@ const Admin = () => {
                                       </TooltipTrigger>
                                       <TooltipContent className="max-w-xs">
                                         <p className="text-xs">
-                                          {isStuck 
+                                          {isStuck
                                             ? 'Documento parou de processar. Use o botão Retry para retomar.'
                                             : statusBadge.tooltip}
                                         </p>
@@ -1977,20 +1953,20 @@ const Admin = () => {
                                       {statusBadge.label}
                                     </Badge>
                                   )}
-                                  
+
                                   {/* Version label */}
                                   {doc.version_label && (
                                     <Badge variant="outline" className="text-xs">
                                       {doc.version_label}
                                     </Badge>
                                   )}
-                                  
+
                                   <span>{formatDate(doc.created_at)}</span>
                                   {doc.chunk_count !== undefined && doc.chunk_count > 0 && (
                                     <span>{doc.chunk_count} chunks</span>
                                   )}
                                 </div>
-                                
+
                                 {/* Tags display */}
                                 {doc.tags && doc.tags.length > 0 && (
                                   <div className="flex flex-wrap gap-1 mt-2">
@@ -2001,14 +1977,14 @@ const Admin = () => {
                                     ))}
                                   </div>
                                 )}
-                                
+
                                 {/* Supersedes info */}
                                 {supersedesDoc && (
                                   <p className="text-xs text-muted-foreground mt-1">
                                     Substitui: {supersedesDoc.title}
                                   </p>
                                 )}
-                                
+
                                 {/* Processing progress bar */}
                                 {(doc.processing_status === 'processing' || doc.processing_status === 'pending') && (
                                   <div className="mt-2">
@@ -2026,7 +2002,7 @@ const Admin = () => {
                                 )}
                               </div>
                             </div>
-                            
+
                             <div className="flex items-center gap-2 flex-shrink-0">
                               {/* Edit Metadata Button */}
                               <Tooltip>
@@ -2048,7 +2024,7 @@ const Admin = () => {
                                   <p>Editar metadados</p>
                                 </TooltipContent>
                               </Tooltip>
-                              
+
                               {/* Process/Reprocess Button */}
                               {canProcess && (
                                 <Button
@@ -2071,7 +2047,7 @@ const Admin = () => {
                                   )}
                                 </Button>
                               )}
-                              
+
                               {/* Retry Button for stuck/pending documents */}
                               {canRetry && !canProcess && (
                                 <Tooltip>
@@ -2089,14 +2065,14 @@ const Admin = () => {
                                   </TooltipTrigger>
                                   <TooltipContent>
                                     <p className="max-w-xs">
-                                      {doc.status === 'chunks_ok_embed_pending' 
+                                      {doc.status === 'chunks_ok_embed_pending'
                                         ? 'Reprocessar embeddings que falharam'
                                         : 'Documento travado - tentar reprocessar chunks a partir do texto já extraído'}
                                     </p>
                                   </TooltipContent>
                                 </Tooltip>
                               )}
-                              
+
                               {/* Delete Button */}
                               <Button
                                 variant="ghost"
@@ -2190,7 +2166,7 @@ const Admin = () => {
                     💡 Recomendação
                   </p>
                   <p className="text-sm">
-                    Para melhores resultados, use seu scanner ou software de PDF para gerar 
+                    Para melhores resultados, use seu scanner ou software de PDF para gerar
                     uma versão com OCR (camada de texto). Isso é mais rápido e preciso.
                   </p>
                 </div>
@@ -2200,7 +2176,7 @@ const Admin = () => {
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-              <AlertDialogCancel 
+              <AlertDialogCancel
                 onClick={() => {
                   setShowOcrDialog(false);
                   setOcrFile(null);
@@ -2209,7 +2185,7 @@ const Admin = () => {
               >
                 Cancelar Upload
               </AlertDialogCancel>
-              <AlertDialogAction 
+              <AlertDialogAction
                 onClick={handleOcrUpload}
                 disabled={ocrProcessing}
                 className="bg-amber-600 hover:bg-amber-700"
@@ -2260,11 +2236,11 @@ const Admin = () => {
             fetchDocuments();
             setDocumentToEdit(null);
           }}
-          adminKey={adminKey}
-          allDocuments={documents.map(d => ({ 
-            id: d.id, 
+
+          allDocuments={documents.map(d => ({
+            id: d.id,
             title: d.title,
-            supersedes_document_id: d.supersedes_document_id 
+            supersedes_document_id: d.supersedes_document_id
           }))}
         />
       </div>

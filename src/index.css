@@ -865,6 +865,7 @@
     --hero-card-ml: 0px;
     --clara-pos: 60% 48%;
     --clara-scale: 1;
+    --clara-shift-x: 18%;
     --hero-overlay-opacity: 0.92;
   }
 
@@ -880,6 +881,7 @@
       --hero-card-ml: clamp(28px, 3.2vw, 72px);
       --clara-pos: 74% 33%;
       --clara-scale: 1.03;
+      --clara-shift-x: 24%;
       --hero-overlay-opacity: 0.76;
     }
   }
@@ -890,6 +892,7 @@
       --hero-card-ml: clamp(24px, 2.7vw, 56px);
       --clara-pos: 71% 35%;
       --clara-scale: 1.01;
+      --clara-shift-x: 22%;
       --hero-overlay-opacity: 0.8;
     }
   }
@@ -900,6 +903,7 @@
       --hero-card-ml: clamp(20px, 2.2vw, 44px);
       --clara-pos: 68% 38%;
       --clara-scale: 0.99;
+      --clara-shift-x: 20%;
       --hero-overlay-opacity: 0.84;
     }
   }
@@ -910,6 +914,7 @@
       --hero-card-ml: clamp(12px, 1.6vw, 22px);
       --clara-pos: 74% 39%;
       --clara-scale: 0.98;
+      --clara-shift-x: 18%;
       --hero-overlay-opacity: 0.88;
     }
   }
@@ -920,6 +925,7 @@
       --hero-card-ml: 0px;
       --clara-pos: 60% 48%;
       --clara-scale: 1;
+      --clara-shift-x: 8%;
       --hero-overlay-opacity: 0.94;
     }
   }
@@ -951,6 +957,8 @@
     height: 100%;
     object-fit: cover;
     object-position: var(--clara-pos);
+    transform: translateX(var(--clara-shift-x));
+    transform-origin: center;
     filter: saturate(1.1) contrast(1.06) brightness(1.03);
   }
 

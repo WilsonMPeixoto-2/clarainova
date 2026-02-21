@@ -44,7 +44,7 @@ const stepLabels: Record<string, string> = {
   db_insert: 'Banco de Dados',
 };
 
-export function ProcessingStatsTab({ adminKey }: { adminKey: string }) {
+export function ProcessingStatsTab() {
   const [stats, setStats] = useState<ProcessingStat[]>([]);
   const [errors, setErrors] = useState<RecentError[]>([]);
   const [retryDocs, setRetryDocs] = useState<DocumentForRetry[]>([]);

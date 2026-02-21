@@ -1,7 +1,7 @@
 import * as pdfjsLib from 'pdfjs-dist';
 
 // Worker CDN (evita problemas de bundling)
-pdfjsLib.GlobalWorkerOptions.workerSrc = 
+pdfjsLib.GlobalWorkerOptions.workerSrc =
   'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.0.379/pdf.worker.min.mjs';
 
 export interface PdfExtractionResult {
@@ -49,14 +49,14 @@ function analyzePages(pages: string[]): {
   const totalChars = pages.reduce((sum, p) => sum + p.length, 0);
   const avgCharsPerPage = totalPages > 0 ? totalChars / totalPages : 0;
   const estimatedMB = (new TextEncoder().encode(pages.join('\n')).length) / (1024 * 1024);
-  
+
   const pagesNeedingOcr: number[] = [];
   const validTextPages: number[] = [];
-  
+
   // Analyze each page individually
   pages.forEach((pageText, index) => {
     const charCount = pageText.length;
-    
+
     // Page is considered "empty" (needs OCR) if it has very little text
     if (charCount < OCR_THRESHOLDS.EMPTY_PAGE_THRESHOLD) {
       pagesNeedingOcr.push(index);
@@ -65,7 +65,7 @@ function analyzePages(pages: string[]): {
       // Check if it looks like gibberish (high ratio of non-alphanumeric)
       const alphanumeric = pageText.replace(/[^a-zA-Z0-9áéíóúâêîôûãõàèìòùäëïöüçÁÉÍÓÚÂÊÎÔÛÃÕÀÈÌÒÙÄËÏÖÜÇ]/g, '');
       const ratio = alphanumeric.length / charCount;
-      
+
       if (ratio < 0.5) {
         // Mostly non-alphanumeric, likely OCR candidate
         pagesNeedingOcr.push(index);
@@ -76,11 +76,11 @@ function analyzePages(pages: string[]): {
       validTextPages.push(index);
     }
   });
-  
+
   const emptyPages = pages.filter(p => p.length < OCR_THRESHOLDS.EMPTY_PAGE_THRESHOLD).length;
   const lowContentPages = pages.filter(p => p.length < OCR_THRESHOLDS.LOW_CONTENT_THRESHOLD).length;
-  const emptyPageRatio = totalPages > 0 ? emptyPages / totalPages : 0;
-  
+
+
   const metrics: PdfExtractionResult['metrics'] = {
     totalChars,
     estimatedMB: Math.round(estimatedMB * 100) / 100,
@@ -88,21 +88,21 @@ function analyzePages(pages: string[]): {
     lowContentPages,
     validTextPages: validTextPages.length
   };
-  
+
   // Determine overall OCR need
   const allPagesEmpty = totalPages > 0 && pagesNeedingOcr.length === totalPages;
   const mostPagesNeedOcr = pagesNeedingOcr.length > totalPages * 0.5;
   const tooLowTotal = totalChars < OCR_THRESHOLDS.MIN_TOTAL_CHARS_THRESHOLD;
-  
+
   // needsOcr = true if ALL pages need OCR (full scanned document)
   const needsOcr = allPagesEmpty || (avgCharsPerPage < OCR_THRESHOLDS.MIN_AVG_CHARS_PER_PAGE && mostPagesNeedOcr) || (totalPages > 3 && tooLowTotal);
-  
+
   // isHybrid = true if some pages need OCR but not all (mixed document)
   const isHybrid = pagesNeedingOcr.length > 0 && pagesNeedingOcr.length < totalPages;
-  
+
   console.log(`[extractPdfText] Page analysis: ${validTextPages.length} valid, ${pagesNeedingOcr.length} need OCR, hybrid=${isHybrid}, needsOcr=${needsOcr}`);
   console.log(`[extractPdfText] OCR pages: [${pagesNeedingOcr.slice(0, 10).join(', ')}${pagesNeedingOcr.length > 10 ? '...' : ''}]`);
-  
+
   return { pagesNeedingOcr, validTextPages, needsOcr, isHybrid, metrics };
 }
 
@@ -116,10 +116,10 @@ export async function extractPdfTextClient(
 ): Promise<PdfExtractionResult> {
   const arrayBuffer = await file.arrayBuffer();
   const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-  
+
   const totalPages = pdf.numPages;
   const pages: string[] = [];
-  
+
   for (let i = 1; i <= totalPages; i++) {
     try {
       const page = await pdf.getPage(i);
@@ -135,19 +135,19 @@ export async function extractPdfTextClient(
       console.error(`[extractPdfText] Error on page ${i}:`, pageError);
       pages.push('');
     }
-    
+
     if (onProgress) {
       onProgress(Math.round((i / totalPages) * 100));
     }
   }
-  
+
   const fullText = pages
     .map((text, idx) => `--- Página ${idx + 1} ---\n\n${text}`)
     .join('\n\n');
-  
+
   // Use improved per-page analysis
   const { pagesNeedingOcr, needsOcr, isHybrid, metrics } = analyzePages(pages);
-  
+
   return {
     fullText,
     pages,
@@ -200,15 +200,15 @@ export function splitTextIntoBatches(
   batchSizeChars: number = 500_000 // ~500KB per batch
 ): string[] {
   const batches: string[] = [];
-  
+
   if (fullText.length <= batchSizeChars) {
     return [fullText];
   }
-  
+
   let start = 0;
   while (start < fullText.length) {
     let end = start + batchSizeChars;
-    
+
     // Try to break at a page boundary
     if (end < fullText.length) {
       const pageBoundary = fullText.lastIndexOf('--- Página', end);
@@ -216,11 +216,11 @@ export function splitTextIntoBatches(
         end = pageBoundary;
       }
     }
-    
+
     batches.push(fullText.slice(start, end));
     start = end;
   }
-  
+
   return batches;
 }
 
@@ -238,18 +238,18 @@ export function calculatePayloadMetrics(text: string): {
   const wordCount = text.split(/\s+/).filter(w => w.length > 0).length;
   const bytes = new TextEncoder().encode(text).length;
   const estimatedMB = bytes / (1024 * 1024);
-  
+
   // Warnings for large payloads
   const WARN_MB = 2; // Warn above 2MB
   const MAX_MB = 10; // Error above 10MB
-  
+
   let warning: string | null = null;
   if (estimatedMB > MAX_MB) {
     warning = `Texto muito grande (${estimatedMB.toFixed(1)}MB). Máximo recomendado: ${MAX_MB}MB. Considere dividir o documento.`;
   } else if (estimatedMB > WARN_MB) {
     warning = `Texto grande (${estimatedMB.toFixed(1)}MB). O processamento pode demorar.`;
   }
-  
+
   return {
     charCount,
     wordCount,

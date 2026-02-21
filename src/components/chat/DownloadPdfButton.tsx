@@ -66,21 +66,21 @@ async function loadImageAsBase64(src: string): Promise<string> {
   });
 }
 
-export function DownloadPdfButton({ 
-  userQuery, 
-  assistantResponse, 
+export function DownloadPdfButton({
+  userQuery,
+  assistantResponse,
   timestamp,
   sources,
-  className = "" 
+  className = ""
 }: DownloadPdfButtonProps) {
   const [isDownloading, setIsDownloading] = useState(false);
   const [downloaded, setDownloaded] = useState(false);
 
   const handleDownload = useCallback(async () => {
     if (isDownloading) return;
-    
+
     setIsDownloading(true);
-    
+
     try {
       const { jsPDF, claraLogoPdf } = await loadPdfDependencies();
       const doc = new jsPDF();
@@ -89,7 +89,7 @@ export function DownloadPdfButton({
       const margin = 20;
       const contentWidth = pageWidth - (margin * 2);
       let currentY = margin;
-      
+
       // Helper to add new page if needed
       const checkPageBreak = (neededHeight: number) => {
         if (currentY + neededHeight > pageHeight - 30) {
@@ -99,7 +99,7 @@ export function DownloadPdfButton({
         }
         return false;
       };
-      
+
       // Try to load and add logo image
       try {
         const logoBase64 = await loadImageAsBase64(claraLogoPdf);
@@ -107,7 +107,7 @@ export function DownloadPdfButton({
         const logoHeight = 32;
         doc.addImage(logoBase64, "PNG", margin, currentY - 5, logoWidth, logoHeight);
         currentY += logoHeight + 5;
-      } catch (error) {
+      } catch {
         console.warn("Could not load logo image, using text fallback");
         doc.setTextColor(212, 165, 116);
         doc.setFontSize(16);
@@ -120,7 +120,7 @@ export function DownloadPdfButton({
         doc.text("Consultora de Legislação e Apoio a Rotinas Administrativas", margin, currentY);
         currentY += 8;
       }
-      
+
       // Date
       doc.setFontSize(10);
       doc.setFont("helvetica", "normal");
@@ -134,19 +134,19 @@ export function DownloadPdfButton({
       });
       doc.text(`Gerado em: ${formattedDate}`, margin, currentY);
       currentY += 4;
-      
+
       // Separator line
       doc.setDrawColor(200);
       doc.line(margin, currentY, pageWidth - margin, currentY);
       currentY += 10;
-      
+
       // User query section
       doc.setTextColor(0);
       doc.setFontSize(12);
       doc.setFont("helvetica", "bold");
       doc.text("Sua pergunta:", margin, currentY);
       currentY += 6;
-      
+
       doc.setFontSize(11);
       doc.setFont("helvetica", "italic");
       doc.setTextColor(60);
@@ -157,17 +157,17 @@ export function DownloadPdfButton({
         currentY += 6;
       });
       currentY += 8;
-      
+
       // Response section
       doc.setTextColor(0);
       doc.setFontSize(12);
       doc.setFont("helvetica", "bold");
       doc.text("Resposta:", margin, currentY);
       currentY += 6;
-      
+
       doc.setFontSize(11);
       doc.setFont("helvetica", "normal");
-      
+
       // Clean markdown for plain text
       const cleanText = assistantResponse
         .replace(/\*\*(.+?)\*\*/g, "$1")
@@ -178,36 +178,36 @@ export function DownloadPdfButton({
         .replace(/\[([^\]]+)\]/g, "[$1]")
         .replace(/\n{3,}/g, "\n\n")
         .trim();
-      
+
       const responseLines = doc.splitTextToSize(cleanText, contentWidth);
       responseLines.forEach((line: string) => {
         checkPageBreak(6);
         doc.text(line, margin, currentY);
         currentY += 6;
       });
-      
+
       // Sources section
       const hasLocalSources = sources?.local && sources.local.length > 0;
       const hasWebSources = sources?.web && sources.web.length > 0;
-      
+
       if (hasLocalSources || hasWebSources) {
         currentY += 8;
         checkPageBreak(20);
-        
+
         doc.setDrawColor(200);
         doc.line(margin, currentY, pageWidth - margin, currentY);
         currentY += 8;
-        
+
         doc.setTextColor(0);
         doc.setFontSize(12);
         doc.setFont("helvetica", "bold");
         doc.text("Fontes Consultadas:", margin, currentY);
         currentY += 8;
-        
+
         doc.setFontSize(10);
         doc.setFont("helvetica", "normal");
         doc.setTextColor(60);
-        
+
         if (hasLocalSources) {
           sources.local.forEach((source) => {
             checkPageBreak(6);
@@ -215,7 +215,7 @@ export function DownloadPdfButton({
             currentY += 6;
           });
         }
-        
+
         if (hasWebSources) {
           if (hasLocalSources) currentY += 2;
           sources.web?.forEach((source) => {
@@ -227,7 +227,7 @@ export function DownloadPdfButton({
           });
         }
       }
-      
+
       // Footer on last page
       const totalPages = doc.getNumberOfPages();
       for (let i = 1; i <= totalPages; i++) {
@@ -235,8 +235,8 @@ export function DownloadPdfButton({
         doc.setFontSize(8);
         doc.setTextColor(150);
         doc.text(
-          "Documento gerado pela CLARA - Inteligência Administrativa", 
-          margin, 
+          "Documento gerado pela CLARA - Inteligência Administrativa",
+          margin,
           pageHeight - 10
         );
         doc.text(
@@ -245,17 +245,17 @@ export function DownloadPdfButton({
           pageHeight - 10
         );
       }
-      
+
       // Download
       const fileName = `clara-resposta-${timestamp.toISOString().split("T")[0]}.pdf`;
       doc.save(fileName);
-      
+
       setDownloaded(true);
       toast({
         title: "PDF baixado!",
         description: "O arquivo foi salvo na sua pasta de downloads.",
       });
-      
+
       setTimeout(() => setDownloaded(false), 2000);
     } catch (error) {
       console.error("Erro ao gerar PDF:", error);

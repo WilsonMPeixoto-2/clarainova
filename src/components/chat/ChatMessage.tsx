@@ -1,7 +1,7 @@
 import { memo, useMemo } from "react";
 import { motion } from "framer-motion";
 import { User, FileText, ExternalLink, ChevronDown, ChevronUp, CheckCircle2 } from "lucide-react";
-import type { ChatMessage as ChatMessageType, WebSourceData, MessageStatus } from "@/hooks/useChat";
+import type { ChatMessage as ChatMessageType, WebSourceData } from "@/hooks/useChat";
 import { MessageActions } from "./MessageActions";
 import { DownloadPdfButton } from "./DownloadPdfButton";
 import { FeedbackButtons } from "./FeedbackButtons";
@@ -115,7 +115,7 @@ function renderMarkdown(text: string): JSX.Element[] {
     // Lists
     const unorderedMatch = line.match(/^[-*]\s+(.+)/);
     const orderedMatch = line.match(/^\d+\.\s+(.+)/);
-    
+
     if (unorderedMatch) {
       if (isOrderedList && listItems.length > 0) {
         flushList();
@@ -124,7 +124,7 @@ function renderMarkdown(text: string): JSX.Element[] {
       listItems.push(unorderedMatch[1]);
       continue;
     }
-    
+
     if (orderedMatch) {
       if (!isOrderedList && listItems.length > 0) {
         flushList();
@@ -243,18 +243,18 @@ function isStructuredWebSource(source: WebSourceData | string): source is WebSou
 // Componente de fontes colapsável - Premium chips design
 function SourcesSection({ sources }: { sources: ChatMessageType["sources"] }) {
   const [isExpanded, setIsExpanded] = useState(false);
-  
+
   if (!sources) return null;
-  
+
   const webSourcesCount = sources.web?.length || 0;
   const totalSources = (sources.local?.length || 0) + webSourcesCount;
   if (totalSources === 0) return null;
-  
-  // Check if we have structured web sources
-  const hasStructuredWebSources = sources.web && sources.web.length > 0 && isStructuredWebSource(sources.web[0]);
-  
+
+  // Check if we have structured web sources (commented out var since requested, or could remove the whole line if not used)
+  // const hasStructuredWebSources = sources.web && sources.web.length > 0 && isStructuredWebSource(sources.web[0]);
+
   return (
-    <motion.div 
+    <motion.div
       className="mt-4"
       initial={{ opacity: 0, y: 5 }}
       animate={{ opacity: 1, y: 0 }}
@@ -275,7 +275,7 @@ function SourcesSection({ sources }: { sources: ChatMessageType["sources"] }) {
             <ChevronDown className="w-3 h-3" aria-hidden="true" />
           )}
         </Button>
-        
+
         {/* Quorum badge */}
         {sources.quorum_met && (
           <motion.span
@@ -288,10 +288,10 @@ function SourcesSection({ sources }: { sources: ChatMessageType["sources"] }) {
           </motion.span>
         )}
       </div>
-      
+
       <motion.div
         initial={false}
-        animate={{ 
+        animate={{
           height: isExpanded ? "auto" : 0,
           opacity: isExpanded ? 1 : 0
         }}
@@ -301,7 +301,7 @@ function SourcesSection({ sources }: { sources: ChatMessageType["sources"] }) {
         <div className="sources-row mt-2">
           {/* Local sources */}
           {sources.local?.map((source, i) => (
-            <motion.span 
+            <motion.span
               key={`local-${i}`}
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
@@ -313,7 +313,7 @@ function SourcesSection({ sources }: { sources: ChatMessageType["sources"] }) {
               <span className="truncate max-w-[180px]">{source}</span>
             </motion.span>
           ))}
-          
+
           {/* Web sources - structured or simple */}
           {sources.web?.map((source, i) => {
             if (isStructuredWebSource(source)) {
@@ -325,10 +325,10 @@ function SourcesSection({ sources }: { sources: ChatMessageType["sources"] }) {
                 />
               );
             }
-            
+
             // Fallback to simple URL chip
             return (
-              <motion.a 
+              <motion.a
                 key={`web-${i}`}
                 href={source}
                 target="_blank"
@@ -364,8 +364,8 @@ function MessageSkeleton() {
   );
 }
 
-export const ChatMessage = memo(function ChatMessage({ 
-  message, 
+export const ChatMessage = memo(function ChatMessage({
+  message,
   onStop,
   onRegenerate,
   onContinue,
@@ -373,17 +373,16 @@ export const ChatMessage = memo(function ChatMessage({
   isLastAssistant = false,
 }: ChatMessageProps) {
   const isUser = message.role === "user";
-  const isStopped = message.status === "stopped";
 
   const formattedTime = useMemo(() => {
-    return message.timestamp.toLocaleTimeString("pt-BR", { 
-      hour: "2-digit", 
-      minute: "2-digit" 
+    return message.timestamp.toLocaleTimeString("pt-BR", {
+      hour: "2-digit",
+      minute: "2-digit"
     });
   }, [message.timestamp]);
 
   return (
-    <motion.div 
+    <motion.div
       className={`flex gap-4 ${isUser ? "flex-row-reverse" : ""}`}
       initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
@@ -392,12 +391,11 @@ export const ChatMessage = memo(function ChatMessage({
       aria-label={`Mensagem de ${isUser ? "você" : "CLARA"}`}
     >
       {/* Avatar */}
-      <motion.div 
-        className={`flex-shrink-0 w-9 h-9 rounded-full flex items-center justify-center ${
-          isUser 
-            ? "bg-secondary text-foreground" 
+      <motion.div
+        className={`flex-shrink-0 w-9 h-9 rounded-full flex items-center justify-center ${isUser
+            ? "bg-secondary text-foreground"
             : "clara-avatar"
-        }`}
+          }`}
         initial={{ scale: 0 }}
         animate={{ scale: 1 }}
         transition={{ delay: 0.1, type: "spring", stiffness: 300 }}
@@ -407,38 +405,37 @@ export const ChatMessage = memo(function ChatMessage({
 
       {/* Content */}
       <div className={`flex-1 max-w-[85%] ${isUser ? "text-right" : ""}`}>
-        <div className={`inline-block rounded-2xl px-4 py-3 ${
-          isUser 
-            ? "bg-primary text-primary-foreground rounded-tr-sm" 
+        <div className={`inline-block rounded-2xl px-4 py-3 ${isUser
+            ? "bg-primary text-primary-foreground rounded-tr-sm"
             : "bg-card/70 backdrop-blur-sm border border-border-subtle rounded-tl-sm"
-        }`}>
+          }`}>
           {isUser ? (
             <p className="text-sm leading-relaxed">{message.content}</p>
           ) : (
             <div className="text-sm chat-content-container">
               {message.isStreaming && !message.content ? (
                 <span className="inline-flex items-center gap-1.5">
-                  <motion.span 
+                  <motion.span
                     animate={{ opacity: [0.4, 1, 0.4] }}
                     transition={{ duration: 1, repeat: Infinity }}
-                    className="w-2 h-2 bg-primary rounded-full" 
+                    className="w-2 h-2 bg-primary rounded-full"
                   />
-                  <motion.span 
+                  <motion.span
                     animate={{ opacity: [0.4, 1, 0.4] }}
                     transition={{ duration: 1, repeat: Infinity, delay: 0.2 }}
-                    className="w-2 h-2 bg-primary rounded-full" 
+                    className="w-2 h-2 bg-primary rounded-full"
                   />
-                  <motion.span 
+                  <motion.span
                     animate={{ opacity: [0.4, 1, 0.4] }}
                     transition={{ duration: 1, repeat: Infinity, delay: 0.4 }}
-                    className="w-2 h-2 bg-primary rounded-full" 
+                    className="w-2 h-2 bg-primary rounded-full"
                   />
                 </span>
               ) : (
                 <>
                   {renderMarkdown(message.content)}
                   {message.isStreaming && (
-                    <motion.span 
+                    <motion.span
                       className="inline-block w-0.5 h-4 bg-primary ml-0.5"
                       animate={{ opacity: [1, 0] }}
                       transition={{ duration: 0.5, repeat: Infinity }}
@@ -457,7 +454,7 @@ export const ChatMessage = memo(function ChatMessage({
 
         {/* Actions for assistant messages - B2: Standardized action bar */}
         {!isUser && !message.isStreaming && message.content && (
-          <motion.div 
+          <motion.div
             className="action-bar"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}

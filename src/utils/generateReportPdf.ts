@@ -55,7 +55,7 @@ export async function generateReportPdf(report: ReportData): Promise<void> {
   const margin = 20;
   const contentWidth = pageWidth - (margin * 2);
   let currentY = margin;
-  
+
   // Helper to add new page if needed
   const checkPageBreak = (neededHeight: number) => {
     if (currentY + neededHeight > pageHeight - 30) {
@@ -65,7 +65,7 @@ export async function generateReportPdf(report: ReportData): Promise<void> {
     }
     return false;
   };
-  
+
   // Try to load and add logo image
   try {
     const logoBase64 = await loadImageAsBase64(claraLogoPdf);
@@ -74,7 +74,7 @@ export async function generateReportPdf(report: ReportData): Promise<void> {
     const logoHeight = 32; // Approximate aspect ratio
     doc.addImage(logoBase64, "PNG", margin, currentY - 5, logoWidth, logoHeight);
     currentY += logoHeight + 5;
-  } catch (error) {
+  } catch {
     // Fallback to text logo if image fails
     console.warn("Could not load logo image, using text fallback");
     doc.setTextColor(212, 165, 116); // Primary amber
@@ -88,7 +88,7 @@ export async function generateReportPdf(report: ReportData): Promise<void> {
     doc.text("Consultora de Legislação e Apoio a Rotinas Administrativas", margin, currentY);
     currentY += 8;
   }
-  
+
   // Date
   doc.setFontSize(10);
   doc.setFont("helvetica", "normal");
@@ -102,12 +102,12 @@ export async function generateReportPdf(report: ReportData): Promise<void> {
   });
   doc.text(`Gerado em: ${formattedDate}`, margin, currentY);
   currentY += 4;
-  
+
   // Separator line
   doc.setDrawColor(200);
   doc.line(margin, currentY, pageWidth - margin, currentY);
   currentY += 10;
-  
+
   // Report title
   doc.setTextColor(0);
   doc.setFontSize(14);
@@ -119,19 +119,19 @@ export async function generateReportPdf(report: ReportData): Promise<void> {
     currentY += 8;
   });
   currentY += 4;
-  
+
   // Content - process markdown-like formatting
   doc.setFontSize(10);
   doc.setFont("helvetica", "normal");
   doc.setTextColor(40);
-  
+
   const lines = report.content.split('\n');
   let inCodeBlock = false;
   let inTable = false;
-  
+
   lines.forEach((line) => {
     const trimmedLine = line.trim();
-    
+
     // Handle code blocks - skip them but add placeholder
     if (trimmedLine.startsWith('```')) {
       if (!inCodeBlock) {
@@ -152,9 +152,9 @@ export async function generateReportPdf(report: ReportData): Promise<void> {
       }
       return;
     }
-    
+
     if (inCodeBlock) return; // Skip code block content
-    
+
     // Handle tables - detect and skip with placeholder
     if (trimmedLine.startsWith('|') && trimmedLine.endsWith('|')) {
       if (!inTable) {
@@ -173,13 +173,13 @@ export async function generateReportPdf(report: ReportData): Promise<void> {
     } else {
       inTable = false;
     }
-    
+
     // Empty lines
     if (!trimmedLine) {
       currentY += 3;
       return;
     }
-    
+
     // H1 headers
     if (trimmedLine.startsWith('# ')) {
       checkPageBreak(12);
@@ -198,7 +198,7 @@ export async function generateReportPdf(report: ReportData): Promise<void> {
       doc.setTextColor(40);
       return;
     }
-    
+
     // H2 headers
     if (trimmedLine.startsWith('## ')) {
       checkPageBreak(10);
@@ -217,7 +217,7 @@ export async function generateReportPdf(report: ReportData): Promise<void> {
       doc.setTextColor(40);
       return;
     }
-    
+
     // H3+ headers
     if (trimmedLine.startsWith('### ')) {
       checkPageBreak(8);
@@ -236,7 +236,7 @@ export async function generateReportPdf(report: ReportData): Promise<void> {
       doc.setTextColor(40);
       return;
     }
-    
+
     // H4 headers
     if (trimmedLine.startsWith('#### ')) {
       checkPageBreak(8);
@@ -251,7 +251,7 @@ export async function generateReportPdf(report: ReportData): Promise<void> {
       doc.setFont("helvetica", "normal");
       return;
     }
-    
+
     // Horizontal rule
     if (trimmedLine === '---' || trimmedLine === '***') {
       checkPageBreak(6);
@@ -261,7 +261,7 @@ export async function generateReportPdf(report: ReportData): Promise<void> {
       currentY += 4;
       return;
     }
-    
+
     // Bullet points
     if (trimmedLine.startsWith('- ') || trimmedLine.startsWith('* ')) {
       const bulletContent = trimmedLine.substring(2)
@@ -281,7 +281,7 @@ export async function generateReportPdf(report: ReportData): Promise<void> {
       });
       return;
     }
-    
+
     // Numbered items
     const numberedMatch = trimmedLine.match(/^(\d+)\.\s+(.+)$/);
     if (numberedMatch) {
@@ -303,14 +303,14 @@ export async function generateReportPdf(report: ReportData): Promise<void> {
       });
       return;
     }
-    
+
     // Regular paragraph - clean inline formatting
     const cleanLine = trimmedLine
       .replace(/\*\*(.+?)\*\*/g, "$1")
       .replace(/\*(.+?)\*/g, "$1")
       .replace(/`([^`]+)`/g, "$1")
       .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1"); // Remove links but keep text
-    
+
     const paragraphLines = doc.splitTextToSize(cleanLine, contentWidth);
     paragraphLines.forEach((paragraphLine: string) => {
       checkPageBreak(5);
@@ -318,7 +318,7 @@ export async function generateReportPdf(report: ReportData): Promise<void> {
       currentY += 5;
     });
   });
-  
+
   // Footer on all pages
   const totalPages = doc.getNumberOfPages();
   for (let i = 1; i <= totalPages; i++) {
@@ -326,8 +326,8 @@ export async function generateReportPdf(report: ReportData): Promise<void> {
     doc.setFontSize(8);
     doc.setTextColor(150);
     doc.text(
-      "Documento gerado pela CLARA - Inteligência Administrativa", 
-      margin, 
+      "Documento gerado pela CLARA - Inteligência Administrativa",
+      margin,
       pageHeight - 10
     );
     doc.text(
@@ -336,7 +336,7 @@ export async function generateReportPdf(report: ReportData): Promise<void> {
       pageHeight - 10
     );
   }
-  
+
   // Download
   const safeTitle = report.title
     .toLowerCase()

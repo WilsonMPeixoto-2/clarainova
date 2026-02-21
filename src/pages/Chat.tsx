@@ -60,14 +60,14 @@ export default function Chat() {
   const { user, loading: authLoading } = useAuth();
 
   // Chat hook with session persistence
-  const { 
-    messages, 
-    isLoading, 
-    thinking, 
-    sendMessage, 
-    clearHistory, 
-    cancelStream, 
-    regenerateLast, 
+  const {
+    messages,
+    isLoading,
+    thinking,
+    sendMessage,
+    clearHistory,
+    cancelStream,
+    regenerateLast,
     continueLast,
     setMessages,
   } = useChat({
@@ -89,13 +89,12 @@ export default function Chat() {
     updateSession,
     loadSession,
     deleteSession,
-    refreshSessions,
   } = useChatSessions();
 
   // Auto-save session when messages change (debounced)
   useEffect(() => {
     if (!user || messages.length === 0) return;
-    
+
     const timeoutId = setTimeout(async () => {
       if (currentSessionId) {
         await updateSession(currentSessionId, messages);
@@ -104,7 +103,7 @@ export default function Chat() {
         await createSession(messages);
       }
     }, 1000); // Debounce 1s
-    
+
     return () => clearTimeout(timeoutId);
   }, [messages, user, currentSessionId, updateSession, createSession]);
 
@@ -147,7 +146,7 @@ export default function Chat() {
     const el = scrollContainerRef.current;
     if (el) {
       const threshold = 100;
-      isUserAtBottom.current = 
+      isUserAtBottom.current =
         el.scrollHeight - el.scrollTop - el.clientHeight < threshold;
     }
   }, []);
@@ -188,28 +187,28 @@ export default function Chat() {
 
   return (
     <TooltipProvider>
-      <SEOHead 
+      <SEOHead
         title="Chat - CLARA"
         description="Converse com a CLARA, sua assistente especializada em legislação e procedimentos administrativos."
       />
-      
+
       <OfflineIndicator />
-      
+
       <div className="min-h-screen bg-background flex flex-col">
         {/* Skip link for accessibility */}
-        <a 
-          href="#chat-input" 
+        <a
+          href="#chat-input"
           className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-50 focus:px-4 focus:py-2 focus:bg-primary focus:text-primary-foreground focus:rounded-lg"
         >
           Pular para o campo de mensagem
         </a>
 
         {/* Header */}
-        <motion.header 
+        <motion.header
           initial={{ y: -20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           transition={{ duration: 0.3 }}
-          className="sticky top-0 z-50 glass-card border-b border-border/50" 
+          className="sticky top-0 z-50 glass-card border-b border-border/50"
           role="banner"
         >
           <div className="container max-w-5xl mx-auto px-4 h-16 flex items-center justify-between">
@@ -314,16 +313,16 @@ export default function Chat() {
         </motion.header>
 
         {/* Messages Area */}
-        <main 
+        <main
           ref={scrollContainerRef as React.RefObject<HTMLElement>}
           onScroll={handleScroll}
-          className="flex-1 container max-w-5xl mx-auto px-4 py-6 overflow-y-auto" 
-          role="main" 
+          className="flex-1 container max-w-5xl mx-auto px-4 py-6 overflow-y-auto"
+          role="main"
           aria-label="Área de mensagens"
         >
           <AnimatePresence mode="wait">
             {messages.length === 0 ? (
-              <motion.div 
+              <motion.div
                 key="empty-state"
                 variants={containerVariants}
                 initial="hidden"
@@ -331,34 +330,34 @@ export default function Chat() {
                 exit={{ opacity: 0, scale: 0.95 }}
                 className="flex flex-col items-center justify-center h-full min-h-[50vh] text-center"
               >
-                <motion.div 
+                <motion.div
                   variants={itemVariants}
-                  className="w-16 h-16 rounded-full bg-primary/20 flex items-center justify-center mb-6" 
+                  className="w-16 h-16 rounded-full bg-primary/20 flex items-center justify-center mb-6"
                   aria-hidden="true"
                 >
                   <MessageSquare className="w-8 h-8 text-primary" />
                 </motion.div>
-                
-                <motion.h2 
+
+                <motion.h2
                   variants={itemVariants}
                   className="text-2xl font-semibold text-foreground mb-2"
                 >
                   Olá! Sou a CLARA
                 </motion.h2>
-                
-                <motion.p 
+
+                <motion.p
                   variants={itemVariants}
                   className="text-muted-foreground max-w-md mb-8"
                 >
                   Sua assistente especializada em legislação e procedimentos administrativos.
                   Como posso ajudar você hoje?
                 </motion.p>
-                
+
                 {/* Sugestões */}
-                <motion.div 
+                <motion.div
                   variants={containerVariants}
-                  className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full max-w-lg" 
-                  role="group" 
+                  className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full max-w-lg"
+                  role="group"
                   aria-label="Sugestões de perguntas"
                 >
                   {suggestions.map((suggestion, index) => (
@@ -378,25 +377,25 @@ export default function Chat() {
                 </motion.div>
               </motion.div>
             ) : (
-              <motion.div 
+              <motion.div
                 key="messages"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
-                className="space-y-6" 
-                role="log" 
-                aria-live="polite" 
+                className="space-y-6"
+                role="log"
+                aria-live="polite"
                 aria-label="Histórico da conversa"
               >
                 {messages.map((message, index) => {
-                  const isLastAssistant = 
-                    message.role === "assistant" && 
-                    index === messages.length - 1 || 
-                    (message.role === "assistant" && 
-                     messages.slice(index + 1).every(m => m.role !== "assistant"));
-                  
+                  const isLastAssistant =
+                    message.role === "assistant" &&
+                    index === messages.length - 1 ||
+                    (message.role === "assistant" &&
+                      messages.slice(index + 1).every(m => m.role !== "assistant"));
+
                   return (
-                    <ChatMessage 
-                      key={message.id} 
+                    <ChatMessage
+                      key={message.id}
                       message={message}
                       onStop={cancelStream}
                       onRegenerate={regenerateLast}
@@ -406,13 +405,13 @@ export default function Chat() {
                     />
                   );
                 })}
-                
+
                 <AnimatePresence>
                   {thinking.isThinking && (
                     <ThinkingIndicator step={thinking.step} />
                   )}
                 </AnimatePresence>
-                
+
                 <div ref={messagesEndRef} />
               </motion.div>
             )}
@@ -420,7 +419,7 @@ export default function Chat() {
         </main>
 
         {/* Input Area */}
-        <motion.footer 
+        <motion.footer
           initial={{ y: 20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           transition={{ delay: 0.2 }}

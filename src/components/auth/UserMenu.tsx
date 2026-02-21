@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { LogOut, User, ChevronDown } from 'lucide-react';
+import { LogOut, ChevronDown } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
@@ -10,11 +10,11 @@ const UserMenu = () => {
 
   if (!user) return null;
 
-  const displayName = user.user_metadata?.full_name || 
-                      user.user_metadata?.name || 
-                      user.email?.split('@')[0] || 
-                      'Usuário';
-  
+  const displayName = user.user_metadata?.full_name ||
+    user.user_metadata?.name ||
+    user.email?.split('@')[0] ||
+    'Usuário';
+
   const avatarUrl = user.user_metadata?.avatar_url || user.user_metadata?.picture;
   const initials = displayName.slice(0, 2).toUpperCase();
 
@@ -44,8 +44,8 @@ const UserMenu = () => {
         <span className="text-sm text-foreground hidden sm:inline max-w-[100px] truncate">
           {displayName}
         </span>
-        <ChevronDown 
-          className={`w-4 h-4 text-muted-foreground transition-transform ${isOpen ? 'rotate-180' : ''}`} 
+        <ChevronDown
+          className={`w-4 h-4 text-muted-foreground transition-transform ${isOpen ? 'rotate-180' : ''}`}
         />
       </motion.button>
 
@@ -53,11 +53,11 @@ const UserMenu = () => {
         {isOpen && (
           <>
             {/* Backdrop */}
-            <div 
-              className="fixed inset-0 z-40" 
+            <div
+              className="fixed inset-0 z-40"
               onClick={() => setIsOpen(false)}
             />
-            
+
             {/* Dropdown */}
             <motion.div
               initial={{ opacity: 0, y: -10, scale: 0.95 }}

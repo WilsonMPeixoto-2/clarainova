@@ -16,10 +16,8 @@ import {
   TrendingUp,
   MessageSquare,
   AlertTriangle,
-  RefreshCw,
   ChevronDown,
   ChevronUp,
-  ExternalLink,
 } from "lucide-react";
 import {
   BarChart,
