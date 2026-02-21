@@ -898,7 +898,7 @@
     .clara-hero {
       --hero-copy-max: 420px;
       --hero-copy-left: clamp(20px, 2.5vw, 40px);
-      --hero-media-width: 40%;
+      --hero-media-width: 100%;
       --hero-overlay-strength: 0.90;
       --hero-min-h: 100svh;
     }
@@ -908,7 +908,7 @@
     .clara-hero {
       --hero-copy-max: 480px;
       --hero-copy-left: clamp(28px, 3vw, 56px);
-      --hero-media-width: 42%;
+      --hero-media-width: 100%;
       --hero-overlay-strength: 0.88;
     }
   }
@@ -917,7 +917,7 @@
     .clara-hero {
       --hero-copy-max: 520px;
       --hero-copy-left: clamp(40px, 4vw, 72px);
-      --hero-media-width: 44%;
+      --hero-media-width: 100%;
       --hero-overlay-strength: 0.87;
     }
   }
@@ -926,7 +926,7 @@
     .clara-hero {
       --hero-copy-max: 560px;
       --hero-copy-left: clamp(48px, 5vw, 96px);
-      --hero-media-width: 45%;
+      --hero-media-width: 100%;
       --hero-overlay-strength: 0.85;
     }
   }
@@ -957,6 +957,7 @@
     top: 0;
     bottom: 0;
     right: 0;
+    left: 0;
     width: var(--hero-media-width);
     z-index: 10;
     overflow: hidden;
@@ -984,8 +985,8 @@
     .hero-clara-video {
       object-fit: cover;
       /* Desktop: Stage limits width, cover perfectly anchors to right natively */
-      object-position: right center;
-      /* Focus completely to the right side of the box */
+      object-position: 80% center;
+      /* Focus completely to the right side of the box but keeping some organic bleed */
     }
   }
 
