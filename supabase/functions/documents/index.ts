@@ -321,7 +321,7 @@ const ADMIN_RATE_LIMIT = {
   windowSeconds: 300,
 };
 
-function getClientKey(req: Request): string {
+function getRawClientIp(req: Request): string {
   const forwarded = req.headers.get("x-forwarded-for");
   const cfIp = req.headers.get("cf-connecting-ip");
   const realIp = req.headers.get("x-real-ip");
@@ -330,6 +330,19 @@ function getClientKey(req: Request): string {
   if (cfIp) return cfIp;
   if (realIp) return realIp;
   return "unknown";
+}
+
+async function hashClientIdentifier(value: string): Promise<string> {
+  const salt = Deno.env.get("RATELIMIT_SALT");
+  if (!salt) {
+    console.warn("[documents] RATELIMIT_SALT not configured - using degraded identifier");
+    return "no-salt-configured";
+  }
+
+  const data = new TextEncoder().encode(value + salt);
+  const hashBuffer = await crypto.subtle.digest("SHA-256", data);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map((b) => b.toString(16).padStart(2, "0")).join("").slice(0, 32);
 }
 
 /**
@@ -587,7 +600,8 @@ serve(async (req) => {
     const isWorkerEndpoint = lastPart === "process-job" || lastPart === "ingest-batch";
 
     if ((req.method === "POST" || req.method === "DELETE") && !isWorkerEndpoint) {
-      const clientKey = getClientKey(req);
+      const rawClientIp = getRawClientIp(req);
+      const clientKey = await hashClientIdentifier(rawClientIp);
       const { data: rateLimitResult, error: rateLimitError } = await supabase.rpc(
         "check_rate_limit",
         {
@@ -872,7 +886,7 @@ serve(async (req) => {
       }
 
       // Log document access
-      const clientIp = getClientKey(req);
+      const clientIp = getRawClientIp(req);
       await supabase.rpc("log_document_access", {
         p_document_id: documentId,
         p_access_type: "download",

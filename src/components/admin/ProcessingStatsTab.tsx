@@ -1,9 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { RefreshCw, AlertTriangle, CheckCircle, Clock, Activity } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
+import { adminAnalyticsRequest } from './adminApi';
 
 interface ProcessingStat {
   step: string;
@@ -44,34 +44,44 @@ const stepLabels: Record<string, string> = {
   db_insert: 'Banco de Dados',
 };
 
-export function ProcessingStatsTab() {
+interface ProcessingStatsTabProps {
+  adminKey: string;
+}
+
+interface ProcessingPayload {
+  stats: ProcessingStat[];
+  errors: RecentError[];
+  retry_docs: DocumentForRetry[];
+}
+
+export function ProcessingStatsTab({ adminKey }: ProcessingStatsTabProps) {
   const [stats, setStats] = useState<ProcessingStat[]>([]);
   const [errors, setErrors] = useState<RecentError[]>([]);
   const [retryDocs, setRetryDocs] = useState<DocumentForRetry[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const [statsRes, errorsRes, retryRes] = await Promise.all([
-        supabase.rpc('get_processing_stats', { p_days: 7 }),
-        supabase.rpc('get_recent_processing_errors', { p_limit: 10 }),
-        supabase.rpc('get_documents_for_retry'),
-      ]);
+      const data = await adminAnalyticsRequest<ProcessingPayload>({
+        adminKey,
+        path: 'processing',
+        query: { days: 7, errors_limit: 10 },
+      });
 
-      if (statsRes.data) setStats(statsRes.data);
-      if (errorsRes.data) setErrors(errorsRes.data);
-      if (retryRes.data) setRetryDocs(retryRes.data);
+      setStats(data.stats || []);
+      setErrors(data.errors || []);
+      setRetryDocs(data.retry_docs || []);
     } catch (error) {
       console.error('Error fetching processing stats:', error);
     } finally {
       setLoading(false);
     }
-  };
+  }, [adminKey]);
 
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [fetchData]);
 
   const formatDuration = (ms: number) => {
     if (ms < 1000) return `${ms}ms`;

@@ -16,14 +16,28 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { adminAnalyticsRequest } from "./adminApi";
 
 interface StorageStats {
   totalSessions: number;
   totalSizeBytes: number;
   oldestSession: string | null;
   newestSession: string | null;
+}
+
+interface StorageStatsPayload {
+  stats: {
+    total_sessions: number;
+    total_size_bytes: number;
+    oldest_session: string | null;
+    newest_session: string | null;
+  };
+  preview_count: number;
+}
+
+interface StorageCleanupPayload {
+  deleted_count: number;
 }
 
 const MAX_STORAGE_BYTES = 500 * 1024 * 1024; // 500MB
@@ -46,7 +60,11 @@ function getStorageStatus(percentage: number): {
   return { label: "Crítico", color: "text-destructive", variant: "destructive" };
 }
 
-export function StorageMonitor() {
+interface StorageMonitorProps {
+  adminKey: string;
+}
+
+export function StorageMonitor({ adminKey }: StorageMonitorProps) {
   const { toast } = useToast();
   const [stats, setStats] = useState<StorageStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -56,26 +74,20 @@ export function StorageMonitor() {
   const fetchStats = useCallback(async () => {
     setIsLoading(true);
     try {
-      const { data, error } = await supabase.rpc("get_chat_storage_stats");
+      const data = await adminAnalyticsRequest<StorageStatsPayload>({
+        adminKey,
+        path: "storage",
+        query: { days_old: 90 },
+      });
 
-      if (error) throw error;
-
-      if (data && data.length > 0) {
-        const row = data[0];
-        setStats({
-          totalSessions: Number(row.total_sessions) || 0,
-          totalSizeBytes: Number(row.total_size_bytes) || 0,
-          oldestSession: row.oldest_session,
-          newestSession: row.newest_session,
-        });
-      } else {
-        setStats({
-          totalSessions: 0,
-          totalSizeBytes: 0,
-          oldestSession: null,
-          newestSession: null,
-        });
-      }
+      const row = data.stats;
+      setStats({
+        totalSessions: Number(row?.total_sessions) || 0,
+        totalSizeBytes: Number(row?.total_size_bytes) || 0,
+        oldestSession: row?.oldest_session || null,
+        newestSession: row?.newest_session || null,
+      });
+      setPreviewCount(Number(data.preview_count) || 0);
     } catch (err: unknown) {
       console.error("[StorageMonitor] Error fetching stats:", err);
       toast({
@@ -86,49 +98,29 @@ export function StorageMonitor() {
     } finally {
       setIsLoading(false);
     }
-  }, [toast]);
-
-  // Preview how many sessions would be deleted
-  const fetchPreview = useCallback(async () => {
-    try {
-      const cutoffDate = new Date();
-      cutoffDate.setDate(cutoffDate.getDate() - 90);
-
-      const { count, error } = await supabase
-        .from("chat_sessions")
-        .select("id", { count: "exact", head: true })
-        .lt("updated_at", cutoffDate.toISOString());
-
-      if (error) throw error;
-      setPreviewCount(count || 0);
-    } catch (err) {
-      console.error("[StorageMonitor] Error fetching preview:", err);
-      setPreviewCount(null);
-    }
-  }, []);
+  }, [adminKey, toast]);
 
   useEffect(() => {
     fetchStats();
-    fetchPreview();
-  }, [fetchStats, fetchPreview]);
+  }, [fetchStats]);
 
   const handleCleanup = async () => {
     setIsCleaning(true);
     try {
-      const { data, error } = await supabase.rpc("cleanup_old_chat_sessions", {
-        days_old: 90,
+      const data = await adminAnalyticsRequest<StorageCleanupPayload>({
+        adminKey,
+        path: "storage-cleanup",
+        method: "POST",
+        body: { days_old: 90 },
       });
 
-      if (error) throw error;
-
-      const deletedCount = data || 0;
+      const deletedCount = Number(data.deleted_count) || 0;
       toast({
         title: "Limpeza concluída!",
         description: `${deletedCount} conversas antigas foram removidas.`,
       });
 
       await fetchStats();
-      await fetchPreview();
     } catch (err: unknown) {
       console.error("[StorageMonitor] Error cleaning up:", err);
       toast({

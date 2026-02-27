@@ -2172,7 +2172,7 @@ const Admin = () => {
 
             <TabsContent value="metrics">
               <Suspense fallback={<AdminSectionFallback />}>
-                <ChatMetricsDashboard />
+                <ChatMetricsDashboard adminKey={adminKey} />
               </Suspense>
             </TabsContent>
           </Tabs>

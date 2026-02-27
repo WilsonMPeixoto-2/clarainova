@@ -47,8 +47,8 @@ function parseAdminKeys(): string[] {
   return [];
 }
 
-// Helper to get client identifier for rate limiting
-function getClientKey(req: Request): string {
+// Helper to get raw client IP (before privacy hashing)
+function getRawClientIp(req: Request): string {
   const forwarded = req.headers.get("x-forwarded-for");
   const cfIp = req.headers.get("cf-connecting-ip");
   const realIp = req.headers.get("x-real-ip");
@@ -60,6 +60,19 @@ function getClientKey(req: Request): string {
   if (realIp) return realIp;
   
   return "unknown";
+}
+
+async function hashClientIdentifier(value: string): Promise<string> {
+  const salt = Deno.env.get("RATELIMIT_SALT");
+  if (!salt) {
+    console.warn("[admin-upload] RATELIMIT_SALT not configured - using degraded identifier");
+    return "no-salt-configured";
+  }
+
+  const data = new TextEncoder().encode(value + salt);
+  const hashBuffer = await crypto.subtle.digest("SHA-256", data);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map((b) => b.toString(16).padStart(2, "0")).join("").slice(0, 32);
 }
 
 serve(async (req) => {
@@ -85,7 +98,8 @@ serve(async (req) => {
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
     // Rate limiting check BEFORE validating admin key (prevent brute force)
-    const clientKey = getClientKey(req);
+    const rawClientIp = getRawClientIp(req);
+    const clientKey = await hashClientIdentifier(rawClientIp);
     const { data: rateLimitResult, error: rateLimitError } = await supabase.rpc(
       "check_rate_limit",
       {
@@ -100,7 +114,7 @@ serve(async (req) => {
       console.error("[admin-upload] Rate limit check error:", rateLimitError);
     } else if (rateLimitResult && rateLimitResult.length > 0 && !rateLimitResult[0].allowed) {
       const resetIn = rateLimitResult[0].reset_in || ADMIN_RATE_LIMIT.windowSeconds;
-      console.log(`[admin-upload] Rate limited: ${clientKey}`);
+      console.log(`[admin-upload] Rate limited: ${clientKey.slice(0, 8)}...`);
       return new Response(
         JSON.stringify({
           error: `Muitas tentativas. Tente novamente em ${Math.ceil(resetIn / 60)} minutos.`,

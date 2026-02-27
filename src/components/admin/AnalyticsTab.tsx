@@ -378,7 +378,7 @@ export function AnalyticsTab({ adminKey }: AnalyticsTabProps) {
       </div>
 
       {/* API Usage Monitor */}
-      <ApiUsageMonitor />
+      <ApiUsageMonitor adminKey={adminKey} />
 
       {/* Feedback Trend Chart */}
       <Card className="glass-card">
@@ -547,7 +547,7 @@ export function AnalyticsTab({ adminKey }: AnalyticsTabProps) {
       <KnowledgeGapAnalysis queries={queries} feedbacks={feedbacks} />
 
       {/* Storage Monitor */}
-      <StorageMonitor />
+      <StorageMonitor adminKey={adminKey} />
 
       {/* Detail Modal */}
       <FeedbackDetailModal

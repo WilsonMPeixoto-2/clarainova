@@ -14,8 +14,8 @@ const RATE_LIMIT_CONFIG = {
   windowSeconds: 60, // 1 minute window
 };
 
-// Helper to get client identifier for rate limiting
-function getClientKey(req: Request): string {
+// Helper to get raw client IP (before privacy hashing)
+function getRawClientIp(req: Request): string {
   const forwarded = req.headers.get("x-forwarded-for");
   const cfIp = req.headers.get("cf-connecting-ip");
   const realIp = req.headers.get("x-real-ip");
@@ -27,6 +27,19 @@ function getClientKey(req: Request): string {
   if (realIp) return realIp;
   
   return "unknown";
+}
+
+async function hashClientIdentifier(value: string): Promise<string> {
+  const salt = Deno.env.get("RATELIMIT_SALT");
+  if (!salt) {
+    console.warn("[search] RATELIMIT_SALT not configured - using degraded identifier");
+    return "no-salt-configured";
+  }
+
+  const data = new TextEncoder().encode(value + salt);
+  const hashBuffer = await crypto.subtle.digest("SHA-256", data);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map((b) => b.toString(16).padStart(2, "0")).join("").slice(0, 32);
 }
 
 // =============================================
@@ -210,11 +223,12 @@ serve(async (req) => {
 
   try {
     // Rate limiting check
-    const clientKey = getClientKey(req);
+    const rawClientIp = getRawClientIp(req);
+    const clientKey = await hashClientIdentifier(rawClientIp);
     const { data: rateLimitResult, error: rateLimitError } = await supabase.rpc(
       "check_rate_limit",
       {
-        p_client_key: clientKey,
+        p_client_key: `${clientKey}:search`,
         p_endpoint: "search",
         p_max_requests: RATE_LIMIT_CONFIG.maxRequests,
         p_window_seconds: RATE_LIMIT_CONFIG.windowSeconds,
