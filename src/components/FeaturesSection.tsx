@@ -93,8 +93,10 @@ const FeaturesSection = ({ onOpenChat }: FeaturesSectionProps) => {
       className="knowledge-section py-20 md:py-28 relative overflow-hidden"
       aria-labelledby="features-heading"
     >
+      <div className="absolute inset-0 bg-base-900" aria-hidden="true" />
+      <div className="cinematic-noise" aria-hidden="true" />
       <div id="features" className="absolute -top-20" aria-hidden="true" />
-      <div className="container mx-auto px-6">
+      <div className="container mx-auto px-6 relative z-10">
         <ScrollReveal>
           <div className="knowledge-header max-w-4xl mx-auto text-center mb-12 md:mb-16">
             <span className="knowledge-kicker">
@@ -208,7 +210,7 @@ const FeaturesSection = ({ onOpenChat }: FeaturesSectionProps) => {
             <motion.button
               type="button"
               onClick={() => onOpenChat('Preciso de orientação para um processo administrativo em andamento.')}
-              className="btn-clara-primary type-label inline-flex items-center justify-center gap-2 px-6"
+              className="btn-cinematic-glow type-label inline-flex items-center justify-center gap-2 px-6 py-3 rounded-full"
               whileHover={{ scale: 1.01 }}
               whileTap={{ scale: 0.98 }}
             >

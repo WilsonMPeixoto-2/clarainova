@@ -3,7 +3,27 @@ import { render } from "@testing-library/react";
 import { ChatInput } from "./ChatInput";
 
 // Mock framer-motion
-const stripMotionProps = ({ ...rest }: any) => rest;
+const motionPropKeys = new Set([
+  "animate",
+  "whileHover",
+  "whileTap",
+  "whileInView",
+  "initial",
+  "exit",
+  "transition",
+  "variants",
+  "layout",
+  "layoutId",
+  "drag",
+  "dragConstraints",
+  "dragElastic",
+  "dragMomentum",
+  "viewport",
+]);
+const stripMotionProps = (props: Record<string, unknown>) =>
+  Object.fromEntries(
+    Object.entries(props).filter(([key]) => !motionPropKeys.has(key))
+  );
 vi.mock("framer-motion", () => ({
   motion: {
     div: ({ children, ...props }: any) => <div {...stripMotionProps(props)}>{children}</div>,

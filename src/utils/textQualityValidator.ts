@@ -30,6 +30,8 @@ export interface ValidateOptions {
   minConfidence?: number;
 }
 
+const isDev = import.meta.env.DEV;
+
 // Thresholds calibrated for Portuguese text
 const QUALITY_THRESHOLDS = {
   // Word validation
@@ -306,20 +308,22 @@ export function validateTextQuality(
   
   const isValid = confidence >= minConfidence && issues.length <= 2;
   
-  console.log(`[textQualityValidator] Analysis complete:`, {
-    confidence: confidence.toFixed(2),
-    isValid,
-    recommendation,
-    issues,
-    metrics: {
-      validWordRatio: validWordRatio.toFixed(2),
-      avgWordLength: avgWordLength.toFixed(1),
-      alphanumericRatio: alphanumericRatio.toFixed(2),
-      entropyScore: entropyScore.toFixed(2),
-      suspiciousPatterns,
-      commonWordHits,
-    },
-  });
+  if (isDev) {
+    console.log(`[textQualityValidator] Analysis complete:`, {
+      confidence: confidence.toFixed(2),
+      isValid,
+      recommendation,
+      issues,
+      metrics: {
+        validWordRatio: validWordRatio.toFixed(2),
+        avgWordLength: avgWordLength.toFixed(1),
+        alphanumericRatio: alphanumericRatio.toFixed(2),
+        entropyScore: entropyScore.toFixed(2),
+        suspiciousPatterns,
+        commonWordHits,
+      },
+    });
+  }
   
   return {
     isValid,

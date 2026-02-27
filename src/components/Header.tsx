@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Menu, X, MessageCircle } from 'lucide-react';
 import { useScrollPosition } from '@/hooks/useScrollPosition';
 import { Button } from '@/components/ui/button';
@@ -12,6 +12,30 @@ const Header = ({ onOpenChat }: HeaderProps) => {
   const [menuOpen, setMenuOpen] = useState(false);
   const { isScrolled } = useScrollPosition(50);
   const location = useLocation();
+
+  useEffect(() => {
+    setMenuOpen(false);
+  }, [location.pathname, location.hash]);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setMenuOpen(false);
+      }
+    };
+
+    window.addEventListener('keydown', onKeyDown);
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener('keydown', onKeyDown);
+    };
+  }, [menuOpen]);
 
   const primaryLinks = [
     { label: 'Base de Conhecimento', href: '/#conhecimento', note: 'Guias e fluxos principais' },
@@ -51,19 +75,18 @@ const Header = ({ onOpenChat }: HeaderProps) => {
 
   return (
     <>
-      <header 
-        className={`fixed top-0 left-0 right-0 z-50 transition-all duration-normal ${
-          isScrolled 
-            ? 'bg-surface-1/85 backdrop-blur-xl border-b border-border-subtle shadow-sm' 
+      <header
+        className={`fixed top-0 left-0 right-0 z-50 transition-all duration-700 ${isScrolled
+            ? 'bg-white/[0.02] backdrop-blur-3xl saturate-150 border-b border-white/[0.08] shadow-[0_8px_32px_-4px_rgba(0,0,0,0.4)]'
             : 'bg-transparent border-b border-transparent'
-        }`}
+          }`}
         role="banner"
       >
         <div className="container mx-auto max-w-[1600px] px-6 md:px-8 xl:px-10">
           <div className="flex items-center h-16 gap-3 md:h-20 md:grid md:grid-cols-[minmax(300px,1fr)_auto_minmax(300px,1fr)] md:gap-10">
             {/* Brand Mark (minimal monogram to avoid duplicate CLARA headline) */}
-            <a 
-              href="/" 
+            <a
+              href="/"
               className="inline-flex items-center gap-2 shrink-0 min-w-[120px] sm:min-w-[150px] md:min-w-[280px] md:justify-self-start focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 rounded-full"
             >
               <span
@@ -90,11 +113,10 @@ const Header = ({ onOpenChat }: HeaderProps) => {
                   <a
                     key={link.label}
                     href={link.href}
-                    className={`text-xs font-semibold uppercase tracking-[0.1em] transition-colors ${
-                      isActive
+                    className={`text-xs font-semibold uppercase tracking-[0.1em] transition-colors ${isActive
                         ? 'text-primary'
                         : 'text-text-muted hover:text-text-secondary'
-                    }`}
+                      }`}
                   >
                     {link.label}
                   </a>
@@ -115,7 +137,7 @@ const Header = ({ onOpenChat }: HeaderProps) => {
               )}
               <button
                 onClick={() => setMenuOpen(!menuOpen)}
-                className="inline-flex items-center justify-center gap-2 h-10 px-3 sm:min-w-[108px] rounded-lg border border-border-subtle bg-surface-1/80 text-text-secondary hover:text-foreground hover:border-primary/35 hover:shadow-[0_0_12px_hsl(var(--glow)/0.14)] transition-all duration-fast focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+                className="inline-flex items-center justify-center gap-2 h-10 px-3 sm:min-w-[108px] rounded-lg border border-white/10 bg-white/[0.03] text-white hover:bg-white/[0.08] hover:border-white/20 hover:shadow-[0_0_24px_rgba(255,255,255,0.1)] transition-all duration-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
                 aria-label={menuOpen ? "Fechar menu" : "Abrir menu"}
                 aria-expanded={menuOpen}
                 aria-controls="site-menu"
@@ -132,7 +154,7 @@ const Header = ({ onOpenChat }: HeaderProps) => {
 
       {/* Menu Drawer Overlay */}
       {menuOpen && (
-        <div 
+        <div
           className="menu-backdrop"
           onClick={() => setMenuOpen(false)}
           aria-hidden="true"
@@ -140,12 +162,13 @@ const Header = ({ onOpenChat }: HeaderProps) => {
       )}
 
       {/* Navigation Drawer */}
-      <nav 
+      <nav
         id="site-menu"
         className={`drawer-shell fixed top-0 right-0 z-50 h-full w-[min(92vw,360px)] border-l transform transition-transform duration-normal ease-out
           ${menuOpen ? 'translate-x-0' : 'translate-x-full'}
         `}
         role="dialog"
+        aria-modal={menuOpen ? true : undefined}
         aria-label="Menu de navegação"
         aria-hidden={!menuOpen}
       >
@@ -186,8 +209,8 @@ const Header = ({ onOpenChat }: HeaderProps) => {
                     href={link.href}
                     onClick={() => setMenuOpen(false)}
                     className={`group flex flex-col px-3 py-3 rounded-xl border transition-all duration-fast
-                      ${isActive 
-                        ? 'border-primary/45 bg-primary/10' 
+                      ${isActive
+                        ? 'border-primary/45 bg-primary/10'
                         : 'border-border-subtle bg-surface-2/45 hover:border-primary/30 hover:bg-surface-2/72'
                       }
                     `}
@@ -211,10 +234,10 @@ const Header = ({ onOpenChat }: HeaderProps) => {
                     href={link.href}
                     onClick={() => setMenuOpen(false)}
                     className={`group flex flex-col px-3 py-3 rounded-xl border transition-all duration-fast
-                    ${isActive 
-                      ? 'border-primary/45 bg-primary/10' 
-                      : 'border-border-subtle bg-surface-2/45 hover:border-primary/30 hover:bg-surface-2/72'
-                    }
+                    ${isActive
+                        ? 'border-primary/45 bg-primary/10'
+                        : 'border-border-subtle bg-surface-2/45 hover:border-primary/30 hover:bg-surface-2/72'
+                      }
                   `}
                   >
                     <span className={`text-sm font-semibold ${isActive ? 'text-primary' : 'text-foreground group-hover:text-primary'}`}>
@@ -226,7 +249,7 @@ const Header = ({ onOpenChat }: HeaderProps) => {
               })}
             </div>
           </div>
-          
+
           {/* Drawer Footer - CTA */}
           {onOpenChat && (
             <div className="drawer-footer-surface px-4 py-5 border-t">
@@ -235,7 +258,7 @@ const Header = ({ onOpenChat }: HeaderProps) => {
                   setMenuOpen(false);
                   onOpenChat();
                 }}
-                className="btn-clara-primary type-label w-full gap-2 h-11"
+                className="btn-cinematic-glow type-label w-full gap-2 h-11"
               >
                 <MessageCircle size={18} aria-hidden="true" />
                 Chat com CLARA

@@ -14,6 +14,23 @@ const ADMIN_RATE_LIMIT = {
   windowSeconds: 300, // 5 minute window
 };
 
+function parseAdminKeys(): string[] {
+  const adminKeys = Deno.env.get("ADMIN_KEYS");
+  if (adminKeys && adminKeys.trim()) {
+    return adminKeys
+      .split(",")
+      .map((key) => key.trim())
+      .filter((key) => key.length > 0);
+  }
+
+  const adminKey = Deno.env.get("ADMIN_KEY");
+  if (adminKey && adminKey.trim()) {
+    return [adminKey.trim()];
+  }
+
+  return [];
+}
+
 // Helper to get client identifier for rate limiting
 function getClientKey(req: Request): string {
   const forwarded = req.headers.get("x-forwarded-for");
@@ -83,17 +100,17 @@ serve(async (req) => {
 
     // Validate admin key
     const adminKey = (req.headers.get("x-admin-key") || "").trim();
-    const expected = (Deno.env.get("ADMIN_KEY") || "").trim();
-    
-    if (!expected) {
-      console.error("[admin_get_upload_url] ADMIN_KEY not configured");
+    const validAdminKeys = parseAdminKeys();
+
+    if (validAdminKeys.length === 0) {
+      console.error("[admin_get_upload_url] ADMIN_KEYS/ADMIN_KEY not configured");
       return new Response(
         JSON.stringify({ error: "Configuração do servidor incompleta." }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
     
-    if (!adminKey || adminKey !== expected) {
+    if (!adminKey || !validAdminKeys.includes(adminKey)) {
       console.log("[admin_get_upload_url] Invalid admin key attempt");
       return new Response(
         JSON.stringify({ error: "Chave de administrador inválida." }),
@@ -118,13 +135,9 @@ serve(async (req) => {
     const safeName = filename.replace(/[^\w.-]+/g, "_");
     const path = `documents/${Date.now()}_${safeName}`;
 
-    console.log(`[admin_get_upload_url] ========== GENERATING SIGNED URL ==========`);
-    console.log(`[admin_get_upload_url] Original filename: ${filename}`);
-    console.log(`[admin_get_upload_url] Sanitized name: ${safeName}`);
-    console.log(`[admin_get_upload_url] Full path: ${path}`);
-    console.log(`[admin_get_upload_url] Bucket: ${bucket}`);
-    console.log(`[admin_get_upload_url] Content-Type: ${contentType || 'application/octet-stream'}`);
-    console.log(`[admin_get_upload_url] Default expiration: 2 hours`);
+    console.log(
+      `[admin_get_upload_url] generating upload url for bucket=${bucket}, path=${path}, contentType=${contentType || "application/octet-stream"}`
+    );
 
     // Create signed upload URL using service role
     // Note: createSignedUploadUrl uses default expiration (2 hours)
@@ -137,16 +150,10 @@ serve(async (req) => {
       console.error("[admin_get_upload_url] ERROR creating signed URL");
       console.error("[admin_get_upload_url] Error code:", error.name);
       console.error("[admin_get_upload_url] Error message:", error.message);
-      console.error("[admin_get_upload_url] Full error:", JSON.stringify(error, null, 2));
       throw error;
     }
 
-    console.log(`[admin_get_upload_url] ========== SUCCESS ==========`);
-    console.log(`[admin_get_upload_url] Signed URL generated successfully`);
-    console.log(`[admin_get_upload_url] Token length: ${data.token?.length || 0} chars`);
-    console.log(`[admin_get_upload_url] Token (first 30 chars): ${data.token?.substring(0, 30)}...`);
-    console.log(`[admin_get_upload_url] URL host: ${new URL(data.signedUrl).host}`);
-    console.log(`[admin_get_upload_url] URL path: ${new URL(data.signedUrl).pathname}`);
+    console.log(`[admin_get_upload_url] signed upload url generated successfully for ${path}`);
 
     return new Response(
       JSON.stringify({ 

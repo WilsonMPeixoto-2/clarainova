@@ -48,17 +48,12 @@ const HeroSection = ({ onOpenChat }: HeroSectionProps) => {
 
   // VIDEO INFRASTRUCTURE: Premium Quality Fallback Pipeline
   const [videoErrorLevel, setVideoErrorLevel] = useState(0);
+  const [useImageFallback, setUseImageFallback] = useState(false);
 
-  const desktopVideoSources = [
-    '/videos/clara-hero-desktop-4k.mp4',     // 3840x2160 Priority
-    '/videos/clara-hero-desktop-1440p.mp4',  // 2560x1440 
-    '/videos/clara-hero.mp4',                // 720p Temporary Fallback
-  ];
-
-  const mobileVideoSources = [
-    '/videos/clara-hero-mobile-1080x1920.mp4', // Vertical 9:16 Priority
-    '/videos/clara-hero.mp4',                  // Desktop crop
-  ];
+  // Keep runtime references limited to assets that are guaranteed to exist.
+  const sharedVideoSource = '/videos/clara-hero.mp4';
+  const desktopVideoSources = [sharedVideoSource];
+  const mobileVideoSources = [sharedVideoSource];
 
   const currentSources = isHeroMobile ? mobileVideoSources : desktopVideoSources;
   const currentVideoSrc = currentSources[Math.min(videoErrorLevel, currentSources.length - 1)];
@@ -66,13 +61,16 @@ const HeroSection = ({ onOpenChat }: HeroSectionProps) => {
   // Reset error pipeline when crossing breakpoints so we don't get stuck caching a lower resolution
   useEffect(() => {
     setVideoErrorLevel(0);
+    setUseImageFallback(false);
   }, [isHeroMobile]);
 
   const handleVideoError = () => {
     if (videoErrorLevel < currentSources.length - 1) {
       console.warn(`[Hero] Video asset not found: ${currentVideoSrc}. Falling back to lower resolution.`);
       setVideoErrorLevel((prev) => prev + 1);
+      return;
     }
+    setUseImageFallback(true);
   };
 
   const shouldAnimate = isJsEnabled && !prefersReducedMotion && !isHeroMobile;
@@ -227,11 +225,11 @@ const HeroSection = ({ onOpenChat }: HeroSectionProps) => {
           transition={shouldAnimate ? { duration: 1.2, ease: [0.16, 1, 0.3, 1] } : { duration: 0 }}
           style={shouldAnimate ? { y: mediaParallaxY } : undefined}
         >
-          {shouldAnimate ? (
+          {shouldAnimate && !useImageFallback ? (
             <video
               ref={videoRef}
               src={currentVideoSrc}
-              poster="/videos/clara-hero-poster-4k.jpg" // High quality poster request
+              poster={claraHeroFallback}
               autoPlay
               loop
               muted
@@ -242,11 +240,7 @@ const HeroSection = ({ onOpenChat }: HeroSectionProps) => {
             />
           ) : (
             <img
-              src="/videos/clara-hero-poster-4k.jpg" // Reduced motion fallback
-              onError={(e) => {
-                // Failsafe to older fallback if poster-4k isn't uploaded yet
-                e.currentTarget.src = claraHeroFallback;
-              }}
+              src={claraHeroFallback}
               alt=""
               className="hero-clara-video"
             />

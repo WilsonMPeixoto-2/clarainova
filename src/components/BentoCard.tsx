@@ -22,12 +22,12 @@ export default function BentoCard({
   className,
 }: BentoCardProps) {
   const baseClasses =
-    "group relative rounded-2xl border border-white/10 bg-white/[0.06] backdrop-blur-md px-5 py-5 md:px-6 md:py-6 transition-all duration-200";
+    "group relative rounded-2xl border border-white/[0.06] bg-gradient-to-br from-white/[0.04] to-transparent backdrop-blur-3xl backdrop-saturate-150 px-5 py-5 md:px-6 md:py-6 transition-all duration-500 shadow-[0_24px_64px_-8px_rgba(0,0,0,0.4)] overflow-hidden";
   const interactionClasses =
-    "hover:border-white/30 hover:bg-white/[0.1] focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:ring-offset-2 focus-visible:ring-offset-background";
+    "hover:border-white/10 hover:from-white/[0.08] hover:to-white/[0.02] focus:outline-none hover:shadow-[0_32px_80px_-12px_rgba(0,0,0,0.6)] focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:ring-offset-2 focus-visible:ring-offset-background hover:-translate-y-1";
   const variantClasses =
     variant === "highlight"
-      ? "bg-[linear-gradient(160deg,hsl(var(--bg-elev)/0.84),hsl(var(--bg-base)/0.72))] border-primary/35"
+      ? "bg-[linear-gradient(160deg,hsl(var(--gold-2)/0.08),transparent)] border-primary/20"
       : "";
 
   if (href) {

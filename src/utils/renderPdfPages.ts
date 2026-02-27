@@ -1,8 +1,23 @@
-import * as pdfjsLib from 'pdfjs-dist';
+import type { PDFDocumentProxy } from 'pdfjs-dist';
+
+type PdfJsModule = typeof import('pdfjs-dist');
+
+let pdfjsModulePromise: Promise<PdfJsModule> | null = null;
+const PDFJS_CDN_BASE = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js';
 
 // Worker CDN (must match the version in extractPdfText.ts)
-pdfjsLib.GlobalWorkerOptions.workerSrc = 
-  'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.0.379/pdf.worker.min.mjs';
+async function loadPdfJs(): Promise<PdfJsModule> {
+  if (!pdfjsModulePromise) {
+    pdfjsModulePromise = import('pdfjs-dist').then((module) => {
+      const workerVersion = module.version || '5.4.624';
+      module.GlobalWorkerOptions.workerSrc =
+        `${PDFJS_CDN_BASE}/${workerVersion}/pdf.worker.min.mjs`;
+      return module;
+    });
+  }
+
+  return pdfjsModulePromise;
+}
 
 export interface PageImage {
   pageNum: number;
@@ -14,7 +29,8 @@ export interface PageImage {
 /**
  * Load a PDF document from a File
  */
-export async function loadPdfDocument(file: File): Promise<pdfjsLib.PDFDocumentProxy> {
+export async function loadPdfDocument(file: File): Promise<PDFDocumentProxy> {
+  const pdfjsLib = await loadPdfJs();
   const arrayBuffer = await file.arrayBuffer();
   return await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
 }
@@ -27,7 +43,7 @@ export async function loadPdfDocument(file: File): Promise<pdfjsLib.PDFDocumentP
  * @param quality - JPEG quality 0-1 (default 0.85)
  */
 export async function renderPageAsImage(
-  pdf: pdfjsLib.PDFDocumentProxy,
+  pdf: PDFDocumentProxy,
   pageNum: number,
   scale: number = 2.0,
   quality: number = 0.85
@@ -61,7 +77,7 @@ export async function renderPageAsImage(
  * @param onProgress - Progress callback (0-100)
  */
 export async function renderPagesAsImages(
-  pdf: pdfjsLib.PDFDocumentProxy,
+  pdf: PDFDocumentProxy,
   startPage: number,
   endPage: number,
   onProgress?: (percent: number) => void

@@ -1,8 +1,28 @@
-import * as pdfjsLib from 'pdfjs-dist';
+type PdfJsModule = typeof import('pdfjs-dist');
+
+let pdfjsModulePromise: Promise<PdfJsModule> | null = null;
+const isDev = import.meta.env.DEV;
+const PDFJS_CDN_BASE = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js';
+
+function debugLog(message: string) {
+  if (isDev) {
+    console.log(message);
+  }
+}
 
 // Worker CDN (evita problemas de bundling)
-pdfjsLib.GlobalWorkerOptions.workerSrc =
-  'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.0.379/pdf.worker.min.mjs';
+async function loadPdfJs(): Promise<PdfJsModule> {
+  if (!pdfjsModulePromise) {
+    pdfjsModulePromise = import('pdfjs-dist').then((module) => {
+      const workerVersion = module.version || '5.4.624';
+      module.GlobalWorkerOptions.workerSrc =
+        `${PDFJS_CDN_BASE}/${workerVersion}/pdf.worker.min.mjs`;
+      return module;
+    });
+  }
+
+  return pdfjsModulePromise;
+}
 
 export interface PdfExtractionResult {
   fullText: string;
@@ -100,8 +120,8 @@ function analyzePages(pages: string[]): {
   // isHybrid = true if some pages need OCR but not all (mixed document)
   const isHybrid = pagesNeedingOcr.length > 0 && pagesNeedingOcr.length < totalPages;
 
-  console.log(`[extractPdfText] Page analysis: ${validTextPages.length} valid, ${pagesNeedingOcr.length} need OCR, hybrid=${isHybrid}, needsOcr=${needsOcr}`);
-  console.log(`[extractPdfText] OCR pages: [${pagesNeedingOcr.slice(0, 10).join(', ')}${pagesNeedingOcr.length > 10 ? '...' : ''}]`);
+  debugLog(`[extractPdfText] Page analysis: ${validTextPages.length} valid, ${pagesNeedingOcr.length} need OCR, hybrid=${isHybrid}, needsOcr=${needsOcr}`);
+  debugLog(`[extractPdfText] OCR pages: [${pagesNeedingOcr.slice(0, 10).join(', ')}${pagesNeedingOcr.length > 10 ? '...' : ''}]`);
 
   return { pagesNeedingOcr, validTextPages, needsOcr, isHybrid, metrics };
 }
@@ -114,6 +134,7 @@ export async function extractPdfTextClient(
   file: File,
   onProgress?: (percent: number) => void
 ): Promise<PdfExtractionResult> {
+  const pdfjsLib = await loadPdfJs();
   const arrayBuffer = await file.arrayBuffer();
   const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
 

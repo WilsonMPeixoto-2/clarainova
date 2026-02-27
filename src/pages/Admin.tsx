@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
+import { useState, useCallback, useEffect, useRef, useMemo, lazy, Suspense } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Upload, FileText, Trash2, RefreshCw, Lock, Check, AlertCircle, BarChart3, ClipboardList, Eye, EyeOff, Loader2, Play, RotateCcw, FileWarning, Activity, MessageSquareWarning, Settings2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -9,16 +9,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { AnalyticsTab } from '@/components/admin/AnalyticsTab';
-import { ReportsTab } from '@/components/admin/ReportsTab';
-import { ProcessingStatsTab } from '@/components/admin/ProcessingStatsTab';
-import { ChatMetricsDashboard } from '@/components/admin/ChatMetricsDashboard';
-import { FeedbackTab } from '@/components/admin/FeedbackTab';
-import { DocumentEditorModal } from '@/components/admin/DocumentEditorModal';
-import { DocumentFilters } from '@/components/admin/DocumentFilters';
 import { extractPdfTextClient, extractTxtContent, isPdfFile, isTxtFile, isDocxFile, splitTextIntoBatches, calculatePayloadMetrics } from '@/utils/extractPdfText';
 import { validateTextQuality, type TextQualityResult } from '@/utils/textQualityValidator';
-import { TextQualityDialog } from '@/components/admin/TextQualityDialog';
 import { loadPdfDocument, renderPagesAsImages, getPageBatches } from '@/utils/renderPdfPages';
 import {
   AlertDialog,
@@ -54,6 +46,54 @@ interface Document {
   effective_date?: string | null;
   supersedes_document_id?: string | null;
 }
+
+const AnalyticsTab = lazy(() =>
+  import('@/components/admin/AnalyticsTab').then((module) => ({
+    default: module.AnalyticsTab,
+  }))
+);
+
+const ReportsTab = lazy(() =>
+  import('@/components/admin/ReportsTab').then((module) => ({
+    default: module.ReportsTab,
+  }))
+);
+
+const ProcessingStatsTab = lazy(() =>
+  import('@/components/admin/ProcessingStatsTab').then((module) => ({
+    default: module.ProcessingStatsTab,
+  }))
+);
+
+const ChatMetricsDashboard = lazy(() =>
+  import('@/components/admin/ChatMetricsDashboard').then((module) => ({
+    default: module.ChatMetricsDashboard,
+  }))
+);
+
+const FeedbackTab = lazy(() =>
+  import('@/components/admin/FeedbackTab').then((module) => ({
+    default: module.FeedbackTab,
+  }))
+);
+
+const DocumentEditorModal = lazy(() =>
+  import('@/components/admin/DocumentEditorModal').then((module) => ({
+    default: module.DocumentEditorModal,
+  }))
+);
+
+const DocumentFilters = lazy(() =>
+  import('@/components/admin/DocumentFilters').then((module) => ({
+    default: module.DocumentFilters,
+  }))
+);
+
+const TextQualityDialog = lazy(() =>
+  import('@/components/admin/TextQualityDialog').then((module) => ({
+    default: module.TextQualityDialog,
+  }))
+);
 
 // Conditional debug logging (only in development)
 const debugLog = (...args: unknown[]) => {
@@ -110,6 +150,14 @@ function isDocumentStuck(doc: Document): boolean {
   const diffMinutes = (now.getTime() - updatedAt.getTime()) / (1000 * 60);
 
   return diffMinutes > 5;
+}
+
+function AdminSectionFallback() {
+  return (
+    <div className="flex items-center justify-center py-8 text-muted-foreground">
+      <Loader2 className="w-5 h-5 animate-spin" />
+    </div>
+  );
 }
 
 const Admin = () => {
@@ -1865,13 +1913,15 @@ const Admin = () => {
                 </CardHeader>
                 <CardContent>
                   {/* Document Filters */}
-                  <DocumentFilters
-                    searchQuery={searchQuery}
-                    onSearchChange={setSearchQuery}
-                    selectedTags={selectedTags}
-                    onTagsChange={setSelectedTags}
-                    availableTags={availableTags}
-                  />
+                  <Suspense fallback={<div className="h-10" />}>
+                    <DocumentFilters
+                      searchQuery={searchQuery}
+                      onSearchChange={setSearchQuery}
+                      selectedTags={selectedTags}
+                      onTagsChange={setSelectedTags}
+                      availableTags={availableTags}
+                    />
+                  </Suspense>
 
                   {isLoading ? (
                     <div className="flex items-center justify-center py-12">
@@ -2097,23 +2147,33 @@ const Admin = () => {
             </TabsContent>
 
             <TabsContent value="analytics">
-              <AnalyticsTab adminKey={adminKey} />
+              <Suspense fallback={<AdminSectionFallback />}>
+                <AnalyticsTab adminKey={adminKey} />
+              </Suspense>
             </TabsContent>
 
             <TabsContent value="feedback">
-              <FeedbackTab adminKey={adminKey} />
+              <Suspense fallback={<AdminSectionFallback />}>
+                <FeedbackTab adminKey={adminKey} />
+              </Suspense>
             </TabsContent>
 
             <TabsContent value="reports">
-              <ReportsTab />
+              <Suspense fallback={<AdminSectionFallback />}>
+                <ReportsTab />
+              </Suspense>
             </TabsContent>
 
             <TabsContent value="observability">
-              <ProcessingStatsTab adminKey={adminKey} />
+              <Suspense fallback={<AdminSectionFallback />}>
+                <ProcessingStatsTab adminKey={adminKey} />
+              </Suspense>
             </TabsContent>
 
             <TabsContent value="metrics">
-              <ChatMetricsDashboard />
+              <Suspense fallback={<AdminSectionFallback />}>
+                <ChatMetricsDashboard />
+              </Suspense>
             </TabsContent>
           </Tabs>
         </main>
@@ -2204,45 +2264,52 @@ const Admin = () => {
         </AlertDialog>
 
         {/* Text Quality Dialog */}
-        <TextQualityDialog
-          open={showQualityDialog}
-          onOpenChange={(open) => {
-            if (!open && !ocrProcessing) {
-              setShowQualityDialog(false);
-              setQualityFile(null);
-              setQualityResult(null);
-              setQualityExtractionResult(null);
-            }
-          }}
-          qualityResult={qualityResult}
-          fileName={qualityFile?.name || ''}
-          onUseText={handleUseExtractedText}
-          onUseOcr={handleQualityOcr}
-          onCancel={() => {
-            setShowQualityDialog(false);
-            setQualityFile(null);
-            setQualityResult(null);
-            setQualityExtractionResult(null);
-          }}
-          isProcessing={ocrProcessing}
-        />
+        {showQualityDialog ? (
+          <Suspense fallback={null}>
+            <TextQualityDialog
+              open={showQualityDialog}
+              onOpenChange={(open) => {
+                if (!open && !ocrProcessing) {
+                  setShowQualityDialog(false);
+                  setQualityFile(null);
+                  setQualityResult(null);
+                  setQualityExtractionResult(null);
+                }
+              }}
+              qualityResult={qualityResult}
+              fileName={qualityFile?.name || ''}
+              onUseText={handleUseExtractedText}
+              onUseOcr={handleQualityOcr}
+              onCancel={() => {
+                setShowQualityDialog(false);
+                setQualityFile(null);
+                setQualityResult(null);
+                setQualityExtractionResult(null);
+              }}
+              isProcessing={ocrProcessing}
+            />
+          </Suspense>
+        ) : null}
 
         {/* Document Editor Modal */}
-        <DocumentEditorModal
-          document={documentToEdit}
-          open={editorModalOpen}
-          onOpenChange={setEditorModalOpen}
-          onSaved={() => {
-            fetchDocuments();
-            setDocumentToEdit(null);
-          }}
-
-          allDocuments={documents.map(d => ({
-            id: d.id,
-            title: d.title,
-            supersedes_document_id: d.supersedes_document_id
-          }))}
-        />
+        {editorModalOpen && documentToEdit ? (
+          <Suspense fallback={null}>
+            <DocumentEditorModal
+              document={documentToEdit}
+              open={editorModalOpen}
+              onOpenChange={setEditorModalOpen}
+              onSaved={() => {
+                fetchDocuments();
+                setDocumentToEdit(null);
+              }}
+              allDocuments={documents.map(d => ({
+                id: d.id,
+                title: d.title,
+                supersedes_document_id: d.supersedes_document_id
+              }))}
+            />
+          </Suspense>
+        ) : null}
       </div>
     </TooltipProvider>
   );

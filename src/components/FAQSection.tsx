@@ -48,7 +48,9 @@ const faqItems = [
 const FAQSection = ({ onOpenChat }: FAQSectionProps) => {
   return (
     <section id="faq" className="faq-section py-20 md:py-24 relative" aria-labelledby="faq-heading">
-      <div className="container mx-auto px-6">
+      <div className="absolute inset-0 bg-base-900/50" aria-hidden="true" />
+      <div className="cinematic-noise" aria-hidden="true" />
+      <div className="container mx-auto px-6 relative z-10">
         <ScrollReveal>
           <div className="faq-shell">
             <div className="faq-header">

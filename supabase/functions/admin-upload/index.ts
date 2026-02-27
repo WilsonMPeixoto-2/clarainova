@@ -30,6 +30,23 @@ const ADMIN_RATE_LIMIT = {
   windowSeconds: 300, // 5 minute window
 };
 
+function parseAdminKeys(): string[] {
+  const adminKeys = Deno.env.get("ADMIN_KEYS");
+  if (adminKeys && adminKeys.trim()) {
+    return adminKeys
+      .split(",")
+      .map((key) => key.trim())
+      .filter((key) => key.length > 0);
+  }
+
+  const adminKey = Deno.env.get("ADMIN_KEY");
+  if (adminKey && adminKey.trim()) {
+    return [adminKey.trim()];
+  }
+
+  return [];
+}
+
 // Helper to get client identifier for rate limiting
 function getClientKey(req: Request): string {
   const forwarded = req.headers.get("x-forwarded-for");
@@ -52,11 +69,11 @@ serve(async (req) => {
   }
 
   try {
-    const ADMIN_KEY = Deno.env.get("ADMIN_KEY");
+    const adminKeys = parseAdminKeys();
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 
-    if (!ADMIN_KEY || !SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+    if (adminKeys.length === 0 || !SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
       console.error("[admin-upload] Missing required environment variables");
       return new Response(
         JSON.stringify({ error: "Configuração do servidor incompleta", code: "CONFIG_ERROR" }),
@@ -111,7 +128,7 @@ serve(async (req) => {
       );
     }
 
-    if (adminKey !== ADMIN_KEY) {
+    if (!adminKeys.includes(adminKey)) {
       console.log("[admin-upload] Invalid admin key attempt");
       return new Response(
         JSON.stringify({ error: "Chave de administrador inválida", code: "INVALID_KEY" }),

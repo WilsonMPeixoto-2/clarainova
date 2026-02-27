@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { renderHook, act } from "@testing-library/react";
 import { useLocalStorage } from "./useLocalStorage";
 
@@ -19,6 +19,10 @@ describe("useLocalStorage", () => {
     vi.spyOn(Storage.prototype, "removeItem").mockImplementation((key) => {
       delete storage[key];
     });
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
   });
 
   it("returns initial value when localStorage is empty", () => {
@@ -135,6 +139,7 @@ describe("useLocalStorage", () => {
 
   it("handles corrupted localStorage data gracefully", () => {
     storage["test-key"] = "invalid-json{";
+    const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
 
     const { result } = renderHook(() => 
       useLocalStorage("test-key", "default")
@@ -142,6 +147,7 @@ describe("useLocalStorage", () => {
 
     // Should fall back to default value
     expect(result.current[0]).toBe("default");
+    expect(consoleErrorSpy).toHaveBeenCalled();
   });
 
   it("updates when key changes", () => {
