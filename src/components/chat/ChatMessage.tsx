@@ -11,6 +11,7 @@ import { SourceChipWeb } from "./SourceChipWeb";
 import { MessageControls } from "./MessageControls";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
+import Mermaid from "react-mermaid2";
 
 interface ChatMessageProps {
   message: ChatMessageType;
@@ -61,13 +62,24 @@ function renderMarkdown(text: string): JSX.Element[] {
     if (line.startsWith("```")) {
       if (inCodeBlock) {
         flushList();
-        elements.push(
-          <pre key={`code-${elements.length}`} className="bg-surface-3 rounded-lg p-4 overflow-x-auto my-4 text-sm">
-            <code className={codeLanguage ? `language-${codeLanguage}` : ""}>
-              {codeContent.join("\n")}
-            </code>
-          </pre>
-        );
+
+        // Render Mermaid Diagram directly if language is mermaid
+        if (codeLanguage === "mermaid") {
+          elements.push(
+            <div key={`mermaid-${elements.length}`} className="my-6 p-4 bg-white/5 dark:bg-black/20 rounded-xl overflow-x-auto border border-primary/20 flex justify-center">
+              <Mermaid chart={codeContent.join("\n")} />
+            </div>
+          );
+        } else {
+          elements.push(
+            <pre key={`code-${elements.length}`} className="bg-surface-3 rounded-lg p-4 overflow-x-auto my-4 text-sm">
+              <code className={codeLanguage ? `language-${codeLanguage}` : ""}>
+                {codeContent.join("\n")}
+              </code>
+            </pre>
+          );
+        }
+
         codeContent = [];
         inCodeBlock = false;
       } else {
@@ -149,15 +161,26 @@ function renderMarkdown(text: string): JSX.Element[] {
 
     // Regular paragraph
     flushList();
+
+    // We parse HTML inside paragraphs for SVG icons/bolding injected by AI
     elements.push(
-      <p key={`p-${elements.length}`} className="text-chat-body my-2">
-        {renderInline(line)}
-      </p>
+      <p
+        key={`p-${elements.length}`}
+        className="text-chat-body my-2 inline-parser"
+        dangerouslySetInnerHTML={{ __html: sanitizeAIHtml(line) }}
+      />
     );
   }
 
   flushList();
   return elements;
+}
+
+// Basic sanitizer to allow safe SVG elements but strip harmful scripts
+function sanitizeAIHtml(html: string): string {
+  // Em um app prod real, usaríamos DOMPurify. Aqui, permitimos as tags SVG
+  // e removemos tags script básicas para que o SVG renderize.
+  return html.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, "");
 }
 
 // Renderizar formatação inline
@@ -393,8 +416,8 @@ export const ChatMessage = memo(function ChatMessage({
       {/* Avatar */}
       <motion.div
         className={`flex-shrink-0 w-9 h-9 rounded-full flex items-center justify-center ${isUser
-            ? "bg-secondary text-foreground"
-            : "clara-avatar"
+          ? "bg-secondary text-foreground"
+          : "clara-avatar"
           }`}
         initial={{ scale: 0 }}
         animate={{ scale: 1 }}
@@ -406,8 +429,8 @@ export const ChatMessage = memo(function ChatMessage({
       {/* Content */}
       <div className={`flex-1 max-w-[85%] ${isUser ? "text-right" : ""}`}>
         <div className={`inline-block rounded-2xl px-4 py-3 ${isUser
-            ? "bg-primary text-primary-foreground rounded-tr-sm"
-            : "bg-card/70 backdrop-blur-sm border border-border-subtle rounded-tl-sm"
+          ? "bg-primary text-primary-foreground rounded-tr-sm"
+          : "bg-card/70 backdrop-blur-sm border border-border-subtle rounded-tl-sm"
           }`}>
           {isUser ? (
             <p className="text-sm leading-relaxed">{message.content}</p>

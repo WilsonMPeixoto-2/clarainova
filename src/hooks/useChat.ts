@@ -11,10 +11,10 @@ export interface ApiProviderInfo {
   model: string;
 }
 
-export type NoticeType = 
-  | "web_search" 
-  | "limited_base" 
-  | "general_guidance" 
+export type NoticeType =
+  | "web_search"
+  | "limited_base"
+  | "general_guidance"
   | "out_of_scope"
   | "info"
   | "stopped"; // New: for interrupted responses
@@ -192,7 +192,7 @@ export function useChat(options: UseChatOptions = {}) {
   const [isLoading, setIsLoading] = useState(false);
   const [thinking, setThinking] = useState<ThinkingState>({ isThinking: false, step: "" });
   const abortControllerRef = useRef<AbortController | null>(null);
-  
+
   // Refs for regenerate/continue functionality
   const lastUserMessageRef = useRef<string>("");
   const lastModeRef = useRef<ResponseMode>("fast");
@@ -207,13 +207,13 @@ export function useChat(options: UseChatOptions = {}) {
   }, []);
 
   const sendMessage = useCallback(async (
-    content: string, 
-    mode: ResponseMode = "fast", 
+    content: string,
+    mode: ResponseMode = "fast",
     webSearchMode?: WebSearchMode,
     sendOptions: SendMessageOptions = {}
   ) => {
     const isContinuation = sendOptions.continuation === true;
-    
+
     // For continuation, we don't need new content
     if (!isContinuation && (!content.trim() || isLoading)) return;
     if (isContinuation && isLoading) return;
@@ -227,7 +227,7 @@ export function useChat(options: UseChatOptions = {}) {
       requestedWebSearchMode === "deep" ? "deep" : internalWebPolicy.webSearchMode;
     const webPolicyReason =
       requestedWebSearchMode === "deep" ? "forced_external_deep" : internalWebPolicy.reason;
-    
+
     // Store last user message for regenerate/continue
     if (!isContinuation) {
       lastUserMessageRef.current = userQueryContent;
@@ -308,14 +308,13 @@ export function useChat(options: UseChatOptions = {}) {
         throw configError;
       }
 
-      requestUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/clara-chat`;
+      // We're now using the Vercel LLM Gateway route instead of hitting Supabase directly
+      requestUrl = `/api/chat`;
       const response = await fetch(requestUrl, {
         method: requestMethod,
         headers: {
           "Content-Type": "application/json",
           Accept: "text/event-stream",
-          apikey: anonKey,
-          Authorization: `Bearer ${anonKey}`,
           "x-session-fingerprint": getSessionFingerprint(),
         },
         body: JSON.stringify({
@@ -413,7 +412,7 @@ export function useChat(options: UseChatOptions = {}) {
 
             if (line.startsWith("event: ")) {
               const eventType = line.slice(7);
-            
+
               // Pegar a linha de dados seguinte se estiver no buffer
               const dataLineEnd = buffer.indexOf("\n");
               if (dataLineEnd === -1) {
@@ -421,10 +420,10 @@ export function useChat(options: UseChatOptions = {}) {
                 buffer = line + "\n" + buffer;
                 break;
               }
-            
+
               const dataLine = buffer.slice(0, dataLineEnd).trim();
               buffer = buffer.slice(dataLineEnd + 1);
-            
+
               if (!dataLine.startsWith("data: ")) continue;
               const jsonStr = dataLine.slice(6);
 
@@ -432,86 +431,86 @@ export function useChat(options: UseChatOptions = {}) {
                 const data = JSON.parse(jsonStr) as Record<string, unknown>;
 
                 switch (eventType) {
-                case "request_id":
-                  // Store backend request ID for tracking
-                  if (typeof data.id === "string") {
-                    backendRequestId = data.id;
-                    activeRequestIdRef.current = data.id;
-                    setMessages(prev => 
-                      prev.map(msg => 
-                        msg.id === assistantId 
-                          ? { ...msg, requestId: backendRequestId }
-                          : msg
-                      )
-                    );
-                  }
-                  break;
+                  case "request_id":
+                    // Store backend request ID for tracking
+                    if (typeof data.id === "string") {
+                      backendRequestId = data.id;
+                      activeRequestIdRef.current = data.id;
+                      setMessages(prev =>
+                        prev.map(msg =>
+                          msg.id === assistantId
+                            ? { ...msg, requestId: backendRequestId }
+                            : msg
+                        )
+                      );
+                    }
+                    break;
 
-                case "api_provider":
-                  if (typeof data.provider === "string" && typeof data.model === "string") {
-                    apiProviderInfo = { provider: data.provider as ApiProviderInfo["provider"], model: data.model };
-                    setMessages(prev => 
-                      prev.map(msg => 
-                        msg.id === assistantId 
-                          ? { ...msg, apiProvider: apiProviderInfo }
-                          : msg
-                      )
-                    );
-                  }
-                  break;
+                  case "api_provider":
+                    if (typeof data.provider === "string" && typeof data.model === "string") {
+                      apiProviderInfo = { provider: data.provider as ApiProviderInfo["provider"], model: data.model };
+                      setMessages(prev =>
+                        prev.map(msg =>
+                          msg.id === assistantId
+                            ? { ...msg, apiProvider: apiProviderInfo }
+                            : msg
+                        )
+                      );
+                    }
+                    break;
 
-                case "thinking":
-                  setThinking({ isThinking: true, step: String(data.step ?? "Processando...") });
-                  break;
-                  
-                case "delta":
-                  if (typeof data.content === "string") {
-                    assistantContent += data.content;
-                    setMessages(prev => 
-                      prev.map(msg => 
-                        msg.id === assistantId 
-                          ? { ...msg, content: assistantContent }
-                          : msg
-                      )
-                    );
-                  }
-                  setThinking({ isThinking: false, step: "" });
-                  break;
-                  
-                case "sources":
-                  if (Array.isArray(data.local)) {
-                    localSources = data.local.filter((x): x is string => typeof x === "string");
-                  }
-                  if (Array.isArray(data.web)) {
-                    webSources = data.web as WebSourceData[] | string[];
-                  }
-                  if (typeof data.quorum_met === "boolean") {
-                    quorumMet = data.quorum_met;
-                  }
-                  break;
+                  case "thinking":
+                    setThinking({ isThinking: true, step: String(data.step ?? "Processando...") });
+                    break;
 
-                case "notice":
-                  if (typeof data.type === "string" && typeof data.message === "string") {
-                    noticeInfo = { type: data.type as NoticeType, message: data.message };
-                    setMessages(prev => 
-                      prev.map(msg => 
-                        msg.id === assistantId 
-                          ? { ...msg, notice: noticeInfo }
-                          : msg
-                      )
-                    );
-                  }
-                  break;
-                  
+                  case "delta":
+                    if (typeof data.content === "string") {
+                      assistantContent += data.content;
+                      setMessages(prev =>
+                        prev.map(msg =>
+                          msg.id === assistantId
+                            ? { ...msg, content: assistantContent }
+                            : msg
+                        )
+                      );
+                    }
+                    setThinking({ isThinking: false, step: "" });
+                    break;
+
+                  case "sources":
+                    if (Array.isArray(data.local)) {
+                      localSources = data.local.filter((x): x is string => typeof x === "string");
+                    }
+                    if (Array.isArray(data.web)) {
+                      webSources = data.web as WebSourceData[] | string[];
+                    }
+                    if (typeof data.quorum_met === "boolean") {
+                      quorumMet = data.quorum_met;
+                    }
+                    break;
+
+                  case "notice":
+                    if (typeof data.type === "string" && typeof data.message === "string") {
+                      noticeInfo = { type: data.type as NoticeType, message: data.message };
+                      setMessages(prev =>
+                        prev.map(msg =>
+                          msg.id === assistantId
+                            ? { ...msg, notice: noticeInfo }
+                            : msg
+                        )
+                      );
+                    }
+                    break;
+
                   case "done":
                     if (typeof data.query_id === "string") {
                       queryId = data.query_id;
                     }
                     break;
-                  
-                case "error":
-                  throw new Error(typeof data.message === "string" ? data.message : "Erro no streaming");
-              }
+
+                  case "error":
+                    throw new Error(typeof data.message === "string" ? data.message : "Erro no streaming");
+                }
               } catch (parseError) {
                 // Ignorar erros de parse de eventos individuais
                 console.warn("Erro ao parsear evento SSE:", parseError);
@@ -543,29 +542,29 @@ export function useChat(options: UseChatOptions = {}) {
       const finalContent = assistantContent || "Desculpe, não consegui gerar uma resposta.";
       const hasLocalSources = localSources.length > 0;
       const hasWebSources = webSources.length > 0;
-      const finalSources: ChatMessageSources | undefined = (hasLocalSources || hasWebSources) 
-        ? { 
-            local: localSources,
-            ...(hasWebSources && { web: webSources }),
-            ...(quorumMet !== undefined && { quorum_met: quorumMet }),
-          } 
+      const finalSources: ChatMessageSources | undefined = (hasLocalSources || hasWebSources)
+        ? {
+          local: localSources,
+          ...(hasWebSources && { web: webSources }),
+          ...(quorumMet !== undefined && { quorum_met: quorumMet }),
+        }
         : undefined;
 
       setMessages(prev => {
-        const final = prev.map(msg => 
-          msg.id === assistantId 
-            ? { 
-                ...msg, 
-                content: finalContent,
-                isStreaming: false,
-                status: "done" as MessageStatus,
-                sources: finalSources,
-                queryId: queryId,
-                userQuery: userQueryContent,
-                apiProvider: apiProviderInfo,
-                notice: noticeInfo,
-                requestId: backendRequestId,
-              }
+        const final = prev.map(msg =>
+          msg.id === assistantId
+            ? {
+              ...msg,
+              content: finalContent,
+              isStreaming: false,
+              status: "done" as MessageStatus,
+              sources: finalSources,
+              queryId: queryId,
+              userQuery: userQueryContent,
+              apiProvider: apiProviderInfo,
+              notice: noticeInfo,
+              requestId: backendRequestId,
+            }
             : msg
         );
         saveMessagesToStorage(final);
@@ -576,15 +575,15 @@ export function useChat(options: UseChatOptions = {}) {
       if (error instanceof Error && error.name === "AbortError") {
         // Cancelado pelo usuário - mark as stopped instead of removing
         setMessages(prev => {
-          const final = prev.map(msg => 
-            msg.id === assistantId 
-              ? { 
-                  ...msg, 
-                  isStreaming: false,
-                  status: "stopped" as MessageStatus,
-                  notice: { type: "stopped" as NoticeType, message: "Resposta interrompida" },
-                  userQuery: userQueryContent, // Keep for potential continue
-                }
+          const final = prev.map(msg =>
+            msg.id === assistantId
+              ? {
+                ...msg,
+                isStreaming: false,
+                status: "stopped" as MessageStatus,
+                notice: { type: "stopped" as NoticeType, message: "Resposta interrompida" },
+                userQuery: userQueryContent, // Keep for potential continue
+              }
               : msg
           );
           saveMessagesToStorage(final);
@@ -623,23 +622,23 @@ export function useChat(options: UseChatOptions = {}) {
         message: rawError.message,
         details: errorDetails,
       });
-      
+
       // Atualizar mensagem com erro
       setMessages(prev => {
-        const final = prev.map(msg => 
-          msg.id === assistantId 
-            ? { 
-                ...msg, 
-                content: msg.content || `Desculpe, ocorreu um erro: ${userFacingMessage}. Por favor, tente novamente.`,
-                isStreaming: false,
-                status: "error" as MessageStatus,
-              }
+        const final = prev.map(msg =>
+          msg.id === assistantId
+            ? {
+              ...msg,
+              content: msg.content || `Desculpe, ocorreu um erro: ${userFacingMessage}. Por favor, tente novamente.`,
+              isStreaming: false,
+              status: "error" as MessageStatus,
+            }
             : msg
         );
         saveMessagesToStorage(final);
         return final;
       });
-      
+
       options.onError?.(userFacingMessage, errorDetails);
     } finally {
       setIsLoading(false);
@@ -655,7 +654,7 @@ export function useChat(options: UseChatOptions = {}) {
   // Regenerate the last response
   const regenerateLast = useCallback(() => {
     if (!lastUserMessageRef.current || isLoading) return;
-    
+
     // Remove the last assistant message (polyfill for findLastIndex)
     setMessages(prev => {
       let lastAssistantIdx = -1;
@@ -672,7 +671,7 @@ export function useChat(options: UseChatOptions = {}) {
       }
       return prev;
     });
-    
+
     // Re-send with same parameters (use setTimeout to ensure state update)
     setTimeout(() => {
       sendMessage(lastUserMessageRef.current, lastModeRef.current, lastWebSearchModeRef.current);
@@ -682,7 +681,7 @@ export function useChat(options: UseChatOptions = {}) {
   // Continue the last (stopped) response
   const continueLast = useCallback(() => {
     if (!lastUserMessageRef.current || isLoading) return;
-    
+
     // Send with continuation flag
     sendMessage("", lastModeRef.current, lastWebSearchModeRef.current, { continuation: true });
   }, [isLoading, sendMessage]);
