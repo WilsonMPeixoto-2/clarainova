@@ -1,4 +1,4 @@
-import { memo, useMemo } from "react";
+import { memo, useMemo, useState, type ReactNode } from "react";
 import { motion } from "framer-motion";
 import { User, FileText, ExternalLink, ChevronDown, ChevronUp, CheckCircle2 } from "lucide-react";
 import type { ChatMessage as ChatMessageType, WebSourceData } from "@/hooks/useChat";
@@ -10,7 +10,6 @@ import { ResponseNotice } from "./ResponseNotice";
 import { SourceChipWeb } from "./SourceChipWeb";
 import { MessageControls } from "./MessageControls";
 import { Button } from "@/components/ui/button";
-import { useState } from "react";
 
 interface ChatMessageProps {
   message: ChatMessageType;
@@ -22,9 +21,9 @@ interface ChatMessageProps {
 }
 
 // Renderizar markdown simples
-function renderMarkdown(text: string): JSX.Element[] {
+function renderMarkdown(text: string): ReactNode[] {
   const lines = text.split("\n");
-  const elements: JSX.Element[] = [];
+  const elements: ReactNode[] = [];
   let inCodeBlock = false;
   let codeContent: string[] = [];
   let codeLanguage = "";
@@ -161,8 +160,8 @@ function renderMarkdown(text: string): JSX.Element[] {
 }
 
 // Renderizar formatação inline
-function renderInline(text: string): (string | JSX.Element)[] {
-  const parts: (string | JSX.Element)[] = [];
+function renderInline(text: string): ReactNode[] {
+  const parts: ReactNode[] = [];
   let remaining = text;
   let keyIndex = 0;
 

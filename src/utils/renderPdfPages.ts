@@ -56,7 +56,7 @@ export async function renderPageAsImage(
   canvas.width = viewport.width;
   canvas.height = viewport.height;
   
-  await page.render({ canvasContext: context, viewport }).promise;
+  await page.render({ canvas, canvasContext: context, viewport }).promise;
   
   // Convert to base64 JPEG (smaller than PNG)
   const dataUrl = canvas.toDataURL('image/jpeg', quality);

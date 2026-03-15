@@ -67,7 +67,6 @@ export function LenisProvider({ children }: LenisProviderProps) {
         lerp: 0.1,
         wheelMultiplier: 1,
         smoothWheel: true,
-        smoothTouch: false,
       }}
     >
       {children}
