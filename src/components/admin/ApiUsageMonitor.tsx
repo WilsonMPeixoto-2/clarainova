@@ -21,16 +21,12 @@ interface ApiUsageDetail {
   date: string;
 }
 
-interface ApiUsageMonitorProps {
-  adminKey: string;
-}
-
 interface ApiUsagePayload {
   summary: ApiUsageSummary[];
   details: ApiUsageDetail[];
 }
 
-export function ApiUsageMonitor({ adminKey }: ApiUsageMonitorProps) {
+export function ApiUsageMonitor() {
   const [summary, setSummary] = useState<ApiUsageSummary[]>([]);
   const [details, setDetails] = useState<ApiUsageDetail[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -40,7 +36,6 @@ export function ApiUsageMonitor({ adminKey }: ApiUsageMonitorProps) {
     setIsLoading(true);
     try {
       const data = await adminAnalyticsRequest<ApiUsagePayload>({
-        adminKey,
         path: "api-usage",
         query: { days: Number.parseInt(days, 10) },
       });
@@ -51,7 +46,7 @@ export function ApiUsageMonitor({ adminKey }: ApiUsageMonitorProps) {
     } finally {
       setIsLoading(false);
     }
-  }, [adminKey, days]);
+  }, [days]);
 
   useEffect(() => {
     fetchStats();

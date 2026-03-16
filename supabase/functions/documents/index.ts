@@ -2,6 +2,7 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "@supabase/supabase-js";
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import { AdminAuthError, requireAdminUser } from "../_shared/admin.ts";
 // @ts-expect-error -- mammoth does not ship types on esm.sh
 import mammoth from "https://esm.sh/mammoth@1.6.0";
 // @ts-expect-error -- pdfjs-serverless does not ship types on esm.sh
@@ -9,9 +10,11 @@ import { getDocument } from "https://esm.sh/pdfjs-serverless@1.1.0";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-admin-key",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
   "Access-Control-Allow-Methods": "GET, POST, DELETE, OPTIONS",
 };
+
+const authorizedAdminRequests = new WeakSet<Request>();
 
 // =============================================
 // OBSERVABILITY TYPES AND LIMITS
@@ -345,46 +348,8 @@ async function hashClientIdentifier(value: string): Promise<string> {
   return hashArray.map((b) => b.toString(16).padStart(2, "0")).join("").slice(0, 32);
 }
 
-/**
- * Parse admin keys from environment.
- * Supports multiple keys via ADMIN_KEYS (comma-separated) with fallback to ADMIN_KEY.
- * This allows key rotation without downtime.
- */
-function parseAdminKeys(): string[] {
-  // Try ADMIN_KEYS first (multiple keys, comma-separated)
-  const adminKeys = Deno.env.get("ADMIN_KEYS");
-  if (adminKeys) {
-    const keys = adminKeys
-      .split(",")
-      .map(k => k.trim())
-      .filter(k => k.length > 0);
-
-    if (keys.length > 0) {
-      return keys;
-    }
-  }
-
-  // Fallback to single ADMIN_KEY
-  const adminKey = Deno.env.get("ADMIN_KEY");
-  if (adminKey && adminKey.trim().length > 0) {
-    return [adminKey.trim()];
-  }
-
-  return [];
-}
-
-/**
- * Validate admin key from request headers.
- * Returns true if key is valid.
- */
 function validateAdminKey(req: Request): boolean {
-  const providedKey = (req.headers.get("x-admin-key") || "").trim();
-  if (!providedKey) return false;
-
-  const validKeys = parseAdminKeys();
-  if (validKeys.length === 0) return false;
-
-  return validKeys.includes(providedKey);
+  return authorizedAdminRequests.has(req);
 }
 
 // =============================================
@@ -620,6 +585,9 @@ serve(async (req) => {
         }, debug, startTime);
       }
     }
+
+    await requireAdminUser(req);
+    authorizedAdminRequests.add(req);
 
     // =============================================
     // POST /documents/process-job - WORKER for incremental processing
@@ -1917,6 +1885,12 @@ Responda APENAS com o texto extraído.`,
 
   } catch (error) {
     console.error(`[${requestId}] ✗ FATAL: ${error}`);
+    if (error instanceof AdminAuthError) {
+      return createDebugResponse(false, error.status, {
+        error: error.message,
+        code: error.code,
+      }, debug, startTime);
+    }
     return createDebugResponse(false, 500, {
       error: error instanceof Error ? error.message : "Erro interno"
     }, debug, startTime);

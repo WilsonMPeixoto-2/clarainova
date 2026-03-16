@@ -60,11 +60,7 @@ function getStorageStatus(percentage: number): {
   return { label: "Crítico", color: "text-destructive", variant: "destructive" };
 }
 
-interface StorageMonitorProps {
-  adminKey: string;
-}
-
-export function StorageMonitor({ adminKey }: StorageMonitorProps) {
+export function StorageMonitor() {
   const { toast } = useToast();
   const [stats, setStats] = useState<StorageStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -75,7 +71,6 @@ export function StorageMonitor({ adminKey }: StorageMonitorProps) {
     setIsLoading(true);
     try {
       const data = await adminAnalyticsRequest<StorageStatsPayload>({
-        adminKey,
         path: "storage",
         query: { days_old: 90 },
       });
@@ -98,7 +93,7 @@ export function StorageMonitor({ adminKey }: StorageMonitorProps) {
     } finally {
       setIsLoading(false);
     }
-  }, [adminKey, toast]);
+  }, [toast]);
 
   useEffect(() => {
     fetchStats();
@@ -108,7 +103,6 @@ export function StorageMonitor({ adminKey }: StorageMonitorProps) {
     setIsCleaning(true);
     try {
       const data = await adminAnalyticsRequest<StorageCleanupPayload>({
-        adminKey,
         path: "storage-cleanup",
         method: "POST",
         body: { days_old: 90 },

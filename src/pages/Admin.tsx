@@ -1,17 +1,23 @@
 import { useState, useCallback, useEffect, useRef, useMemo, lazy, Suspense } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Upload, FileText, Trash2, RefreshCw, Lock, Check, AlertCircle, BarChart3, ClipboardList, Eye, EyeOff, Loader2, Play, RotateCcw, FileWarning, Activity, MessageSquareWarning, Settings2 } from 'lucide-react';
+import { ArrowLeft, Upload, FileText, Trash2, RefreshCw, Lock, AlertCircle, BarChart3, ClipboardList, Loader2, Play, RotateCcw, FileWarning, Activity, MessageSquareWarning, Settings2, LogOut, ShieldAlert } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 import { extractPdfTextClient, extractTxtContent, isPdfFile, isTxtFile, isDocxFile, splitTextIntoBatches, calculatePayloadMetrics } from '@/utils/extractPdfText';
 import { validateTextQuality, type TextQualityResult } from '@/utils/textQualityValidator';
 import { loadPdfDocument, renderPagesAsImages, getPageBatches } from '@/utils/renderPdfPages';
+import GoogleLoginButton from '@/components/auth/GoogleLoginButton';
+import {
+  getAdminRequestHeaders,
+  getSupabaseFunctionBaseUrl,
+  isCurrentUserAdmin,
+} from '@/components/admin/adminSession';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -102,10 +108,6 @@ const debugLog = (...args: unknown[]) => {
   }
 };
 
-function getSupabaseAnonKey(): string {
-  return import.meta.env.VITE_SUPABASE_ANON_KEY || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || "";
-}
-
 function getErrorMessage(error: unknown): string {
   if (error instanceof Error) return error.message;
   if (typeof error === "string") return error;
@@ -163,12 +165,9 @@ function AdminSectionFallback() {
 const Admin = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const supabaseAnonKey = getSupabaseAnonKey();
+  const { user, loading: authLoading, signOut } = useAuth();
 
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [adminKey, setAdminKey] = useState('');
-  const [isAuthenticating, setIsAuthenticating] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
+  const [adminStatus, setAdminStatus] = useState<'signed_out' | 'checking' | 'forbidden' | 'granted'>('checking');
 
   const [documents, setDocuments] = useState<Document[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -234,39 +233,51 @@ const Admin = () => {
     });
   }, [documents, searchQuery, selectedTags]);
 
-  const getAdminKey = useCallback(() => adminKey.trim(), [adminKey]);
+  const isAuthenticated = adminStatus === 'granted';
+
+  const authFetch = useCallback(async (input: string, init: RequestInit = {}) => {
+    const headers = await getAdminRequestHeaders(init.headers);
+    return fetch(input, {
+      ...init,
+      headers,
+    });
+  }, []);
 
   const handleAuthExpired = useCallback(() => {
-    sessionStorage.removeItem('clara_admin_key');
-    setIsAuthenticated(false);
+    setDocuments([]);
+    setProcessingDocs(new Set());
+    setAdminStatus('signed_out');
+    void signOut().catch((error) => {
+      console.error('[Admin] Sign-out after auth expiry failed:', error);
+    });
     toast({
       title: 'Sessão expirada',
-      description: 'Faça login novamente com a chave de administrador.',
+      description: 'Entre novamente com sua conta Google para acessar o admin.',
       variant: 'destructive',
     });
-  }, [toast]);
+  }, [signOut, toast]);
 
   const fetchDocuments = useCallback(async () => {
     setIsLoading(true);
     try {
-      const key = getAdminKey();
-      const { data, error } = await supabase.functions.invoke('documents', {
+      const response = await authFetch(`${getSupabaseFunctionBaseUrl()}/documents`, {
         method: 'GET',
-        headers: {
-          'x-admin-key': key,
-        },
       });
 
-      if (error) {
-        const msg = getErrorMessage(error);
-        if (msg.includes('401') || msg.toLowerCase().includes('not authorized')) {
+      const payload = await response.json().catch(() => ({ error: 'Resposta inválida do servidor' }));
+
+      if (!response.ok) {
+        const msg = getErrorMessage((payload as Record<string, unknown>).error);
+        if (response.status === 401 || response.status === 403) {
           handleAuthExpired();
           return;
         }
-        throw error;
+        throw new Error(msg);
       }
 
-      const docs = data.documents || [];
+      const docs = Array.isArray((payload as Record<string, unknown>).documents)
+        ? ((payload as Record<string, unknown>).documents as Document[])
+        : [];
       setDocuments(docs);
 
       // Track documents that are still processing
@@ -287,17 +298,47 @@ const Admin = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [getAdminKey, handleAuthExpired, toast]);
+  }, [authFetch, handleAuthExpired, toast]);
 
-  // Check session storage for existing auth
   useEffect(() => {
-    const storedKey = sessionStorage.getItem('clara_admin_key');
-    const normalized = storedKey?.trim();
-    if (normalized) {
-      setAdminKey(normalized);
-      setIsAuthenticated(true);
-    }
-  }, []);
+    let isMounted = true;
+
+    const checkAdminAccess = async () => {
+      if (authLoading) return;
+
+      if (!user) {
+        if (isMounted) {
+          setAdminStatus('signed_out');
+        }
+        return;
+      }
+
+      if (isMounted) {
+        setAdminStatus('checking');
+      }
+
+      try {
+        const hasAccess = await isCurrentUserAdmin();
+        if (!isMounted) return;
+        setAdminStatus(hasAccess ? 'granted' : 'forbidden');
+      } catch (error) {
+        console.error('[Admin] Admin role check failed:', error);
+        if (!isMounted) return;
+        setAdminStatus('forbidden');
+        toast({
+          title: 'Não foi possível validar o acesso',
+          description: getErrorMessage(error),
+          variant: 'destructive',
+        });
+      }
+    };
+
+    checkAdminAccess();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [authLoading, toast, user]);
 
   // Fetch documents when authenticated
   useEffect(() => {
@@ -388,21 +429,16 @@ const Admin = () => {
     }
 
     const pollAndProcess = async () => {
-      const key = getAdminKey();
-
       try {
-        const response = await fetch(
-          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/documents/process-job`,
+        const response = await authFetch(
+          `${getSupabaseFunctionBaseUrl()}/documents/process-job`,
           {
             method: 'POST',
             headers: {
-              'x-admin-key': key,
-              apikey: supabaseAnonKey,
-              Authorization: `Bearer ${supabaseAnonKey}`,
               'Content-Type': 'application/json',
             },
             body: JSON.stringify({}),
-          }
+          },
         );
 
         if (response.ok) {
@@ -439,68 +475,10 @@ const Admin = () => {
         clearInterval(pollingIntervalRef.current);
       }
     };
-  }, [fetchDocuments, isAuthenticated, processingDocs.size, getAdminKey, supabaseAnonKey, toast]);
-
-  const handleAuthenticate = async () => {
-    const key = getAdminKey();
-    if (!key) {
-      toast({
-        title: 'Chave obrigatória',
-        description: 'Digite a chave de administrador.',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    setIsAuthenticating(true);
-
-    try {
-      const authResponse = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/admin-auth`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'x-admin-key': key,
-            apikey: supabaseAnonKey,
-            Authorization: `Bearer ${supabaseAnonKey}`,
-          },
-          body: JSON.stringify({}),
-        }
-      );
-
-      const data = await authResponse
-        .json()
-        .catch(() => ({ valid: false, error: 'Resposta inválida do servidor', code: 'BAD_RESPONSE' }));
-
-      if (!authResponse.ok || !data?.valid) {
-        throw new Error(data?.error || 'Chave de administrador inválida.');
-      }
-
-      sessionStorage.setItem('clara_admin_key', key);
-      setAdminKey(key);
-      setIsAuthenticated(true);
-
-      toast({
-        title: 'Autenticado',
-        description: 'Acesso concedido à área administrativa.',
-      });
-    } catch (error: unknown) {
-      console.error('[Admin] Authentication failed:', error);
-      toast({
-        title: 'Acesso negado',
-        description: getErrorMessage(error) || 'Chave de administrador inválida.',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsAuthenticating(false);
-    }
-  };
+  }, [authFetch, fetchDocuments, isAuthenticated, processingDocs.size, toast]);
 
   // Process or reprocess a document
   const handleProcessDocument = async (documentId: string) => {
-    const key = getAdminKey();
-
     setProcessingDocs(prev => new Set(prev).add(documentId));
 
     toast({
@@ -509,18 +487,15 @@ const Admin = () => {
     });
 
     try {
-      const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/documents/process`,
+      const response = await authFetch(
+        `${getSupabaseFunctionBaseUrl()}/documents/process`,
         {
           method: 'POST',
           headers: {
-            'x-admin-key': key,
-            apikey: supabaseAnonKey,
-            Authorization: `Bearer ${supabaseAnonKey}`,
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({ document_id: documentId }),
-        }
+        },
       );
 
       const result = await response.json();
@@ -571,8 +546,6 @@ const Admin = () => {
 
   // Retry processing for stuck documents (uses ingest-finish to reprocess from existing text)
   const handleRetryProcessing = async (documentId: string, documentTitle: string) => {
-    const key = getAdminKey();
-
     setProcessingDocs(prev => new Set(prev).add(documentId));
 
     toast({
@@ -581,18 +554,15 @@ const Admin = () => {
     });
 
     try {
-      const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/documents/ingest-finish`,
+      const response = await authFetch(
+        `${getSupabaseFunctionBaseUrl()}/documents/ingest-finish`,
         {
           method: 'POST',
           headers: {
-            'x-admin-key': key,
-            apikey: supabaseAnonKey,
-            Authorization: `Bearer ${supabaseAnonKey}`,
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({ documentId }),
-        }
+        },
       );
 
       const result = await response.json();
@@ -698,13 +668,6 @@ const Admin = () => {
 
     for (const file of validFiles) {
       try {
-        const key = getAdminKey();
-
-        if (!key) {
-          handleAuthExpired();
-          throw new Error('Chave de administrador ausente.');
-        }
-
         let fullText: string = '';
         let metadata: { originalFilename: string; totalPages: number; extractedAt: string; extractionMethod: string } | null = null;
 
@@ -807,21 +770,18 @@ const Admin = () => {
           debugLog(`[Admin] DOCX file - using backend extraction: ${file.name}`);
 
           // Use old flow for DOCX
-          const signedUrlResponse = await fetch(
-            `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/admin_get_upload_url`,
+          const signedUrlResponse = await authFetch(
+            `${getSupabaseFunctionBaseUrl()}/admin_get_upload_url`,
             {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
-                'x-admin-key': key,
-                apikey: supabaseAnonKey,
-                Authorization: `Bearer ${supabaseAnonKey}`,
               },
               body: JSON.stringify({
                 filename: file.name,
                 contentType: file.type || 'application/octet-stream'
               }),
-            }
+            },
           );
 
           if (!signedUrlResponse.ok) {
@@ -838,14 +798,11 @@ const Admin = () => {
           setExtractionPhase('processing');
 
           // Process via backend (old flow)
-          const processResponse = await fetch(
-            `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/documents`,
+          const processResponse = await authFetch(
+            `${getSupabaseFunctionBaseUrl()}/documents`,
             {
               method: 'POST',
               headers: {
-                'x-admin-key': key,
-                apikey: supabaseAnonKey,
-                Authorization: `Bearer ${supabaseAnonKey}`,
                 'Content-Type': 'application/json',
               },
               body: JSON.stringify({
@@ -855,7 +812,7 @@ const Admin = () => {
                 fileType: file.type || signedUrlData.contentType,
                 originalName: file.name,
               }),
-            }
+            },
           );
 
           if (!processResponse.ok) {
@@ -886,21 +843,18 @@ const Admin = () => {
         debugLog(`[Admin] Uploading file to storage: ${file.name}`);
         setUploadProgress(Math.round(((completedFiles + 0.5) / totalFiles) * 100));
 
-        const signedUrlResponse = await fetch(
-          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/admin_get_upload_url`,
+        const signedUrlResponse = await authFetch(
+          `${getSupabaseFunctionBaseUrl()}/admin_get_upload_url`,
           {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
-              'x-admin-key': key,
-              apikey: supabaseAnonKey,
-              Authorization: `Bearer ${supabaseAnonKey}`,
             },
             body: JSON.stringify({
               filename: file.name,
               contentType: file.type || 'application/octet-stream'
             }),
-          }
+          },
         );
 
         if (!signedUrlResponse.ok) {
@@ -934,15 +888,12 @@ const Admin = () => {
           debugLog(`[Admin] Split into ${batches.length} batches`);
 
           // Step 1: Start ingestion
-          const startResponse = await fetch(
-            `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/documents/ingest-start`,
+          const startResponse = await authFetch(
+            `${getSupabaseFunctionBaseUrl()}/documents/ingest-start`,
             {
               method: 'POST',
               headers: {
-                'x-admin-key': key,
                 'Content-Type': 'application/json',
-                apikey: supabaseAnonKey,
-                Authorization: `Bearer ${supabaseAnonKey}`,
               },
               body: JSON.stringify({
                 title: file.name.replace(/\.[^/.]+$/, ''),
@@ -950,7 +901,7 @@ const Admin = () => {
                 filePath: signedUrlData.path,
                 metadata
               }),
-            }
+            },
           );
 
           if (!startResponse.ok) {
@@ -967,15 +918,12 @@ const Admin = () => {
             const batchProgress = 0.7 + (i / batches.length) * 0.2; // 70% to 90%
             setUploadProgress(Math.round(((completedFiles + batchProgress) / totalFiles) * 100));
 
-            const batchResponse = await fetch(
-              `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/documents/ingest-batch`,
+            const batchResponse = await authFetch(
+              `${getSupabaseFunctionBaseUrl()}/documents/ingest-batch`,
               {
                 method: 'POST',
                 headers: {
-                  'x-admin-key': key,
                   'Content-Type': 'application/json',
-                  apikey: supabaseAnonKey,
-                  Authorization: `Bearer ${supabaseAnonKey}`,
                 },
                 body: JSON.stringify({
                   documentId,
@@ -983,7 +931,7 @@ const Admin = () => {
                   batchIndex: i + 1,
                   totalBatches: batches.length
                 }),
-              }
+              },
             );
 
             if (!batchResponse.ok) {
@@ -997,18 +945,15 @@ const Admin = () => {
           // Step 3: Finish ingestion
           setUploadProgress(Math.round(((completedFiles + 0.95) / totalFiles) * 100));
 
-          const finishResponse = await fetch(
-            `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/documents/ingest-finish`,
+          const finishResponse = await authFetch(
+            `${getSupabaseFunctionBaseUrl()}/documents/ingest-finish`,
             {
               method: 'POST',
               headers: {
-                'x-admin-key': key,
                 'Content-Type': 'application/json',
-                apikey: supabaseAnonKey,
-                Authorization: `Bearer ${supabaseAnonKey}`,
               },
               body: JSON.stringify({ documentId }),
-            }
+            },
           );
 
           if (!finishResponse.ok) {
@@ -1034,15 +979,12 @@ const Admin = () => {
           // Small text - use single request (original flow)
           debugLog(`[Admin] Sending pre-extracted text to backend: ${fullText.length} chars`);
 
-          const ingestResponse = await fetch(
-            `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/documents/ingest-text`,
+          const ingestResponse = await authFetch(
+            `${getSupabaseFunctionBaseUrl()}/documents/ingest-text`,
             {
               method: 'POST',
               headers: {
-                'x-admin-key': key,
                 'Content-Type': 'application/json',
-                apikey: supabaseAnonKey,
-                Authorization: `Bearer ${supabaseAnonKey}`,
               },
               body: JSON.stringify({
                 title: file.name.replace(/\.[^/.]+$/, ''),
@@ -1051,7 +993,7 @@ const Admin = () => {
                 filePath: signedUrlData.path,
                 metadata
               }),
-            }
+            },
           );
 
           setUploadProgress(Math.round(((completedFiles + 0.95) / totalFiles) * 100));
@@ -1202,12 +1144,6 @@ const Admin = () => {
   const handleOcrUpload = async () => {
     if (!ocrFile) return;
 
-    const key = getAdminKey();
-    if (!key) {
-      handleAuthExpired();
-      return;
-    }
-
     setShowOcrDialog(false);
     setOcrProcessing(true);
     setIsUploading(true);
@@ -1232,18 +1168,15 @@ const Admin = () => {
         // Send to OCR endpoint
         const pageImages = images.map(img => ({ pageNum: img.pageNum, dataUrl: img.dataUrl }));
 
-        const ocrResponse = await fetch(
-          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/documents/ocr-batch`,
+        const ocrResponse = await authFetch(
+          `${getSupabaseFunctionBaseUrl()}/documents/ocr-batch`,
           {
             method: 'POST',
             headers: {
-              'x-admin-key': key,
               'Content-Type': 'application/json',
-              apikey: supabaseAnonKey,
-              Authorization: `Bearer ${supabaseAnonKey}`,
             },
             body: JSON.stringify({ pageImages }),
-          }
+          },
         );
 
         if (!ocrResponse.ok) {
@@ -1263,21 +1196,18 @@ const Admin = () => {
       setExtractionPhase('uploading');
       setUploadProgress(60);
 
-      const signedUrlResponse = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/admin_get_upload_url`,
+      const signedUrlResponse = await authFetch(
+        `${getSupabaseFunctionBaseUrl()}/admin_get_upload_url`,
         {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'x-admin-key': key,
-            apikey: supabaseAnonKey,
-            Authorization: `Bearer ${supabaseAnonKey}`,
           },
           body: JSON.stringify({
             filename: ocrFile.name,
             contentType: ocrFile.type || 'application/pdf'
           }),
-        }
+        },
       );
 
       if (!signedUrlResponse.ok) {
@@ -1291,15 +1221,12 @@ const Admin = () => {
       // Send OCR'd text to backend
       setExtractionPhase('processing');
 
-      const ingestResponse = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/documents/ingest-text`,
+      const ingestResponse = await authFetch(
+        `${getSupabaseFunctionBaseUrl()}/documents/ingest-text`,
         {
           method: 'POST',
           headers: {
-            'x-admin-key': key,
             'Content-Type': 'application/json',
-            apikey: supabaseAnonKey,
-            Authorization: `Bearer ${supabaseAnonKey}`,
           },
           body: JSON.stringify({
             title: ocrFile.name.replace(/\.[^/.]+$/, ''),
@@ -1313,7 +1240,7 @@ const Admin = () => {
               extractionMethod: 'ocr-client'
             }
           }),
-        }
+        },
       );
 
       if (!ingestResponse.ok) {
@@ -1351,12 +1278,6 @@ const Admin = () => {
   const handleUseExtractedText = async () => {
     if (!qualityFile || !qualityExtractionResult) return;
 
-    const key = getAdminKey();
-    if (!key) {
-      handleAuthExpired();
-      return;
-    }
-
     setShowQualityDialog(false);
     setIsUploading(true);
     setExtractionPhase('uploading');
@@ -1367,21 +1288,18 @@ const Admin = () => {
       const { fullText, metadata } = qualityExtractionResult;
 
       // Upload file to storage
-      const signedUrlResponse = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/admin_get_upload_url`,
+      const signedUrlResponse = await authFetch(
+        `${getSupabaseFunctionBaseUrl()}/admin_get_upload_url`,
         {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'x-admin-key': key,
-            apikey: supabaseAnonKey,
-            Authorization: `Bearer ${supabaseAnonKey}`,
           },
           body: JSON.stringify({
             filename: file.name,
             contentType: file.type || 'application/pdf'
           }),
-        }
+        },
       );
 
       if (!signedUrlResponse.ok) {
@@ -1402,15 +1320,12 @@ const Admin = () => {
         userOverride: true // User chose to use text despite warnings
       };
 
-      const ingestResponse = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/documents/ingest-text`,
+      const ingestResponse = await authFetch(
+        `${getSupabaseFunctionBaseUrl()}/documents/ingest-text`,
         {
           method: 'POST',
           headers: {
-            'x-admin-key': key,
             'Content-Type': 'application/json',
-            apikey: supabaseAnonKey,
-            Authorization: `Bearer ${supabaseAnonKey}`,
           },
           body: JSON.stringify({
             title: file.name.replace(/\.[^/.]+$/, ''),
@@ -1419,7 +1334,7 @@ const Admin = () => {
             filePath: signedUrlData.path,
             metadata: enrichedMetadata
           }),
-        }
+        },
       );
 
       setUploadProgress(95);
@@ -1470,12 +1385,6 @@ const Admin = () => {
     // Trigger OCR
     setShowOcrDialog(false); // Skip the dialog, go directly to processing
 
-    const key = getAdminKey();
-    if (!key) {
-      handleAuthExpired();
-      return;
-    }
-
     setOcrProcessing(true);
     setIsUploading(true);
     setExtractionPhase('extracting');
@@ -1499,18 +1408,15 @@ const Admin = () => {
 
         const pageImages = images.map(img => ({ pageNum: img.pageNum, dataUrl: img.dataUrl }));
 
-        const ocrResponse = await fetch(
-          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/documents/ocr-batch`,
+        const ocrResponse = await authFetch(
+          `${getSupabaseFunctionBaseUrl()}/documents/ocr-batch`,
           {
             method: 'POST',
             headers: {
-              'x-admin-key': key,
               'Content-Type': 'application/json',
-              apikey: supabaseAnonKey,
-              Authorization: `Bearer ${supabaseAnonKey}`,
             },
             body: JSON.stringify({ pageImages }),
-          }
+          },
         );
 
         if (!ocrResponse.ok) {
@@ -1530,21 +1436,18 @@ const Admin = () => {
       setExtractionPhase('uploading');
       setUploadProgress(60);
 
-      const signedUrlResponse = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/admin_get_upload_url`,
+      const signedUrlResponse = await authFetch(
+        `${getSupabaseFunctionBaseUrl()}/admin_get_upload_url`,
         {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'x-admin-key': key,
-            apikey: supabaseAnonKey,
-            Authorization: `Bearer ${supabaseAnonKey}`,
           },
           body: JSON.stringify({
             filename: file.name,
             contentType: file.type || 'application/pdf'
           }),
-        }
+        },
       );
 
       if (!signedUrlResponse.ok) {
@@ -1558,15 +1461,12 @@ const Admin = () => {
       // Send OCR'd text to backend
       setExtractionPhase('processing');
 
-      const ingestResponse = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/documents/ingest-text`,
+      const ingestResponse = await authFetch(
+        `${getSupabaseFunctionBaseUrl()}/documents/ingest-text`,
         {
           method: 'POST',
           headers: {
-            'x-admin-key': key,
             'Content-Type': 'application/json',
-            apikey: supabaseAnonKey,
-            Authorization: `Bearer ${supabaseAnonKey}`,
           },
           body: JSON.stringify({
             title: file.name.replace(/\.[^/.]+$/, ''),
@@ -1582,7 +1482,7 @@ const Admin = () => {
               originalQualityIssues: qualityResult?.issues
             }
           }),
-        }
+        },
       );
 
       if (!ingestResponse.ok) {
@@ -1620,20 +1520,23 @@ const Admin = () => {
     if (!documentToDelete) return;
 
     try {
-      const key = getAdminKey();
-      const { error } = await supabase.functions.invoke(`documents`, {
+      const response = await authFetch(`${getSupabaseFunctionBaseUrl()}/documents`, {
         method: 'DELETE',
-        headers: { 'x-admin-key': key },
-        body: { id: documentToDelete.id },
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ id: documentToDelete.id }),
       });
 
-      if (error) {
-        const msg = getErrorMessage(error);
-        if (msg.includes('401') || msg.toLowerCase().includes('not authorized')) {
+      const payload = await response.json().catch(() => ({ error: 'Resposta inválida do servidor' }));
+
+      if (!response.ok) {
+        const msg = getErrorMessage((payload as Record<string, unknown>).error);
+        if (response.status === 401 || response.status === 403) {
           handleAuthExpired();
           return;
         }
-        throw error;
+        throw new Error(msg);
       }
 
       toast({
@@ -1692,8 +1595,25 @@ const Admin = () => {
     return colors[category] || 'bg-muted text-muted-foreground';
   };
 
-  // Auth screen
-  if (!isAuthenticated) {
+  if (authLoading || adminStatus === 'checking') {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center p-6">
+        <Card className="glass-card max-w-md w-full">
+          <CardContent className="py-12 flex flex-col items-center gap-4 text-center">
+            <Loader2 className="w-10 h-10 text-primary animate-spin" />
+            <div className="space-y-1">
+              <p className="text-lg font-medium text-foreground">Validando acesso administrativo</p>
+              <p className="text-sm text-muted-foreground">
+                Estou confirmando sua sessão e suas permissões.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  if (adminStatus === 'signed_out') {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-6">
         <Card className="glass-card max-w-md w-full">
@@ -1703,45 +1623,51 @@ const Admin = () => {
             </div>
             <CardTitle className="text-2xl">Área Administrativa</CardTitle>
             <CardDescription>
-              Digite a chave de administrador para acessar o gerenciamento de documentos.
+              Entre com sua conta Google para acessar o gerenciamento de documentos.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="relative">
-              <Input
-                type={showPassword ? "text" : "password"}
-                placeholder="Chave de administrador"
-                value={adminKey}
-                onChange={(e) => setAdminKey(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleAuthenticate()}
-                className="bg-background/50 border-border pr-10"
-              />
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
-                onClick={() => setShowPassword(!showPassword)}
-                tabIndex={-1}
-              >
-                {showPassword ? (
-                  <EyeOff className="h-4 w-4 text-muted-foreground" />
-                ) : (
-                  <Eye className="h-4 w-4 text-muted-foreground" />
-                )}
-              </Button>
-            </div>
+            <GoogleLoginButton className="w-full" redirectPath="/admin" label="Entrar com Google" />
             <Button
-              onClick={handleAuthenticate}
-              disabled={isAuthenticating}
-              className="w-full btn-clara-primary"
+              variant="ghost"
+              onClick={() => navigate('/')}
+              className="w-full"
             >
-              {isAuthenticating ? (
-                <RefreshCw className="w-4 h-4 animate-spin mr-2" />
-              ) : (
-                <Check className="w-4 h-4 mr-2" />
-              )}
-              Acessar
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Voltar ao início
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  if (adminStatus === 'forbidden') {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center p-6">
+        <Card className="glass-card max-w-md w-full">
+          <CardHeader className="text-center">
+            <div className="w-16 h-16 bg-destructive/15 rounded-full flex items-center justify-center mx-auto mb-4">
+              <ShieldAlert className="w-8 h-8 text-destructive" />
+            </div>
+            <CardTitle className="text-2xl">Acesso restrito</CardTitle>
+            <CardDescription>
+              Sua conta está autenticada, mas ainda não possui permissão administrativa para esta área.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {user?.email && (
+              <div className="rounded-lg border border-border/60 bg-background/40 px-4 py-3 text-sm text-muted-foreground">
+                Conta atual: <span className="text-foreground">{user.email}</span>
+              </div>
+            )}
+            <Button
+              variant="outline"
+              onClick={() => void signOut()}
+              className="w-full"
+            >
+              <LogOut className="w-4 h-4 mr-2" />
+              Sair desta conta
             </Button>
             <Button
               variant="ghost"
@@ -1775,18 +1701,30 @@ const Admin = () => {
               </Button>
               <div>
                 <h1 className="text-lg font-semibold text-primary">Administração</h1>
-                <p className="text-xs text-muted-foreground">Gerenciamento de documentos</p>
+                <p className="text-xs text-muted-foreground">
+                  Gerenciamento de documentos{user?.email ? ` • ${user.email}` : ''}
+                </p>
               </div>
             </div>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={fetchDocuments}
-              disabled={isLoading}
-            >
-              <RefreshCw className={`w-4 h-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
-              Atualizar
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={fetchDocuments}
+                disabled={isLoading}
+              >
+                <RefreshCw className={`w-4 h-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+                Atualizar
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => void signOut()}
+              >
+                <LogOut className="w-4 h-4 mr-2" />
+                Sair
+              </Button>
+            </div>
           </div>
         </header>
 
@@ -2148,13 +2086,13 @@ const Admin = () => {
 
             <TabsContent value="analytics">
               <Suspense fallback={<AdminSectionFallback />}>
-                <AnalyticsTab adminKey={adminKey} />
+                <AnalyticsTab />
               </Suspense>
             </TabsContent>
 
             <TabsContent value="feedback">
               <Suspense fallback={<AdminSectionFallback />}>
-                <FeedbackTab adminKey={adminKey} />
+                <FeedbackTab />
               </Suspense>
             </TabsContent>
 
@@ -2166,13 +2104,13 @@ const Admin = () => {
 
             <TabsContent value="observability">
               <Suspense fallback={<AdminSectionFallback />}>
-                <ProcessingStatsTab adminKey={adminKey} />
+                <ProcessingStatsTab />
               </Suspense>
             </TabsContent>
 
             <TabsContent value="metrics">
               <Suspense fallback={<AdminSectionFallback />}>
-                <ChatMetricsDashboard adminKey={adminKey} />
+                <ChatMetricsDashboard />
               </Suspense>
             </TabsContent>
           </Tabs>

@@ -29,6 +29,10 @@ import {
   Cell,
 } from "recharts";
 import { motion, AnimatePresence } from "framer-motion";
+import {
+  getAdminRequestHeaders,
+  getSupabaseFunctionBaseUrl,
+} from "./adminSession";
 
 interface FeedbackItem {
   id: string;
@@ -67,19 +71,7 @@ const CATEGORY_COLORS: Record<string, string> = {
   other: "hsl(var(--accent-foreground))",
 };
 
-interface FeedbackTabProps {
-  adminKey: string;
-}
-
-function getSupabaseUrl(): string {
-  return import.meta.env.VITE_SUPABASE_URL || "";
-}
-
-function getSupabaseAnonKey(): string {
-  return import.meta.env.VITE_SUPABASE_ANON_KEY || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || "";
-}
-
-export function FeedbackTab({ adminKey }: FeedbackTabProps) {
+export function FeedbackTab() {
   const [feedbackData, setFeedbackData] = useState<FeedbackItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -90,26 +82,13 @@ export function FeedbackTab({ adminKey }: FeedbackTabProps) {
     const fetchFeedback = async () => {
       setIsLoading(true);
       try {
-        const supabaseUrl = getSupabaseUrl();
-        const anonKey = getSupabaseAnonKey();
-        const key = adminKey.trim();
-
-        if (!supabaseUrl || !anonKey) {
-          throw new Error("Supabase não configurado (VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY).");
-        }
-        if (!key) {
-          throw new Error("Chave de administrador ausente.");
-        }
+        const headers = await getAdminRequestHeaders();
 
         const response = await fetch(
-          `${supabaseUrl}/functions/v1/admin-analytics/feedback?days=${timeRange}&limit=100`,
+          `${getSupabaseFunctionBaseUrl()}/admin-analytics/feedback?days=${timeRange}&limit=100`,
           {
             method: "GET",
-            headers: {
-              apikey: anonKey,
-              Authorization: `Bearer ${anonKey}`,
-              "x-admin-key": key,
-            },
+            headers,
           },
         );
 
@@ -130,7 +109,7 @@ export function FeedbackTab({ adminKey }: FeedbackTabProps) {
     };
 
     fetchFeedback();
-  }, [timeRange, adminKey]);
+  }, [timeRange]);
 
   // Calculate metrics
   const metrics = useMemo(() => {

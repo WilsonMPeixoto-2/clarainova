@@ -5,16 +5,22 @@ import { useAuth } from '@/contexts/AuthContext';
 
 interface GoogleLoginButtonProps {
   className?: string;
+  redirectPath?: string;
+  label?: string;
 }
 
-const GoogleLoginButton = ({ className = '' }: GoogleLoginButtonProps) => {
+const GoogleLoginButton = ({
+  className = '',
+  redirectPath = "/chat",
+  label = "Entrar com Google",
+}: GoogleLoginButtonProps) => {
   const { signInWithGoogle } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
 
   const handleClick = async () => {
     try {
       setIsLoading(true);
-      await signInWithGoogle();
+      await signInWithGoogle(redirectPath);
     } catch (error) {
       console.error('Login error:', error);
       setIsLoading(false);
@@ -62,7 +68,7 @@ const GoogleLoginButton = ({ className = '' }: GoogleLoginButtonProps) => {
           />
         </svg>
       )}
-      <span>{isLoading ? 'Conectando...' : 'Entrar com Google'}</span>
+      <span>{isLoading ? 'Conectando...' : label}</span>
     </motion.button>
   );
 };

@@ -2,8 +2,7 @@
 # Keep this as a placeholder to avoid accidentally deploying to an old/deleted project.
 project_id = "REPLACE_WITH_YOUR_PROJECT_REF"
 
-# This project uses header-based access (anon key + x-admin-key) and does not rely on Supabase Auth JWTs.
-# Keep verify_jwt disabled for the functions invoked directly from the frontend.
+# Public chat/search endpoints stay open. Administrative endpoints now require a valid Supabase session JWT.
 [functions.clara-chat]
 verify_jwt = false
 
@@ -11,19 +10,19 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.admin-auth]
-verify_jwt = false
+verify_jwt = true
 
 [functions.admin-analytics]
-verify_jwt = false
+verify_jwt = true
 
 [functions.admin-upload]
 verify_jwt = false
 
 [functions.admin_get_upload_url]
-verify_jwt = false
+verify_jwt = true
 
 [functions.documents]
-verify_jwt = false
+verify_jwt = true
 
 [functions.search]
 verify_jwt = false

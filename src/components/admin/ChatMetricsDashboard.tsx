@@ -40,16 +40,12 @@ interface FrontendErrorsSummary {
   other_count: number;
 }
 
-interface ChatMetricsDashboardProps {
-  adminKey: string;
-}
-
 interface ChatMetricsPayload {
   chat_metrics: ChatMetricsSummary[];
   frontend_errors: FrontendErrorsSummary[];
 }
 
-export function ChatMetricsDashboard({ adminKey }: ChatMetricsDashboardProps) {
+export function ChatMetricsDashboard() {
   const [chatMetrics, setChatMetrics] = useState<ChatMetricsSummary[]>([]);
   const [frontendErrors, setFrontendErrors] = useState<FrontendErrorsSummary[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -61,7 +57,6 @@ export function ChatMetricsDashboard({ adminKey }: ChatMetricsDashboardProps) {
 
     try {
       const data = await adminAnalyticsRequest<ChatMetricsPayload>({
-        adminKey,
         path: 'chat-metrics',
         query: { days: 7 },
       });
@@ -74,7 +69,7 @@ export function ChatMetricsDashboard({ adminKey }: ChatMetricsDashboardProps) {
     } finally {
       setIsLoading(false);
     }
-  }, [adminKey]);
+  }, []);
 
   useEffect(() => {
     fetchMetrics();

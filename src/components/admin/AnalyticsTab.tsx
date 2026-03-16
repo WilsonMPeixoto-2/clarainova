@@ -10,6 +10,10 @@ import { StorageMonitor } from "./StorageMonitor";
 import { UsageHeatmap } from "./UsageHeatmap";
 import { KnowledgeGapAnalysis } from "./KnowledgeGapAnalysis";
 import { ApiUsageMonitor } from "./ApiUsageMonitor";
+import {
+  getAdminRequestHeaders,
+  getSupabaseFunctionBaseUrl,
+} from "./adminSession";
 
 interface QueryAnalytics {
   id: string;
@@ -53,19 +57,7 @@ const DOMAIN_KEYWORDS = [
   "comprovante", "relatório", "formulário", "sistema", "cadastro", "autorização"
 ];
 
-interface AnalyticsTabProps {
-  adminKey: string;
-}
-
-function getSupabaseUrl(): string {
-  return import.meta.env.VITE_SUPABASE_URL || "";
-}
-
-function getSupabaseAnonKey(): string {
-  return import.meta.env.VITE_SUPABASE_ANON_KEY || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || "";
-}
-
-export function AnalyticsTab({ adminKey }: AnalyticsTabProps) {
+export function AnalyticsTab() {
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(true);
   const [queries, setQueries] = useState<QueryAnalytics[]>([]);
@@ -75,26 +67,13 @@ export function AnalyticsTab({ adminKey }: AnalyticsTabProps) {
   const fetchData = useCallback(async () => {
     setIsLoading(true);
     try {
-      const supabaseUrl = getSupabaseUrl();
-      const anonKey = getSupabaseAnonKey();
-      const key = adminKey.trim();
-
-      if (!supabaseUrl || !anonKey) {
-        throw new Error("Supabase não configurado (VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY).");
-      }
-      if (!key) {
-        throw new Error("Chave de administrador ausente.");
-      }
+      const headers = await getAdminRequestHeaders();
 
       const response = await fetch(
-        `${supabaseUrl}/functions/v1/admin-analytics/analytics?limit_queries=1000&limit_feedback=500`,
+        `${getSupabaseFunctionBaseUrl()}/admin-analytics/analytics?limit_queries=1000&limit_feedback=500`,
         {
           method: "GET",
-          headers: {
-            apikey: anonKey,
-            Authorization: `Bearer ${anonKey}`,
-            "x-admin-key": key,
-          },
+          headers,
         },
       );
 
@@ -125,7 +104,7 @@ export function AnalyticsTab({ adminKey }: AnalyticsTabProps) {
     } finally {
       setIsLoading(false);
     }
-  }, [adminKey, toast]);
+  }, [toast]);
 
   useEffect(() => {
     fetchData();
@@ -378,7 +357,7 @@ export function AnalyticsTab({ adminKey }: AnalyticsTabProps) {
       </div>
 
       {/* API Usage Monitor */}
-      <ApiUsageMonitor adminKey={adminKey} />
+      <ApiUsageMonitor />
 
       {/* Feedback Trend Chart */}
       <Card className="glass-card">
@@ -547,11 +526,10 @@ export function AnalyticsTab({ adminKey }: AnalyticsTabProps) {
       <KnowledgeGapAnalysis queries={queries} feedbacks={feedbacks} />
 
       {/* Storage Monitor */}
-      <StorageMonitor adminKey={adminKey} />
+      <StorageMonitor />
 
       {/* Detail Modal */}
       <FeedbackDetailModal
-        adminKey={adminKey}
         feedback={selectedFeedback}
         onClose={() => setSelectedFeedback(null)}
       />

@@ -3,6 +3,10 @@ import { motion, AnimatePresence } from "framer-motion";
 import { X, FileText, AlertTriangle, MessageSquare, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import {
+  getAdminRequestHeaders,
+  getSupabaseFunctionBaseUrl,
+} from "./adminSession";
 
 interface QueryAnalytics {
   id: string;
@@ -32,7 +36,6 @@ interface SessionContext {
 }
 
 interface FeedbackDetailModalProps {
-  adminKey: string;
   feedback: ResponseFeedback | null;
   onClose: () => void;
 }
@@ -49,15 +52,7 @@ const getCategoryLabel = (category: string | null): string => {
   return labels[category || ""] || category || "Sem categoria";
 };
 
-function getSupabaseUrl(): string {
-  return import.meta.env.VITE_SUPABASE_URL || "";
-}
-
-function getSupabaseAnonKey(): string {
-  return import.meta.env.VITE_SUPABASE_ANON_KEY || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || "";
-}
-
-export function FeedbackDetailModal({ adminKey, feedback, onClose }: FeedbackDetailModalProps) {
+export function FeedbackDetailModal({ feedback, onClose }: FeedbackDetailModalProps) {
   const [sessionContext, setSessionContext] = useState<SessionContext[]>([]);
   const [isLoadingContext, setIsLoadingContext] = useState(false);
 
@@ -71,28 +66,15 @@ export function FeedbackDetailModal({ adminKey, feedback, onClose }: FeedbackDet
     const fetchSessionContext = async () => {
       setIsLoadingContext(true);
       try {
-        const supabaseUrl = getSupabaseUrl();
-        const anonKey = getSupabaseAnonKey();
-        const key = adminKey.trim();
-
-        if (!supabaseUrl || !anonKey) {
-          throw new Error("Supabase não configurado (VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY).");
-        }
-        if (!key) {
-          throw new Error("Chave de administrador ausente.");
-        }
+        const headers = await getAdminRequestHeaders();
 
         const fingerprint = feedback.query!.session_fingerprint!;
 
         const response = await fetch(
-          `${supabaseUrl}/functions/v1/admin-analytics/queries-by-fingerprint?fingerprint=${encodeURIComponent(fingerprint)}&limit=10`,
+          `${getSupabaseFunctionBaseUrl()}/admin-analytics/queries-by-fingerprint?fingerprint=${encodeURIComponent(fingerprint)}&limit=10`,
           {
             method: "GET",
-            headers: {
-              apikey: anonKey,
-              Authorization: `Bearer ${anonKey}`,
-              "x-admin-key": key,
-            },
+            headers,
           },
         );
 
@@ -127,7 +109,7 @@ export function FeedbackDetailModal({ adminKey, feedback, onClose }: FeedbackDet
     };
 
     fetchSessionContext();
-  }, [feedback, adminKey]);
+  }, [feedback]);
 
   if (!feedback) return null;
 

@@ -44,17 +44,13 @@ const stepLabels: Record<string, string> = {
   db_insert: 'Banco de Dados',
 };
 
-interface ProcessingStatsTabProps {
-  adminKey: string;
-}
-
 interface ProcessingPayload {
   stats: ProcessingStat[];
   errors: RecentError[];
   retry_docs: DocumentForRetry[];
 }
 
-export function ProcessingStatsTab({ adminKey }: ProcessingStatsTabProps) {
+export function ProcessingStatsTab() {
   const [stats, setStats] = useState<ProcessingStat[]>([]);
   const [errors, setErrors] = useState<RecentError[]>([]);
   const [retryDocs, setRetryDocs] = useState<DocumentForRetry[]>([]);
@@ -64,7 +60,6 @@ export function ProcessingStatsTab({ adminKey }: ProcessingStatsTabProps) {
     setLoading(true);
     try {
       const data = await adminAnalyticsRequest<ProcessingPayload>({
-        adminKey,
         path: 'processing',
         query: { days: 7, errors_limit: 10 },
       });
@@ -77,7 +72,7 @@ export function ProcessingStatsTab({ adminKey }: ProcessingStatsTabProps) {
     } finally {
       setLoading(false);
     }
-  }, [adminKey]);
+  }, []);
 
   useEffect(() => {
     fetchData();

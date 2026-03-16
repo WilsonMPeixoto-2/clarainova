@@ -1,10 +1,10 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
-import { createClient } from "@supabase/supabase-js";
+import { adminErrorResponse, requireAdminUser } from "../_shared/admin.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-admin-key",
+    "authorization, x-client-info, apikey, content-type",
   "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
   "Access-Control-Max-Age": "86400",
 };
@@ -30,52 +30,6 @@ function clampInt(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value));
 }
 
-/**
- * Parse admin keys from environment.
- * Supports multiple keys via ADMIN_KEYS (comma-separated) with fallback to ADMIN_KEY.
- */
-function parseAdminKeys(): string[] {
-  const adminKeys = Deno.env.get("ADMIN_KEYS");
-  if (adminKeys) {
-    const keys = adminKeys
-      .split(",")
-      .map((k) => k.trim())
-      .filter((k) => k.length > 0);
-    if (keys.length > 0) return keys;
-  }
-
-  const adminKey = Deno.env.get("ADMIN_KEY");
-  if (adminKey && adminKey.trim().length > 0) return [adminKey.trim()];
-
-  return [];
-}
-
-function isValidAdminKey(providedKey: string, validKeys: string[]): boolean {
-  if (!providedKey || validKeys.length === 0) return false;
-  return validKeys.includes(providedKey.trim());
-}
-
-function requireSupabaseEnv(): { url: string; serviceKey: string } {
-  const url = Deno.env.get("SUPABASE_URL") || "";
-  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
-  if (!url || !serviceKey) {
-    throw new Error("CONFIG:SUPABASE_ENV_MISSING");
-  }
-  return { url, serviceKey };
-}
-
-function requireAdmin(req: Request): string {
-  const validKeys = parseAdminKeys();
-  if (validKeys.length === 0) {
-    throw new Error("CONFIG:ADMIN_KEY_MISSING");
-  }
-  const providedKey = (req.headers.get("x-admin-key") || "").trim();
-  if (!isValidAdminKey(providedKey, validKeys)) {
-    throw new Error("AUTH:UNAUTHORIZED");
-  }
-  return providedKey;
-}
-
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -86,11 +40,7 @@ serve(async (req) => {
   }
 
   try {
-    // Validate admin key
-    requireAdmin(req);
-
-    const { url: supabaseUrl, serviceKey } = requireSupabaseEnv();
-    const supabase = createClient(supabaseUrl, serviceKey);
+    const { supabase } = await requireAdminUser(req);
 
     const url = new URL(req.url);
     const pathParts = url.pathname.split("/").filter(Boolean);
@@ -357,17 +307,8 @@ serve(async (req) => {
 
     return jsonResponse({ error: "Not found" }, 404);
   } catch (error) {
-    const message = error instanceof Error ? error.message : "UNKNOWN_ERROR";
-
-    if (message === "AUTH:UNAUTHORIZED") {
-      return jsonResponse({ error: "Nao autorizado" }, 401);
-    }
-    if (message.startsWith("CONFIG:")) {
-      return jsonResponse({ error: "Configuracao do servidor incompleta", details: message }, 500);
-    }
-
-    console.error("[admin-analytics] Error:", message);
-    return jsonResponse({ error: "Erro interno", details: message }, 500);
+    console.error("[admin-analytics] Error:", error);
+    return adminErrorResponse(error, corsHeaders);
   }
 });
 

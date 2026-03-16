@@ -1,10 +1,10 @@
 // Import map: ../import_map.json (used during Supabase deploy)
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
-import { createClient } from "@supabase/supabase-js";
+import { adminErrorResponse, requireAdminUser } from "../_shared/admin.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-admin-key",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
@@ -13,23 +13,6 @@ const ADMIN_RATE_LIMIT = {
   maxRequests: 5,    // 5 attempts per window
   windowSeconds: 300, // 5 minute window
 };
-
-function parseAdminKeys(): string[] {
-  const adminKeys = Deno.env.get("ADMIN_KEYS");
-  if (adminKeys && adminKeys.trim()) {
-    return adminKeys
-      .split(",")
-      .map((key) => key.trim())
-      .filter((key) => key.length > 0);
-  }
-
-  const adminKey = Deno.env.get("ADMIN_KEY");
-  if (adminKey && adminKey.trim()) {
-    return [adminKey.trim()];
-  }
-
-  return [];
-}
 
 // Helper to get raw client IP (before privacy hashing)
 function getRawClientIp(req: Request): string {
@@ -65,18 +48,7 @@ serve(async (req) => {
   }
 
   try {
-    const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
-    const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    
-    if (!SUPABASE_URL || !SERVICE_ROLE) {
-      console.error("[admin_get_upload_url] Missing Supabase config");
-      return new Response(
-        JSON.stringify({ error: "Configuração do Supabase incompleta." }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-    
-    const supabase = createClient(SUPABASE_URL, SERVICE_ROLE);
+    const { supabase } = await requireAdminUser(req);
 
     // Rate limiting check BEFORE validating admin key (prevent brute force)
     const rawClientIp = getRawClientIp(req);
@@ -109,26 +81,6 @@ serve(async (req) => {
             "Retry-After": String(resetIn),
           },
         }
-      );
-    }
-
-    // Validate admin key
-    const adminKey = (req.headers.get("x-admin-key") || "").trim();
-    const validAdminKeys = parseAdminKeys();
-
-    if (validAdminKeys.length === 0) {
-      console.error("[admin_get_upload_url] ADMIN_KEYS/ADMIN_KEY not configured");
-      return new Response(
-        JSON.stringify({ error: "Configuração do servidor incompleta." }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-    
-    if (!adminKey || !validAdminKeys.includes(adminKey)) {
-      console.log("[admin_get_upload_url] Invalid admin key attempt");
-      return new Response(
-        JSON.stringify({ error: "Chave de administrador inválida." }),
-        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
@@ -182,10 +134,6 @@ serve(async (req) => {
     
   } catch (e) {
     console.error("[admin_get_upload_url] Error:", e);
-    const errorMessage = e instanceof Error ? e.message : String(e);
-    return new Response(
-      JSON.stringify({ error: errorMessage }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+    return adminErrorResponse(e, corsHeaders);
   }
 });

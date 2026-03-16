@@ -1,17 +1,13 @@
+import {
+  getAdminRequestHeaders,
+  getSupabaseFunctionBaseUrl,
+} from "./adminSession";
+
 interface AdminAnalyticsRequestOptions {
-  adminKey: string;
   path: string;
   method?: "GET" | "POST";
   query?: Record<string, string | number | boolean | undefined>;
   body?: unknown;
-}
-
-function getSupabaseUrl(): string {
-  return import.meta.env.VITE_SUPABASE_URL || "";
-}
-
-function getSupabaseAnonKey(): string {
-  return import.meta.env.VITE_SUPABASE_ANON_KEY || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || "";
 }
 
 function toQueryString(query?: Record<string, string | number | boolean | undefined>): string {
@@ -27,28 +23,15 @@ function toQueryString(query?: Record<string, string | number | boolean | undefi
 }
 
 export async function adminAnalyticsRequest<T>(options: AdminAnalyticsRequestOptions): Promise<T> {
-  const supabaseUrl = getSupabaseUrl();
-  const anonKey = getSupabaseAnonKey();
-  const key = options.adminKey.trim();
-
-  if (!supabaseUrl || !anonKey) {
-    throw new Error("Supabase não configurado (VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY).");
-  }
-  if (!key) {
-    throw new Error("Chave de administrador ausente.");
-  }
-
   const cleanPath = options.path.replace(/^\/+/, "");
-  const endpoint = `${supabaseUrl}/functions/v1/admin-analytics/${cleanPath}${toQueryString(options.query)}`;
+  const endpoint = `${getSupabaseFunctionBaseUrl()}/admin-analytics/${cleanPath}${toQueryString(options.query)}`;
+  const headers = await getAdminRequestHeaders({
+    "Content-Type": "application/json",
+  });
 
   const response = await fetch(endpoint, {
     method: options.method || "GET",
-    headers: {
-      apikey: anonKey,
-      Authorization: `Bearer ${anonKey}`,
-      "x-admin-key": key,
-      "Content-Type": "application/json",
-    },
+    headers,
     body: options.body !== undefined ? JSON.stringify(options.body) : undefined,
   });
 
