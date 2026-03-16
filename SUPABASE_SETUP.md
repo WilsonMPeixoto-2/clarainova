@@ -48,6 +48,12 @@ Secrets necessarios (setar via CLI):
 supabase secrets set GEMINI_API_KEY=... ADMIN_KEYS=... RATELIMIT_SALT=... FIRECRAWL_API_KEY=...
 ```
 
+Template local para desenvolvimento das functions:
+
+- `supabase/functions/.env.example`
+- copie para `supabase/functions/.env` apenas no ambiente local
+- esse arquivo nao deve ir para o Git
+
 Notas:
 
 - `ADMIN_KEYS` aceita multiplas chaves separadas por virgula. Alternativa: `ADMIN_KEY` (apenas uma).

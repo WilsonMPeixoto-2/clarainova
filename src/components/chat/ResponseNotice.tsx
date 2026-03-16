@@ -1,6 +1,6 @@
 import { memo } from "react";
 import { motion } from "framer-motion";
-import { Info, Globe, AlertTriangle, Lightbulb, StopCircle } from "lucide-react";
+import { Info, Globe, AlertTriangle, Lightbulb, StopCircle, MessagesSquare } from "lucide-react";
 
 export type NoticeType = 
   | "web_search" 
@@ -8,6 +8,9 @@ export type NoticeType =
   | "general_guidance" 
   | "out_of_scope"
   | "info"
+  | "clarification"
+  | "source_ambiguity"
+  | "low_confidence"
   | "stopped"; // For interrupted responses
 
 interface ResponseNoticeProps {
@@ -35,6 +38,18 @@ const noticeConfig: Record<NoticeType, { icon: typeof Info; className: string }>
   info: {
     icon: Info,
     className: "bg-muted/50 border-border-subtle text-muted-foreground",
+  },
+  clarification: {
+    icon: MessagesSquare,
+    className: "bg-sky-500/10 border-sky-500/20 text-sky-400",
+  },
+  source_ambiguity: {
+    icon: AlertTriangle,
+    className: "bg-amber-500/10 border-amber-500/20 text-amber-400",
+  },
+  low_confidence: {
+    icon: AlertTriangle,
+    className: "bg-rose-500/10 border-rose-500/20 text-rose-300",
   },
   stopped: {
     icon: StopCircle,

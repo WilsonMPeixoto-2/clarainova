@@ -1,10 +1,22 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+import { createClient } from "@supabase/supabase-js";
 import {
   GUARDRAIL_SYSTEM_PROMPT,
   getSafeResponse,
   sanitizeAndClassifyRisk,
 } from "./guardrails.ts";
+import {
+  assessQuestion,
+  buildClarificationReply,
+  buildNotice,
+  type ConversationalNoticeType,
+  processingMessage,
+} from "./conversation.ts";
+import {
+  assessSources,
+  type DocumentProfile,
+  type RankedChunk,
+} from "./source-resolution.ts";
 
 type ConversationTurn = {
   role: "user" | "assistant";
@@ -23,6 +35,7 @@ type SearchChunk = {
 };
 
 type ChatErrorCode = "RATE_LIMIT" | "PAYMENT" | "CONFIG" | "UPSTREAM" | "INPUT";
+type QueryNotice = { type: ConversationalNoticeType; message: string };
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -145,6 +158,31 @@ function lastUserMessage(history: ConversationTurn[]): string {
   return "";
 }
 
+async function fetchDocumentProfiles(
+  supabase: ReturnType<typeof createClient>,
+  documentIds: string[],
+): Promise<Record<string, DocumentProfile>> {
+  const uniqueIds = Array.from(new Set(documentIds.filter(Boolean)));
+  if (uniqueIds.length === 0) return {};
+
+  const { data, error } = await supabase
+    .from("documents")
+    .select("id, title, category, version_label, effective_date, tags, created_at, updated_at")
+    .in("id", uniqueIds);
+
+  if (error) {
+    console.warn("[clara-chat] documents lookup failed", error);
+    return {};
+  }
+
+  return (Array.isArray(data) ? data : []).reduce<Record<string, DocumentProfile>>((acc, item) => {
+    if (item?.id && item?.title) {
+      acc[item.id] = item as DocumentProfile;
+    }
+    return acc;
+  }, {});
+}
+
 function chunkText(text: string, maxChars = 140): string[] {
   const input = text ?? "";
   if (!input.trim()) return [""];
@@ -228,17 +266,27 @@ const MODE_INSTRUCTIONS: Record<ResponseMode, string> = {
 function buildPrompt(opts: {
   message: string;
   mode: ResponseMode;
-  chunks: SearchChunk[];
+  chunks: RankedChunk[];
   webSources: WebSource[];
   history: ConversationTurn[];
+  sourceAssessment: {
+    ambiguityDetected: boolean;
+    lowConfidence: boolean;
+    preferredTitles: string[];
+    comparedTitles: string[];
+  };
 }): string {
   const context = chunks
     .map((chunk, index) => {
-      const title =
-        typeof chunk.metadata?.title === "string"
-          ? chunk.metadata.title
-          : `Documento ${index + 1}`;
-      return `[Fonte ${index + 1}] ${title}\n${chunk.content}`;
+      const title = chunk.resolved_title || `Documento ${index + 1}`;
+      const metadataBits = [
+        chunk.score_reasons.length > 0 ? `prioridade=${chunk.score_reasons.join(",")}` : "",
+        typeof chunk.metadata?.section_title === "string" ? `secao=${chunk.metadata.section_title}` : "",
+      ].filter(Boolean);
+      return [
+        `[Fonte ${index + 1}] ${title}${metadataBits.length > 0 ? ` (${metadataBits.join("; ")})` : ""}`,
+        chunk.content,
+      ].join("\n");
     })
     .join("\n\n");
 
@@ -253,16 +301,31 @@ function buildPrompt(opts: {
     "",
     "Voce e CLARA, assistente para legislacao e rotinas administrativas.",
     "Responda em portugues do Brasil, com objetividade e sem inventar fatos.",
-    "Tom: acolhedor, direto e profissional. Evite sermoes e seja pratica.",
+    "Tom: caloroso, acolhedor, direto e profissional. Evite frases secas, burocraticas ou que culpem o usuario.",
     "",
     MODE_INSTRUCTIONS[opts.mode],
     "",
     "Regras de fontes:",
     "- Use primeiro a base interna (Fontes locais).",
     "- Se usar Fontes Web, trate como complementar e cite como [Web 1], [Web 2], etc.",
+    "- Priorize orientacoes mais aderentes ao SEI-Rio, versoes mais atuais e materiais de maior autoridade.",
+    "- Se houver pequenas variacoes entre fontes, consolide a resposta com transparencia e explique isso com leveza.",
     "- Se nao houver fontes suficientes, diga isso explicitamente.",
     "- Se nao houver fontes locais nem web, responda apenas com orientacao geral e indique onde confirmar em fonte oficial.",
     "Quando houver contexto, cite as fontes como [Fonte 1], [Fonte 2], [Web 1], etc.",
+    "- Estruture preferencialmente em blocos curtos: Resumo, Passos, Observacoes e Referencias.",
+    "- Se a pergunta ainda pedir contexto adicional para uma resposta segura, faca uma pergunta curta e gentil de esclarecimento.",
+    "",
+    "Sinais da recuperacao atual:",
+    opts.sourceAssessment.preferredTitles.length > 0
+      ? `- Fontes priorizadas: ${opts.sourceAssessment.preferredTitles.join("; ")}`
+      : "- Fontes priorizadas: nenhuma",
+    opts.sourceAssessment.ambiguityDetected
+      ? `- Ha pequenas variacoes entre referencias comparadas: ${opts.sourceAssessment.comparedTitles.join("; ")}.`
+      : "- As referencias recuperadas estao suficientemente alinhadas entre si.",
+    opts.sourceAssessment.lowConfidence
+      ? "- A aderencia da base esta parcial. Seja honesta sobre limites e evite tom de certeza absoluta."
+      : "- A base recuperada oferece bom suporte para responder com seguranca moderada ou alta.",
     "",
     "Contexto recuperado:",
     context || "Sem contexto encontrado.",
@@ -451,6 +514,7 @@ type ComputeResult = {
   webQuorumMet: boolean;
   webSearchUsed: boolean;
   chunksFound: number;
+  notice?: QueryNotice;
   timings: {
     totalTimeMs: number;
     embeddingLatencyMs: number;
@@ -469,10 +533,7 @@ async function computeAnswer(opts: {
   mode: ResponseMode;
   webSearchMode: WebSearchMode;
   onThinking?: (step: string) => void;
-  onNotice?: (notice: {
-    type: "web_search" | "limited_base" | "general_guidance" | "out_of_scope" | "info";
-    message: string;
-  }) => void;
+  onNotice?: (notice: QueryNotice) => void;
 }): Promise<ComputeResult> {
   const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
   const supabaseServiceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
@@ -488,7 +549,7 @@ async function computeAnswer(opts: {
   const supabase = createClient(supabaseUrl, supabaseServiceRoleKey);
 
   const rateLimitStart = Date.now();
-  opts.onThinking?.("Checando limite de uso...");
+  opts.onThinking?.(processingMessage("understand_question", opts.requestId));
 
   const { data: limitData, error: limitError } = await supabase.rpc("check_rate_limit", {
     p_client_key: opts.sessionFingerprint,
@@ -519,11 +580,12 @@ async function computeAnswer(opts: {
   const risk = sanitizeAndClassifyRisk(opts.message);
   if (risk.blocked) {
     const safe = getSafeResponse(risk.category);
-    opts.onNotice?.({
-      type: "out_of_scope",
+    const notice = {
+      type: "out_of_scope" as const,
       message:
-        "Posso ajudar com SEI, rotinas administrativas e legislacao. Reformule sua pergunta nesse contexto.",
-    });
+        "Posso te ajudar com SEI, rotinas administrativas e legislacao. Se quiser, me conte a sua duvida dentro desse contexto.",
+    };
+    opts.onNotice?.(notice);
 
     return {
       answer: safe,
@@ -534,6 +596,7 @@ async function computeAnswer(opts: {
       webQuorumMet: false,
       webSearchUsed: false,
       chunksFound: 0,
+      notice,
       timings: {
         totalTimeMs: Date.now() - opts.startedAt,
         embeddingLatencyMs: 0,
@@ -544,57 +607,112 @@ async function computeAnswer(opts: {
     };
   }
 
-  opts.onThinking?.("Gerando embedding...");
+  const questionAssessment = assessQuestion(opts.message, opts.conversationHistory.length);
+  if (questionAssessment.shouldAskClarification) {
+    const notice = buildNotice({
+      type: "clarification",
+      seed: opts.requestId,
+    });
+    opts.onNotice?.(notice);
+
+    return {
+      answer: buildClarificationReply({
+        reason: questionAssessment.reason,
+        message: opts.message,
+        seed: opts.requestId,
+      }),
+      model: "clarification",
+      queryId: null,
+      sources: [],
+      webSources: [],
+      webQuorumMet: false,
+      webSearchUsed: false,
+      chunksFound: 0,
+      notice,
+      timings: {
+        totalTimeMs: Date.now() - opts.startedAt,
+        embeddingLatencyMs: 0,
+        searchLatencyMs: 0,
+        llmTotalMs: 0,
+        rateLimitCheckMs: Date.now() - rateLimitStart,
+      },
+    };
+  }
+
+  opts.onThinking?.(processingMessage("search_internal", opts.requestId));
   const embeddingStart = Date.now();
   const embedding = await generateEmbedding(opts.message, apiKey);
   const embeddingLatencyMs = Date.now() - embeddingStart;
 
-  opts.onThinking?.("Buscando documentos...");
-  const searchStart = Date.now();
-  const { data: chunksData, error: searchError } = await supabase.rpc("hybrid_search_chunks", {
-    query_embedding: vectorToPgText(embedding),
-    query_text: opts.message,
-    match_threshold: SEARCH_THRESHOLD,
-    match_count: SEARCH_MATCH_COUNT,
-    vector_weight: VECTOR_WEIGHT,
-    keyword_weight: KEYWORD_WEIGHT,
-  });
+  let searchLatencyMs = 0;
+  const runSearch = async (matchCount: number): Promise<SearchChunk[]> => {
+    const searchStart = Date.now();
+    const { data: chunksData, error: searchError } = await supabase.rpc("hybrid_search_chunks", {
+      query_embedding: vectorToPgText(embedding),
+      query_text: opts.message,
+      match_threshold: SEARCH_THRESHOLD,
+      match_count: matchCount,
+      vector_weight: VECTOR_WEIGHT,
+      keyword_weight: KEYWORD_WEIGHT,
+    });
 
-  if (searchError) {
-    throw new Error(`SEARCH_FAILED:${searchError.message}`);
+    searchLatencyMs += Date.now() - searchStart;
+    if (searchError) {
+      throw new Error(`SEARCH_FAILED:${searchError.message}`);
+    }
+
+    return (Array.isArray(chunksData) ? chunksData : []) as SearchChunk[];
+  };
+
+  let chunks = await runSearch(SEARCH_MATCH_COUNT);
+  let documentsById = await fetchDocumentProfiles(
+    supabase,
+    chunks.map((chunk) => chunk.document_id),
+  );
+  let sourceAssessment = assessSources(chunks, documentsById);
+
+  if (sourceAssessment.rankedChunks.length > 1) {
+    opts.onThinking?.(processingMessage("compare_sources", opts.requestId));
   }
 
-  const chunks = (Array.isArray(chunksData) ? chunksData : []) as SearchChunk[];
-  const searchLatencyMs = Date.now() - searchStart;
+  if (sourceAssessment.needsInternalExpansion) {
+    opts.onThinking?.(processingMessage("expand_internal", opts.requestId));
+    const expandedChunks = await runSearch(SEARCH_MATCH_COUNT + 8);
+    if (expandedChunks.length > chunks.length) {
+      chunks = expandedChunks;
+      documentsById = await fetchDocumentProfiles(
+        supabase,
+        chunks.map((chunk) => chunk.document_id),
+      );
+      sourceAssessment = assessSources(chunks, documentsById);
+    }
+  }
 
-  const localAvgScore = (() => {
-    const values = chunks
-      .slice(0, 5)
-      .map((c) => (typeof c.combined_score === "number" ? c.combined_score : 0))
-      .filter((n) => Number.isFinite(n) && n > 0);
-    if (values.length === 0) return 0;
-    return values.reduce((a, b) => a + b, 0) / values.length;
-  })();
+  const rankedChunks = sourceAssessment.rankedChunks;
+  const localAvgScore = sourceAssessment.averageScore;
 
   const shouldWebSearch =
     opts.webSearchMode === "deep" ||
     (opts.webSearchMode === "auto" &&
-      (chunks.length === 0 || localAvgScore < WEB_SEARCH_WEAK_AVG_SCORE));
+      (chunks.length === 0 ||
+        sourceAssessment.lowConfidence ||
+        sourceAssessment.ambiguityDetected ||
+        localAvgScore < WEB_SEARCH_WEAK_AVG_SCORE));
 
   let webSources: WebSource[] = [];
   let webQuorumMet = false;
   let webSearchUsed = false;
+  let finalNotice: QueryNotice | undefined;
 
   if (chunks.length === 0) {
-    opts.onNotice?.({
+    finalNotice = buildNotice({
       type: "limited_base",
-      message:
-        "Base interna com pouca informacao para essa pergunta. Posso complementar com busca web quando necessario.",
+      seed: opts.requestId,
     });
   }
 
   if (shouldWebSearch) {
-    opts.onThinking?.("Buscando na web...");
+    opts.onThinking?.(processingMessage("web_validation", opts.requestId));
     const result = await maybeWebSearch({
       supabaseUrl,
       supabaseServiceRoleKey,
@@ -605,24 +723,16 @@ async function computeAnswer(opts: {
     webSources = result?.sources || [];
     webQuorumMet = result?.quorum_met === true;
     webSearchUsed = webSources.length > 0;
-
-    if (webSearchUsed) {
-      opts.onNotice?.({
-        type: "web_search",
-        message: `Usei busca na web para complementar (${webSources.length} fonte${
-          webSources.length === 1 ? "" : "s"
-        }).`,
-      });
-    }
   }
 
-  opts.onThinking?.("Gerando resposta...");
+  opts.onThinking?.(processingMessage("compose_answer", opts.requestId));
   const prompt = buildPrompt({
     message: opts.message,
     mode: opts.mode,
-    chunks,
+    chunks: rankedChunks.slice(0, 8),
     webSources,
     history: opts.conversationHistory,
+    sourceAssessment,
   });
 
   const llmStart = Date.now();
@@ -631,11 +741,31 @@ async function computeAnswer(opts: {
 
   const totalTimeMs = Date.now() - opts.startedAt;
 
-  const sources = chunks.slice(0, 5).map((chunk, index) => ({
-    title:
-      typeof chunk.metadata?.title === "string"
-        ? chunk.metadata.title
-        : `Documento ${index + 1}`,
+  if (!finalNotice && sourceAssessment.lowConfidence) {
+    finalNotice = buildNotice({
+      type: "low_confidence",
+      seed: opts.requestId,
+      comparedSources: sourceAssessment.comparedTitles,
+    });
+  } else if (!finalNotice && webSearchUsed) {
+    finalNotice = buildNotice({
+      type: "web_search",
+      seed: opts.requestId,
+      comparedSources: sourceAssessment.comparedTitles,
+      preferredSources: sourceAssessment.preferredTitles,
+      webSourceCount: webSources.length,
+    });
+  } else if (!finalNotice && sourceAssessment.ambiguityDetected) {
+    finalNotice = buildNotice({
+      type: "source_ambiguity",
+      seed: opts.requestId,
+      comparedSources: sourceAssessment.comparedTitles,
+      preferredSources: sourceAssessment.preferredTitles,
+    });
+  }
+
+  const sources = rankedChunks.slice(0, 5).map((chunk) => ({
+    title: chunk.resolved_title,
     similarity: chunk.similarity,
     chunk_index: chunk.chunk_index,
   }));
@@ -694,7 +824,7 @@ async function computeAnswer(opts: {
       search_latency_ms: searchLatencyMs,
       llm_total_ms: llmTotalMs,
       llm_first_token_ms: llmTotalMs,
-      local_chunks_found: chunks.length,
+      local_chunks_found: rankedChunks.length,
       provider: "gemini",
       model: llm.model,
       mode: opts.mode,
@@ -709,7 +839,7 @@ async function computeAnswer(opts: {
   }
 
   console.log(
-    `[clara-chat] OK request_id=${opts.requestId} total=${totalTimeMs}ms chunks=${chunks.length} model=${llm.model} rateLimitCheck=${Date.now() - rateLimitStart}ms`,
+    `[clara-chat] OK request_id=${opts.requestId} total=${totalTimeMs}ms chunks=${rankedChunks.length} ambiguity=${sourceAssessment.ambiguityDetected} web=${webSearchUsed} model=${llm.model} rateLimitCheck=${Date.now() - rateLimitStart}ms`,
   );
 
   return {
@@ -720,7 +850,8 @@ async function computeAnswer(opts: {
     webSources,
     webQuorumMet,
     webSearchUsed,
-    chunksFound: chunks.length,
+    chunksFound: rankedChunks.length,
+    notice: finalNotice,
     timings: {
       totalTimeMs,
       embeddingLatencyMs,
@@ -803,6 +934,7 @@ serve(async (req: Request) => {
         sources: result.sources,
         web_sources: result.webSources,
         web_quorum_met: result.webQuorumMet,
+        notice: result.notice,
         query_id: result.queryId,
         metrics: {
           provider: "gemini",
@@ -866,6 +998,10 @@ serve(async (req: Request) => {
           ...(web.length > 0 ? { web } : {}),
           ...(result.webSearchUsed ? { quorum_met: result.webQuorumMet } : {}),
         });
+
+        if (result.notice) {
+          send("notice", result.notice);
+        }
 
         for (const chunk of chunkText(result.answer)) {
           if (chunk) {

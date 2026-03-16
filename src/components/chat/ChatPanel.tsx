@@ -57,7 +57,7 @@ const suggestionVariants = {
 
 const DRAWER_WIDTH_KEY = "clara-chat-drawer-width";
 const MIN_DRAWER_WIDTH = 440;
-const DESKTOP_DEFAULT_WIDTH = 640;
+const DESKTOP_DEFAULT_WIDTH = 720;
 const MOBILE_SNAP_POINTS = [40, 70, 100];
 
 const clamp = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max);
@@ -66,6 +66,11 @@ const clampDesktopWidth = (value: number) => {
   if (typeof window === "undefined") return value;
   const max = Math.max(520, window.innerWidth - 80);
   return clamp(value, MIN_DRAWER_WIDTH, max);
+};
+
+const getDefaultDesktopWidth = () => {
+  if (typeof window === "undefined") return DESKTOP_DEFAULT_WIDTH;
+  return clampDesktopWidth(Math.max(DESKTOP_DEFAULT_WIDTH, Math.round(window.innerWidth * 0.5)));
 };
 
 const nearestSnapPoint = (value: number) => {
@@ -162,10 +167,10 @@ export function ChatPanel({ open, onOpenChange, initialQuery }: ChatPanelProps) 
   const [drawerWidth, setDrawerWidth] = useState(() => {
     if (typeof window === "undefined") return DESKTOP_DEFAULT_WIDTH;
     const stored = Number(window.localStorage.getItem(DRAWER_WIDTH_KEY));
-    return clampDesktopWidth(Number.isFinite(stored) ? stored : DESKTOP_DEFAULT_WIDTH);
+    return clampDesktopWidth(Number.isFinite(stored) ? stored : getDefaultDesktopWidth());
   });
   const [expandedDesktop, setExpandedDesktop] = useState(false);
-  const [restoreDesktopWidth, setRestoreDesktopWidth] = useState(DESKTOP_DEFAULT_WIDTH);
+  const [restoreDesktopWidth, setRestoreDesktopWidth] = useState(getDefaultDesktopWidth);
   const [mobileSnapPoint, setMobileSnapPoint] = useState<number>(MOBILE_SNAP_POINTS[1]);
   const desktopResizeState = useRef<{ startX: number; startWidth: number } | null>(null);
   const mobileResizeState = useRef<{ startY: number; startSnap: number } | null>(null);

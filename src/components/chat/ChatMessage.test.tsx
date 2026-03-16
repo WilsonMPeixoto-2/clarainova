@@ -160,4 +160,16 @@ describe("ChatMessage", () => {
 
     expect(container.textContent).toContain("Fontes (2)");
   });
+
+  it("renders conversational notice when present", () => {
+    const message = createMessage({
+      notice: {
+        type: "clarification",
+        message: "Preciso confirmar um detalhe antes de seguir.",
+      },
+    });
+    const { container } = renderWithProviders(<ChatMessage message={message} />);
+
+    expect(container.textContent).toContain("Preciso confirmar um detalhe antes de seguir.");
+  });
 });

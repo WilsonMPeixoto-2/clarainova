@@ -17,6 +17,9 @@ export type NoticeType =
   | "general_guidance" 
   | "out_of_scope"
   | "info"
+  | "clarification"
+  | "source_ambiguity"
+  | "low_confidence"
   | "stopped"; // New: for interrupted responses
 
 export interface ChatNotice {
@@ -372,6 +375,17 @@ export function useChat(options: UseChatOptions = {}) {
         const data = (await response.json().catch(() => ({}))) as Record<string, unknown>;
         const answer = typeof data.answer === "string" ? data.answer : "";
         queryId = typeof data.query_id === "string" ? data.query_id : undefined;
+        if (
+          typeof data.notice === "object" &&
+          data.notice !== null &&
+          typeof (data.notice as Record<string, unknown>).type === "string" &&
+          typeof (data.notice as Record<string, unknown>).message === "string"
+        ) {
+          noticeInfo = {
+            type: (data.notice as Record<string, unknown>).type as NoticeType,
+            message: (data.notice as Record<string, unknown>).message as string,
+          };
+        }
         const sources = Array.isArray(data.sources) ? data.sources : [];
         localSources = sources
           .map((s) => (typeof s === "object" && s !== null ? (s as Record<string, unknown>).title : null))

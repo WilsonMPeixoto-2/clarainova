@@ -18,19 +18,22 @@ const stepIcons = {
 function getIconAndColor(step: string): { Icon: typeof Search; color: string } {
   const lowerStep = step.toLowerCase();
   
+  if (lowerStep.includes("entendendo") || lowerStep.includes("duvida") || lowerStep.includes("contexto")) {
+    return { Icon: stepIcons.analyze, color: "text-violet-500" };
+  }
   if (lowerStep.includes("busca") || lowerStep.includes("procura")) {
     return { Icon: stepIcons.search, color: "text-blue-500" };
   }
-  if (lowerStep.includes("analisa") || lowerStep.includes("pensa")) {
+  if (lowerStep.includes("analisa") || lowerStep.includes("pensa") || lowerStep.includes("comparando")) {
     return { Icon: stepIcons.analyze, color: "text-purple-500" };
   }
   if (lowerStep.includes("base") || lowerStep.includes("documento")) {
     return { Icon: stepIcons.database, color: "text-emerald-500" };
   }
-  if (lowerStep.includes("web") || lowerStep.includes("internet")) {
+  if (lowerStep.includes("web") || lowerStep.includes("internet") || lowerStep.includes("fontes oficiais") || lowerStep.includes("confirmando")) {
     return { Icon: stepIcons.web, color: "text-orange-500" };
   }
-  if (lowerStep.includes("processa") || lowerStep.includes("gera")) {
+  if (lowerStep.includes("processa") || lowerStep.includes("gera") || lowerStep.includes("organizando") || lowerStep.includes("preparando")) {
     return { Icon: stepIcons.process, color: "text-cyan-500" };
   }
   

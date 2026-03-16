@@ -22,6 +22,11 @@ const QUICK_QUESTIONS = [
 
 const QUICK_SCROLL_DISTANCE = 320;
 const HERO_MOBILE_QUERY = '(max-width: 899px)';
+const HERO_MICRO_LOOP_WINDOW_SECONDS = 1.35;
+const HERO_MICRO_LOOP_END_GUARD_SECONDS = 0.1;
+const HERO_MICRO_LOOP_RATE = 0.5;
+const HERO_MICRO_LOOP_RESTART_OFFSET_SECONDS = 0.045;
+const HERO_MICRO_LOOP_MIN_START_SECONDS = 0.6;
 
 interface HeroSectionProps {
   onOpenChat: (query?: string) => void;
@@ -35,6 +40,11 @@ const HeroSection = ({ onOpenChat }: HeroSectionProps) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const quickCarouselRef = useRef<HTMLDivElement>(null);
   const magneticRafRef = useRef<number | null>(null);
+  const microLoopRafRef = useRef<number | null>(null);
+  const microLoopStartRef = useRef<number | null>(null);
+  const microLoopEndRef = useRef<number | null>(null);
+  const microLoopActiveRef = useRef(false);
+  const heroInViewRef = useRef(true);
 
   const [isJsEnabled, setIsJsEnabled] = useState(false);
   const [isHeroMobile, setIsHeroMobile] = useState(() => {
@@ -64,13 +74,110 @@ const HeroSection = ({ onOpenChat }: HeroSectionProps) => {
     setUseImageFallback(false);
   }, [isHeroMobile]);
 
+  const restartMicroLoopSegment = useCallback(() => {
+    const video = videoRef.current;
+    const loopStart = microLoopStartRef.current;
+    const loopEnd = microLoopEndRef.current;
+    if (!video || loopStart === null || loopEnd === null) return;
+
+    const restartPoint = Math.min(loopStart + HERO_MICRO_LOOP_RESTART_OFFSET_SECONDS, loopEnd - 0.01);
+    video.currentTime = restartPoint;
+
+    if (heroInViewRef.current) {
+      video.play().catch(() => { });
+    }
+  }, []);
+
+  const activateMicroLoop = useCallback(() => {
+    const video = videoRef.current;
+    const loopStart = microLoopStartRef.current;
+    if (!video || loopStart === null) return;
+
+    microLoopActiveRef.current = true;
+    if (video.currentTime < loopStart) {
+      video.currentTime = loopStart;
+    }
+    video.playbackRate = HERO_MICRO_LOOP_RATE;
+
+    if (heroInViewRef.current) {
+      video.play().catch(() => { });
+    }
+  }, []);
+
+  const stopMicroLoopTicker = useCallback(() => {
+    if (microLoopRafRef.current !== null) {
+      cancelAnimationFrame(microLoopRafRef.current);
+      microLoopRafRef.current = null;
+    }
+  }, []);
+
+  const startMicroLoopTicker = useCallback(() => {
+    if (microLoopRafRef.current !== null) return;
+
+    const tick = () => {
+      const video = videoRef.current;
+      const loopStart = microLoopStartRef.current;
+      const loopEnd = microLoopEndRef.current;
+
+      if (!video || video.paused || video.ended) {
+        microLoopRafRef.current = null;
+        return;
+      }
+
+      if (loopStart !== null && loopEnd !== null) {
+        if (!microLoopActiveRef.current && video.currentTime >= loopStart) {
+          activateMicroLoop();
+        } else if (microLoopActiveRef.current && video.currentTime >= loopEnd) {
+          restartMicroLoopSegment();
+        }
+      }
+
+      microLoopRafRef.current = requestAnimationFrame(tick);
+    };
+
+    microLoopRafRef.current = requestAnimationFrame(tick);
+  }, [activateMicroLoop, restartMicroLoopSegment]);
+
+  useEffect(() => {
+    stopMicroLoopTicker();
+    microLoopActiveRef.current = false;
+    microLoopStartRef.current = null;
+    microLoopEndRef.current = null;
+
+    if (videoRef.current) {
+      videoRef.current.playbackRate = 1;
+    }
+  }, [currentVideoSrc, isHeroMobile, stopMicroLoopTicker]);
+
   const handleVideoError = () => {
+    stopMicroLoopTicker();
+    microLoopActiveRef.current = false;
     if (videoErrorLevel < currentSources.length - 1) {
       console.warn(`[Hero] Video asset not found: ${currentVideoSrc}. Falling back to lower resolution.`);
       setVideoErrorLevel((prev) => prev + 1);
       return;
     }
     setUseImageFallback(true);
+  };
+
+  const handleVideoLoadedMetadata = () => {
+    const video = videoRef.current;
+    if (!video) return;
+
+    microLoopActiveRef.current = false;
+    video.playbackRate = 1;
+
+    if (!Number.isFinite(video.duration) || video.duration <= 0) {
+      microLoopStartRef.current = HERO_MICRO_LOOP_MIN_START_SECONDS;
+      microLoopEndRef.current = HERO_MICRO_LOOP_MIN_START_SECONDS + HERO_MICRO_LOOP_WINDOW_SECONDS;
+      return;
+    }
+
+    const loopEnd = Math.max(video.duration - HERO_MICRO_LOOP_END_GUARD_SECONDS, HERO_MICRO_LOOP_MIN_START_SECONDS + 0.3);
+    const loopStart = Math.max(loopEnd - HERO_MICRO_LOOP_WINDOW_SECONDS, HERO_MICRO_LOOP_MIN_START_SECONDS);
+    microLoopStartRef.current = loopStart;
+    microLoopEndRef.current = loopEnd;
+    startMicroLoopTicker();
   };
 
   const shouldAnimate = isJsEnabled && !prefersReducedMotion && !isHeroMobile;
@@ -147,10 +254,14 @@ const HeroSection = ({ onOpenChat }: HeroSectionProps) => {
       (entries) => {
         entries.forEach((entry) => {
           if (!videoRef.current) return;
+          heroInViewRef.current = entry.isIntersecting;
           if (entry.isIntersecting) {
+            videoRef.current.playbackRate = microLoopActiveRef.current ? HERO_MICRO_LOOP_RATE : 1;
             videoRef.current.play().catch(() => { });
+            startMicroLoopTicker();
           } else {
             videoRef.current.pause();
+            stopMicroLoopTicker();
           }
         });
       },
@@ -158,16 +269,20 @@ const HeroSection = ({ onOpenChat }: HeroSectionProps) => {
     );
 
     observer.observe(heroSectionRef.current);
-    return () => observer.disconnect();
-  }, [isHeroMobile, prefersReducedMotion]);
+    return () => {
+      observer.disconnect();
+      stopMicroLoopTicker();
+    };
+  }, [isHeroMobile, prefersReducedMotion, startMicroLoopTicker, stopMicroLoopTicker]);
 
   useEffect(() => {
     return () => {
       if (magneticRafRef.current) {
         cancelAnimationFrame(magneticRafRef.current);
       }
+      stopMicroLoopTicker();
     };
-  }, []);
+  }, [stopMicroLoopTicker]);
 
   useEffect(() => {
     setIsJsEnabled(document.body.classList.contains('js-enabled'));
@@ -231,11 +346,14 @@ const HeroSection = ({ onOpenChat }: HeroSectionProps) => {
               src={currentVideoSrc}
               poster={claraHeroFallback}
               autoPlay
-              loop
               muted
               playsInline
-              preload="metadata"
+              preload="auto"
               onError={handleVideoError}
+              onLoadedMetadata={handleVideoLoadedMetadata}
+              onPlay={startMicroLoopTicker}
+              onPause={stopMicroLoopTicker}
+              onEnded={restartMicroLoopSegment}
               className="hero-clara-video"
             />
           ) : (
@@ -306,7 +424,7 @@ const HeroSection = ({ onOpenChat }: HeroSectionProps) => {
               <span className="text-white font-medium drop-shadow-[0_0_8px_rgba(255,255,255,0.4)]">A</span>dministrativas
             </motion.p>
 
-            <motion.p variants={itemVariants} className="text-body max-w-[50ch]">
+            <motion.p variants={itemVariants} className="hero-body-copy max-w-[52ch]">
               Sua assistente especializada em sistemas eletrônicos de informações e procedimentos
               administrativos. Orientações passo a passo com indicação de fontes documentais.
             </motion.p>
